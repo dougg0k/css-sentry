@@ -1,0 +1,14 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Classic value-prefix selector exfiltration through a remote background image.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

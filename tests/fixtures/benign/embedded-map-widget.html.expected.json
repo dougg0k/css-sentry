@@ -1,0 +1,9 @@
+{
+  "description": "Benign embedded widget with same-origin inline background asset should not be actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

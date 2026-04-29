@@ -1,0 +1,16 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": ":has() can probe sensitive descendant form state and pair it with a remote sink.",
+  "requiredReasons": [
+    "selector.relational.has",
+    "selector.attribute.prefix_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

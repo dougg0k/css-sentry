@@ -1,0 +1,16 @@
+{
+  "description": "Inline style custom-property URL indirection on a sensitive hidden input should remain detectable.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "selector.attribute.sensitive_name",
+    "selector.hidden_input",
+    "sink.remote_url",
+    "url.cross_origin",
+    "css.custom_property.url_sink"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

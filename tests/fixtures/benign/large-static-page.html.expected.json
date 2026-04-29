@@ -1,0 +1,9 @@
+{
+  "description": "Large static page should remain non-actionable in Balanced mode despite common benign selectors and same-origin assets.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

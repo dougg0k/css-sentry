@@ -1,0 +1,15 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Suspicious rule inside @media must be traversed and detected.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "css.grouping_rule.nested",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

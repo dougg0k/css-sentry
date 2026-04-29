@@ -1,0 +1,9 @@
+{
+  "description": "Same-origin custom-property URL should not be treated as exfiltration without sensitive selector signals.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

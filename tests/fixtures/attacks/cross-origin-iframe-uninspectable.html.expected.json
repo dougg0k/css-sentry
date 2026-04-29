@@ -1,0 +1,11 @@
+{
+  "description": "Cross-origin iframe should produce explicit partial coverage rather than silent success.",
+  "minActionableFindings": 0,
+  "maxActionableFindings": 0,
+  "minInfoFindings": 1,
+  "minPartialFrames": 1,
+  "requiredReasons": [
+    "frame.cross_origin.uninspectable"
+  ],
+  "mustNotBeBlockCandidate": true
+}

@@ -1,0 +1,9 @@
+{
+  "description": "Benign carousel data-value selector and same-origin image should not be actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

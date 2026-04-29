@@ -1,0 +1,9 @@
+{
+  "description": "Top-frame and same-origin iframe attack fixture. Both top-frame and child-frame findings must remain visible and merged without overwriting each other.",
+  "minActionableFindings": 2,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.prefix_match", "selector.attribute.sensitive_name", "sink.remote_url", "url.cross_origin"],
+  "requiredDestinationOrigins": ["https://top-frame-attacker.example", "https://attacker.example"],
+  "minAnalyzedFrames": 2,
+  "mustBeBlockCandidate": true
+}

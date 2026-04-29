@@ -1,0 +1,5 @@
+{
+  "description": "CSS-looking text inside a code block should not be interpreted as active CSS.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

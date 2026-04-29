@@ -1,0 +1,9 @@
+{
+  "description": "CSS Modules style output should remain non-actionable with hashed classes and same-origin assets.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

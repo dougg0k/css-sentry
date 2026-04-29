@@ -1,0 +1,10 @@
+{
+  "description": "Data URL image is not an outbound remote request.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.remote",
+    "url.cross_origin"
+  ]
+}

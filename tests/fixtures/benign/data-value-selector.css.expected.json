@@ -1,0 +1,9 @@
+{
+  "description": "data-value is not the same as the sensitive value attribute.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "selector.attribute.sensitive_name",
+    "url.cross_origin"
+  ]
+}

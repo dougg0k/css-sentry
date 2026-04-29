@@ -1,0 +1,9 @@
+{
+  "description": "Benign webmail theme should remain non-actionable in Balanced mode despite rendered-message selectors and same-origin assets.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

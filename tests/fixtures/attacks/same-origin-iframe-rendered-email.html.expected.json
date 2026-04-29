@@ -1,0 +1,16 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Same-origin iframe content should be analyzed rather than skipped as an empty fixture.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "minAnalyzedFrames": 1
+}

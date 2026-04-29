@@ -1,0 +1,15 @@
+{
+  "description": "Inline image-set url() on a sensitive hidden input should be treated as a CSS-triggered remote sink.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "selector.attribute.sensitive_name",
+    "selector.hidden_input",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

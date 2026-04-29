@@ -1,0 +1,15 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Substring probe of CSRF-like value with a remote list-style sink.",
+  "requiredReasons": [
+    "selector.attribute.substring_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

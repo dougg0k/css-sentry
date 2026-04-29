@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Tailwind-like benign output</title>
+  <style>
+    .bg-hero { background-image: url('/img/hero.svg'); }
+    .data-state-open[data-state="open"] { opacity: 1; }
+    .dark .dark-bg-card { background-color: #111827; }
+    @media (min-width: 768px) { .md-grid[data-value="layout"] { display: grid; background-image: url('/img/grid.svg'); } }
+  </style>
+</head>
+<body class="dark">
+  <section class="bg-hero md-grid" data-value="layout">
+    <button class="data-state-open" data-state="open">Open menu</button>
+    <article class="dark-bg-card">Card</article>
+  </section>
+</body>
+</html>

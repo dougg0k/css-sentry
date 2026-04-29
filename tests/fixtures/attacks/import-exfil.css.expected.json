@@ -1,0 +1,13 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Remote @import is a stylesheet network sink.",
+  "requiredReasons": [
+    "sink.import_remote",
+    "url.cross_origin"
+  ]
+}

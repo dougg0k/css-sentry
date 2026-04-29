@@ -1,0 +1,9 @@
+{
+  "description": "Benign nested @media/@supports layout rule with same-origin asset should not be actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

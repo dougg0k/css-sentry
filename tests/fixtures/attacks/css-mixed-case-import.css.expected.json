@@ -1,0 +1,11 @@
+{
+  "description": "CVE_SPEC parser-differential fixture: mixed-case @import must still be classified as a remote import sink.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "sink.import_remote",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

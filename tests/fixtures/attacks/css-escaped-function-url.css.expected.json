@@ -1,0 +1,14 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "CVE_SPEC parser-differential fixture: escaped url() function text must not hide a remote CSS sink.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

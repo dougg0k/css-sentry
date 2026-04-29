@@ -1,0 +1,14 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Escaped CSS function name should still be recognized as url().",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

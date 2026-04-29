@@ -1,0 +1,15 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Rendered email HTML can include style rules that probe CSRF-like hidden inputs.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

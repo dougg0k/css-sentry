@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Benign webmail theme</title>
+  <style>
+    .mail-shell[data-value="inbox"] { display: grid; grid-template-columns: 18rem 1fr; min-height: 20rem; }
+    .message-row[data-selected="true"] { background-image: url('/theme/selected-row.svg'); }
+    .avatar[data-user="initials"] { background: url('/theme/avatar-placeholder.svg') center/cover no-repeat; }
+    .message-preview[data-token-label="masked"] { color: #333; }
+  </style>
+</head>
+<body>
+  <section class="mail-shell" data-value="inbox" aria-label="Inbox">
+    <aside>Folders</aside>
+    <main>
+      <article class="message-row" data-selected="true"><span class="avatar" data-user="initials"></span><span class="message-preview" data-token-label="masked">Welcome message</span></article>
+    </main>
+  </section>
+</body>
+</html>

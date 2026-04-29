@@ -1,0 +1,15 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "CSS custom-property URL indirection separates the selector probe from the remote sink.",
+  "requiredReasons": [
+    "selector.attribute.suffix_match",
+    "css.custom_property.url_sink",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

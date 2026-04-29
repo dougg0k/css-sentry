@@ -1,0 +1,14 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Remote URL containing ;base64, in a path must not be misclassified as a safe data URL.",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "sink.remote_url",
+    "url.cross_origin"
+  ]
+}

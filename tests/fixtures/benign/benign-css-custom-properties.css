@@ -1,0 +1,1 @@
+:root { --brand-image: url("/assets/brand.svg"); } .brand { background-image: var(--brand-image); }

@@ -1,0 +1,1 @@
+@media screen { @supports (display: grid) { .layout[data-value="0"] { display: grid; background: url("/assets/grid.png"); } } }

@@ -1,0 +1,13 @@
+{
+  "description": "Parser-differential namespace fixture inspired by CSS sanitizer bypasses; namespace declarations must not stop later sensitive selector/network-sink detection.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

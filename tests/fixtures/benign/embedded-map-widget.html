@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Benign embedded map widget</title>
+    <style>
+      .map-shell {
+        display: grid;
+        gap: 0.75rem;
+        max-width: 26rem;
+        padding: 1rem;
+        border: 1px solid #ccd5e0;
+        border-radius: 0.75rem;
+        font-family: system-ui, sans-serif;
+      }
+
+      .map {
+        width: 320px;
+        height: 180px;
+        min-height: 180px;
+        border: 1px solid #94a3b8;
+        border-radius: 0.5rem;
+        background: url('/tiles/local.png') center / cover no-repeat, linear-gradient(135deg, #eef2ff, #f8fafc);
+      }
+
+      .map-controls {
+        display: flex;
+        gap: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="map-shell" aria-label="Benign embedded map widget">
+      <h1>Embedded map widget</h1>
+      <div class="map" role="img" aria-label="Local map preview"></div>
+      <div class="map-controls">
+        <button type="button">Zoom in</button>
+        <button type="button">Reset view</button>
+      </div>
+    </main>
+  </body>
+</html>
