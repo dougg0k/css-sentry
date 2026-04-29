@@ -1,12 +1,18 @@
 # CSS Sentry
 
-Last Updated: 2026/04/29 12:35:00 -03
-
 **CSS Sentry** is a browser extension for detecting and reducing risk from CSS-based data exfiltration attacks.
 
-It is designed as a fresh, modern implementation for Chrome/Chromium and Firefox using a **WXT + React + TypeScript** stack.
-
 CSS Sentry is not a fork of CSS Exfil Protection. It is a clean implementation informed by prior research, public bypasses, browser-platform changes, historical extension issues, and real-world CSS injection / filtering failures.
+
+---
+
+[![Firefox Addon](docs/firefox-addon-logo.svg)](https://addons.mozilla.org/en-US/firefox/addon/css-sentry/)
+
+> [!NOTE]
+> This project were built entirely with AI.
+
+> [!IMPORTANT]
+> I didnt publish to Chrome Store, if needed, just clone the project and run `pnpm i; pnpm build; pnpm zip` and in the `.output` folder, drag-and-drop the `.zip` into chrome extension view, with `Developer Mode` enabled.
 
 ## What CSS Sentry Does
 
@@ -68,8 +74,6 @@ This matters especially when:
 - sensitive values are reflected into DOM attributes.
 
 Older CSS-exfil extensions demonstrated that browser-side mitigation is possible, but the browser-extension platform has changed significantly. Chrome now requires a Manifest V3-first approach, and a new implementation needs to be explicit about what extensions can and cannot do.
-
-
 
 ## Extension self-security hardening
 
@@ -468,7 +472,6 @@ CSS Sentry is an additional browser-side safety layer. It is not a substitute fo
 
 Websites that handle sensitive data should still use proper sanitization, output encoding, least-privilege rendering, dependency review, and a strong Content Security Policy.
 
-
 ### Verification workflow
 
 Use `pnpm dev` only for live development/watch mode. For clean validation of a package, release candidate, or stable release, use:
@@ -485,24 +488,22 @@ pnpm run verify:full
 CSS Sentry stores reports locally, but reports are still minimized before storage and export. Sensitive selector values, URL credentials, query values, fragments, and token-like path segments are redacted while preserving destination origins and reason codes for debugging.
 
 #
+
 ### Current tracking posture
 
 The project keeps implementation status, future-watch items, avoided features, and limitations in `docs/STATUS.md`. CVE-derived coverage and adjacent/out-of-scope advisory triage live in `docs/CVE_SPEC.md`.
 
 Recent search-driven coverage includes mixed-case `data:text/css` stylesheet links and escaped CSS `@import` sanitizer-bypass classes. Adjacent JavaScript-only SVG/XSS and browser-engine memory-corruption CVEs are documented as limitations or non-goals rather than implemented as CSS Sentry features.
-
 
 ## Documentation preservation
 
 The detailed project documents under `docs/` are part of CSS Sentry's safety and release process. They track implemented behavior, limits, CVE-derived requirements, self-security controls, and release gates. They should be updated additively rather than reduced to summaries. Release notes are the changelog home; status is the coverage and verification-state document; SPEC is the requirements document; CVE_SPEC is the CVE traceability document.
 
-
 ### Current tracking posture
 
 The project keeps implementation status, future-watch items, avoided features, and limitations in `docs/STATUS.md`. CVE-derived coverage and adjacent/out-of-scope advisory triage live in `docs/CVE_SPEC.md`.
 
 Recent search-driven coverage includes mixed-case `data:text/css` stylesheet links and escaped CSS `@import` sanitizer-bypass classes. Adjacent JavaScript-only SVG/XSS and browser-engine memory-corruption CVEs are documented as limitations or non-goals rather than implemented as CSS Sentry features.
-
 
 ## Documentation and publication assets
 
