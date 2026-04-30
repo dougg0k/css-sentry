@@ -2,7 +2,7 @@
 
 **CSS Sentry** is a browser extension for detecting and reducing risk from CSS-based data exfiltration attacks.
 
-CSS Sentry is not a fork of CSS Exfil Protection. It is a clean implementation informed by prior research, public bypasses, browser-platform changes, historical extension issues, and real-world CSS injection / filtering failures.
+CSS Sentry is not a fork of [CSS Exfil Protection](https://github.com/mlgualtieri/CSS-Exfil-Protection/). It is a clean implementation informed by prior research, public bypasses, browser-platform changes, historical extension issues, and real-world CSS injection / filtering failures.
 
 ---
 
