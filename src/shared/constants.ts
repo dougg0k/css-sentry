@@ -36,7 +36,7 @@ export const DEFAULT_SITE_POLICY: SitePolicy = {
     neverFetchRemoteCssFromExtension: true,
     enableDnrMitigation: true,
     enableStrictThirdPartyBlocking: true,
-    showPartialAnalysisFindings: true,
+    showPartialAnalysisFindings: false,
     enableFirefoxEnhancedMode: false,
     reportExternalSvgImageDocuments: false,
     enableSvgImageDnrPolicy: false

@@ -1,13 +1,5 @@
 {
-  "minActionableFindings": 1,
-  "severityAtLeast": "high",
-  "mustBeBlockCandidate": true,
-  "requiredDestinationOrigins": [
-    "https://attacker.example"
-  ],
-  "description": "Remote @font-face source is a network sink even without a selector probe.",
-  "requiredReasons": [
-    "sink.font_remote",
-    "url.cross_origin"
-  ]
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "description": "Standalone remote @font-face source is common CSS and should not be treated as CSS exfiltration without a sensitive selector-driven font-family reference. Conditional font usage is covered by font-face-conditional-sensitive-selector.css."
 }

@@ -45,6 +45,12 @@ describe("project structure", () => {
     expect(existsSync(join(process.cwd(), "SELF_SECURITY.md"))).toBe(false);
     expect(existsSync(join(process.cwd(), "RELEASE_NOTES.md"))).toBe(false);
   });
+
+  it("keeps Last Updated metadata out of README", () => {
+    const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
+    expect(readme).not.toMatch(/Last Updated:/);
+  });
+
   it("keeps SVG icon lightweight", () => {
     const size = statSync(join(process.cwd(), "src/assets/icon.svg")).size;
     expect(size).toBeLessThan(20_000);
@@ -55,6 +61,17 @@ describe("project structure", () => {
     expect(existsSync(join(process.cwd(), "src/assets/icon.svg"))).toBe(true);
     expect(existsSync(join(process.cwd(), "docs", "chrome-extension-logo.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "docs", "firefox-addon-logo.svg"))).toBe(true);
+  });
+
+
+  it("keeps the false-positive sweep as a development-only tool", () => {
+    expect(existsSync(join(process.cwd(), "scripts", "false-positive-sweep.mjs"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "scripts", "false-positive-sites.txt"))).toBe(true);
+    const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { scripts?: Record<string, string> };
+    expect(packageJson.scripts?.["audit:false-positives"]).toBe("node scripts/false-positive-sweep.mjs");
+    const script = readFileSync(join(process.cwd(), "scripts", "false-positive-sweep.mjs"), "utf8");
+    expect(script).toContain("test-results/false-positive-sweep");
+    expect(script).not.toContain("fetch(");
   });
 
   it("ignores generated test output directories and AI reports", () => {

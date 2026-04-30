@@ -97,4 +97,17 @@ describe("core analyzer", () => {
     expect(summary.findings.some((finding) => finding.reasons.includes("selector.attribute.sensitive_name"))).toBe(true);
   });
 
+
+  it("does not treat common UI substring selectors as sensitive value probes", () => {
+    expect(analyze('[class*="icon-"]::before{font-family:IconFont}').findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+    expect(analyze('[data-light-theme*="dark"] .octicon{background-image:url("https://github.githubassets.com/images/theme.svg")}').findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+    expect(analyze('input[type="password"].f-input[disabled]{background-image:url("/content/img/disabled.svg")}').findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+  });
+
+  it("does not block common third-party font stylesheet imports", () => {
+    expect(analyze('@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap");').findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+    expect(analyze('@import url("https://use.typekit.net/abcd123.css");').findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+    expect(analyze('@import url("https://attacker.example/import.css");').findings.length).toBeGreaterThan(0);
+  });
+
 });

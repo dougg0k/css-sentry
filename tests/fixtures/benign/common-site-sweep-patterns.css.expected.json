@@ -1,0 +1,10 @@
+{
+  "description": "Common-site sweep patterns: font-provider imports, theme/icon class substring selectors, decorative disabled input icons, and non-secret data-type UI selectors are not CSS exfiltration findings in Balanced scope.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.import_remote",
+    "sink.remote_url",
+    "selector.repeated_probe_pattern"
+  ]
+}

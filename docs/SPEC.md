@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/04/29 12:35:00 -03
+Last Updated: 2026/04/30 18:10:00 -03
 
 ## 1. Project Summary
 
@@ -1047,6 +1047,8 @@ Before release:
 
 ## 25. README Requirements
 
+The README must not include `Last Updated` metadata. Date metadata belongs in documents under `docs/` only, so the public-facing README remains stable for store/repository presentation.
+
 The README must clearly state:
 
 - the extension is defense-in-depth;
@@ -1543,6 +1545,14 @@ Historical issue comments from the prior CSS-exfil extension ecosystem remain a 
 
 Future documentation cleanup must not delete these issue-derived requirements. If a requirement is no longer implemented directly, it must be moved to a documented limitation, future-watch item, post-v1 candidate, or explicit out-of-scope section with rationale.
 
+## 1.0.12 False-Positive Controls and Development Sweep
+
+Balanced mode must use a threat-shape gate rather than additive weak evidence. Presentation-only declarations with zero remote URL sinks must not become actionable findings just because a selector contains `:has()`, ARIA state, hover/active state, long framework class chains, or unresolved custom properties. Standalone remote `@font-face` is common CSS and must not be blocked in Balanced mode unless it is conditionally applied through sensitive selector probing or matched by explicit user policy.
+
+Partial-analysis notices such as cross-origin-uninspectable stylesheets, cross-origin frames, and too-large stylesheets are coverage diagnostics. They should remain available to advanced users but must not inflate normal threat counts.
+
+The development-only false-positive sweep (`pnpm run audit:false-positives`) is a maintainer tool, not runtime functionality. It loads a built development extension, visits a seed list of common sites, exports local report summaries to `test-results/false-positive-sweep/`, and clusters reasons/properties/destinations that may indicate noisy detection. The script exists to find patterns before publication; it must not add telemetry, remote reporting, or bundled site-specific allowlists to the extension.
+
 ## 1.0.10 Advanced Optional Coverage Requirements
 
 - Advanced compatibility options may add stricter or deeper coverage, but they must be off by default and must not change the default Balanced behavior.
@@ -1550,3 +1560,9 @@ Future documentation cleanup must not delete these issue-derived requirements. I
 - Strict SVG image-document DNR policy must be separate from broad Strict third-party blocking so users can choose narrower breakage risk.
 - Firefox enhanced stylesheet response inspection must be Firefox-only, optional, and pass-through. It may inspect response bodies for reporting, but it must not rewrite stylesheet responses until a separate, fully tested filtering design exists.
 - DNR diagnostics shown in the UI must explain zero-rule outcomes as normal: no tab-scoped rule was needed.
+
+### 22.7 False-Positive Sweep and Same-Origin Resource Noise Rule
+
+Development false-positive sweeps should use `scripts/false-positive-sweep.mjs` with the maintained 250-site seed list in `scripts/false-positive-sites.txt`. The sweep is audit tooling only: outputs belong under `test-results/` and must not be bundled into runtime packages. The script may save full per-site reports for actionable cases to support triage and must accept package-manager argument delimiters such as `pnpm run audit:false-positives -- --limit 250 --save-reports actionable`.
+
+Actionable findings require an outbound leak path or a policy-relevant network destination. Standalone fixed-position `!important` CSS is documented as adjacent sanitizer/UI-integrity context but must not become an actionable CSS Sentry finding by itself. Same-origin decorative BODY background, SVG `feImage`, and SVG animation resources should not produce actionable findings; cross-origin and local/private-network destinations remain in scope.

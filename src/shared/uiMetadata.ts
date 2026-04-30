@@ -180,9 +180,9 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
   {
     key: "showPartialAnalysisFindings",
     label: "Show partial-analysis findings",
-    summary: "Report stylesheets or frames that could not be inspected.",
-    tooltip: "Recommended on. This makes coverage gaps visible when browser permissions, cross-origin restrictions, size limits, or platform constraints prevent full analysis.",
-    recommendedValue: true,
+    summary: "Keep stylesheet and frame coverage notices visible in reports.",
+    tooltip: "Recommended off for normal browsing if you want fewer coverage notices. Coverage notices are informational and do not count as actionable security findings.",
+    recommendedValue: false,
     advanced: false
   },
   {
@@ -212,7 +212,7 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
 ];
 
 export interface SummaryStatDefinition {
-  key: "mode" | "severity" | "frames" | "partialSheets" | "findings";
+  key: "mode" | "severity" | "frames" | "partialSheets" | "findings" | "blocked" | "allowed" | "info" | "coverage";
   label: string;
   tooltip: string;
 }
@@ -242,6 +242,26 @@ export const SUMMARY_STAT_DEFINITIONS: Record<SummaryStatDefinition["key"], Summ
     key: "findings",
     label: "Findings",
     tooltip: "Actionable CSS Sentry findings recorded for this tab, excluding informational coverage notes."
+  },
+  blocked: {
+    key: "blocked",
+    label: "Blocked",
+    tooltip: "Findings where CSS Sentry installed or used a blocking/mitigation action for the current tab."
+  },
+  allowed: {
+    key: "allowed",
+    label: "Logged only",
+    tooltip: "Actionable findings that were logged for review but were not blocked or changed."
+  },
+  info: {
+    key: "info",
+    label: "Info only",
+    tooltip: "Informational findings that do not indicate a risky CSS exfiltration pattern."
+  },
+  coverage: {
+    key: "coverage",
+    label: "Coverage",
+    tooltip: "Informational notices for frames, stylesheets, SVG image documents, or large CSS that could not be fully inspected."
   }
 };
 

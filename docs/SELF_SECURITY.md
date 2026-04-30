@@ -1,6 +1,6 @@
 # Self-Security Hardening Traceability
 
-Last Updated: 2026/04/29 12:35:00 -03
+Last Updated: 2026/04/30 18:10:00 -03
 
 ## Purpose
 
@@ -122,3 +122,8 @@ The documentation self-security rule also applies to status labels and historica
 ## SS-012 — Advanced optional feature containment
 
 Advanced optional features must be off by default, documented, tested, and scoped narrowly. SVG image-document reporting must not claim full internal inspection. Firefox enhanced stylesheet response inspection must not fetch remote CSS from the extension context, must pass responses through unchanged, and must fail closed to no extra behavior when unsupported.
+
+
+## 1.0.15 Install-Hygiene Note
+
+`pnpm-workspace.yaml` is intentionally kept at the repository root to record approved pnpm build dependencies used by the toolchain. Development false-positive sweep reports are generated under `test-results/` and remain excluded from source and runtime packages.

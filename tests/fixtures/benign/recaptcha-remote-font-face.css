@@ -1,0 +1,10 @@
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 400;
+  src: url("https://fonts.gstatic.com/s/roboto/v48/KFO7CnqEu92Fr1ME7kSn66aGLdTylUAMa3GUBGEe.woff2") format("woff2");
+}
+.grecaptcha-badge {
+  font-family: "Roboto", Arial, sans-serif;
+  color: #555;
+}

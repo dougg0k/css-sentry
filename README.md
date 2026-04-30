@@ -75,6 +75,8 @@ This matters especially when:
 
 Older CSS-exfil extensions demonstrated that browser-side mitigation is possible, but the browser-extension platform has changed significantly. Chrome now requires a Manifest V3-first approach, and a new implementation needs to be explicit about what extensions can and cannot do.
 
+
+
 ## Extension self-security hardening
 
 CSS Sentry also includes self-security safeguards: runtime messages are schema/sender validated, settings imports are capped and normalized, local reports are size-limited, DNR status is visible in Options, and extension UI tests forbid HTML-injection/dynamic-code sinks.
@@ -298,6 +300,15 @@ Full verification command:
 pnpm run verify:full  # Chrome/Firefox builds + compile + tests + e2e
 ```
 
+Optional false-positive sweep for publication candidates:
+
+```bash
+pnpm run build
+pnpm run audit:false-positives -- --limit 100
+```
+
+The sweep is a development-only tool. It loads the built extension against a seed list of common websites, then writes report summaries under `test-results/false-positive-sweep/` so noisy Balanced-mode patterns can be fixed before release. It is not telemetry, does not send reports anywhere, and is not part of runtime behavior.
+
 Development watch commands are only for active local development:
 
 ```bash
@@ -472,6 +483,7 @@ CSS Sentry is an additional browser-side safety layer. It is not a substitute fo
 
 Websites that handle sensitive data should still use proper sanitization, output encoding, least-privilege rendering, dependency review, and a strong Content Security Policy.
 
+
 ### Verification workflow
 
 Use `pnpm dev` only for live development/watch mode. For clean validation of a package, release candidate, or stable release, use:
@@ -488,22 +500,24 @@ pnpm run verify:full
 CSS Sentry stores reports locally, but reports are still minimized before storage and export. Sensitive selector values, URL credentials, query values, fragments, and token-like path segments are redacted while preserving destination origins and reason codes for debugging.
 
 #
-
 ### Current tracking posture
 
 The project keeps implementation status, future-watch items, avoided features, and limitations in `docs/STATUS.md`. CVE-derived coverage and adjacent/out-of-scope advisory triage live in `docs/CVE_SPEC.md`.
 
 Recent search-driven coverage includes mixed-case `data:text/css` stylesheet links and escaped CSS `@import` sanitizer-bypass classes. Adjacent JavaScript-only SVG/XSS and browser-engine memory-corruption CVEs are documented as limitations or non-goals rather than implemented as CSS Sentry features.
+
 
 ## Documentation preservation
 
 The detailed project documents under `docs/` are part of CSS Sentry's safety and release process. They track implemented behavior, limits, CVE-derived requirements, self-security controls, and release gates. They should be updated additively rather than reduced to summaries. Release notes are the changelog home; status is the coverage and verification-state document; SPEC is the requirements document; CVE_SPEC is the CVE traceability document.
 
+
 ### Current tracking posture
 
 The project keeps implementation status, future-watch items, avoided features, and limitations in `docs/STATUS.md`. CVE-derived coverage and adjacent/out-of-scope advisory triage live in `docs/CVE_SPEC.md`.
 
 Recent search-driven coverage includes mixed-case `data:text/css` stylesheet links and escaped CSS `@import` sanitizer-bypass classes. Adjacent JavaScript-only SVG/XSS and browser-engine memory-corruption CVEs are documented as limitations or non-goals rather than implemented as CSS Sentry features.
+
 
 ## Documentation and publication assets
 

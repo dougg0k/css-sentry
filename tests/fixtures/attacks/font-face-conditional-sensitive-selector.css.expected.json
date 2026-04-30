@@ -1,0 +1,15 @@
+{
+  "description": "Remote font-face becomes actionable when a sensitive selector conditionally applies that remote font family.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "mustBeBlockCandidate": true,
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "requiredReasons": [
+    "sink.font_remote",
+    "selector.attribute.sensitive_name",
+    "selector.attribute.prefix_match",
+    "url.cross_origin"
+  ]
+}

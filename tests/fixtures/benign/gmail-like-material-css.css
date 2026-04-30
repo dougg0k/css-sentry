@@ -1,0 +1,7 @@
+.aeJ .T-I[aria-pressed="true"],
+.brC-aT5-aOt-Jw[aria-checked="false"],
+.bkK > .nH:not(.adC) .a3s {
+  color: var(--gm3-sys-color-on-surface);
+  background-color: var(--gm3-sys-color-surface-container);
+  margin-inline-start: var(--gm-spacing-2);
+}

@@ -1,0 +1,7 @@
+[data-state="open"] .group:hover .icon,
+[data-testid="conversation-turn"]:has(.opacity-50) .message,
+.dark .prose :not(pre) code {
+  color: var(--text-primary);
+  background: var(--surface-secondary);
+  transform: translateY(var(--motion-offset));
+}

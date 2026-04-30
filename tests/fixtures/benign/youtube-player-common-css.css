@@ -1,0 +1,14 @@
+.ytp-delhi-modern:not(.ytp-xsmall-width-mode):not(.ad-showing).ytp-big-mode .ytp-player-content {
+  bottom: var(--ytp-controls-bottom);
+}
+:not(.ytp-grid-scrolling) .ytp-videowall-still .ytp-button:has(.ytp-button-icon:hover) {
+  background-color: rgba(255, 255, 255, .12);
+}
+.ytp-delhi-modern.ytp-delhi-modern-icons .ytp-menuitem[aria-checked="true"]::after {
+  background-color: currentColor;
+}
+.ytp-delhi-modern .ytp-volume-area .ytp-volume-icon svg {
+  width: var(--ytp-icon-size);
+  height: var(--ytp-icon-size);
+  fill: currentColor;
+}

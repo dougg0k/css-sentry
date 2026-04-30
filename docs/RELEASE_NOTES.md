@@ -1,4 +1,47 @@
-# Release Notes
+## 1.0.19 — Sweep-Driven False-Positive Reduction and Popup Action Clarity
+
+Implemented the next compatibility hardening pass from the 250-site false-positive sweep. CSS Sentry now avoids treating common UI substring selectors such as icon/theme class selectors, non-secret `data-*` state selectors, and decorative `input[type=password]` / `input[type=email]` styling as sensitive value-probing patterns. Common third-party font stylesheet imports from Google Fonts and Adobe Typekit are no longer treated as high-confidence Balanced-mode block candidates, while unknown remote `@import` sinks remain covered by the existing attack fixtures.
+
+The popup UI now makes the effect of findings explicit without removing the existing controls: it shows whether the page was blocked/changed, logged-only, info-only, or coverage-only, and each finding row carries an action badge explaining whether CSS Sentry changed page behavior or only recorded a local report. The false-positive sweep summary also records logged-only, info-only, coverage, and changed counts so future site sweeps are easier to triage.
+
+## 1.0.18 — Full False-Positive Sweep Script Alias
+
+- Added `pnpm run audit:false-positives:all` as a convenience script for the full 250-site false-positive sweep with full report saving enabled.
+- Kept the existing `pnpm run audit:false-positives` script for custom sweep arguments and lighter summary/actionable runs.
+
+## 1.0.17 — False-Positive Sweep Expansion and Noise Reduction
+
+- Expanded the development false-positive sweep seed list from 100 to 250 common sites.
+- Added full per-site report saving to `scripts/false-positive-sweep.mjs` with `--save-reports none|actionable|all`; actionable reports are saved by default under `test-results/false-positive-sweep/reports/`.
+- Made the sweep CLI accept both package-manager argument forms: `pnpm run audit:false-positives -- --limit 250` and `pnpm run audit:false-positives --limit 250`.
+- Reduced Balanced-mode common-site noise by keeping standalone fixed-position `!important` CSS non-actionable without an outbound leak path and suppressing same-origin decorative BODY/SVG resource findings while preserving cross-origin and local/private-network coverage.
+- Preserved explicit informational coverage notices for browser-uninspectable cross-origin frames and stylesheets, and kept the standard compatibility control for partial-analysis findings visible.
+
+## 1.0.14 — Corrected Runtime PNG Asset Replacement
+
+Replaced `src/assets/icon.png` with the newly provided corrected PNG after `1.0.13` carried forward the previous asset by mistake. No runtime behavior, detection logic, DNR policy, UI logic, fixtures, or advanced-mode behavior changed in this patch.
+
+
+## 1.0.13 — README Intro and Runtime PNG Asset Cleanup
+
+- Replaced the README introduction with the public-store oriented project summary, Firefox Add-ons badge, AI-build note, and Chrome local-install note.
+- Removed `Last Updated` metadata from `README.md`; date metadata belongs only in documents under `docs/`.
+- Refreshed `src/assets/icon.png` from the latest uploaded PNG asset.
+- No analyzer, parser, DNR, storage, Firefox enhanced mode, fixture, e2e, popup, options, or report behavior was intentionally changed.
+
+## 1.0.12 — Balanced False-Positive and DNR Safety Correction
+
+- Fixed Balanced-mode analyzer gating so presentation-only CSS with zero remote URL sinks is no longer emitted as an actionable finding.
+- Tightened `selector.repeated_probe_pattern` so long framework/player class names do not count as repeated probing. Repeated probing now requires repeated attribute-probe structure rather than long identifiers.
+- Reduced `:has()` from a standalone sensitive signal to contextual evidence. `:has(:hover)` and `:has(:active)` UI selectors no longer become findings without sensitive attribute probes and outbound sinks.
+- Stopped treating unresolved custom properties on non-network presentation properties as actionable security evidence.
+- Stopped treating standalone remote `@font-face` rules as high-confidence Balanced-mode threats. Remote fonts are actionable only when a sensitive selector conditionally applies a remote font family or when the user explicitly enables Strict/resource policy blocking.
+- Added DNR safety gating so high/critical findings must still contain a real sink class before tab-scoped finding rules are installed.
+- Changed partial-analysis finding notices to be advanced/off-by-default. Coverage counts remain tracked; per-stylesheet/per-frame limitation findings can be enabled for diagnostics.
+- Added benign regression fixtures for YouTube/player CSS, reCAPTCHA/Roboto fonts, Gmail-like Material CSS, and ChatGPT/app-shell state selectors.
+- Added a conditional remote-font attack fixture so actual selector-driven font-family exfiltration remains covered.
+- Added a development-only false-positive sweep script (`pnpm run audit:false-positives`) plus a 250-site seed list so maintainers can test common websites for noisy Balanced-mode reports before publication. The sweep output is written under `test-results/` and is not part of runtime behavior.
+
 
 ## 1.0.11 — Corrected Runtime PNG Asset
 
@@ -17,7 +60,7 @@
 
 
 
-Last Updated: 2026/04/29 13:08:43 -03
+Last Updated: 2026/04/30 18:10:00 -03
 
 
 ## Document Role

@@ -1,0 +1,8 @@
+{
+  "description": "Standalone third-party @font-face loads such as reCAPTCHA/Roboto are common CSS resources and must not be high-confidence block candidates in Balanced mode.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenDestinationOrigins": [
+    "https://fonts.gstatic.com"
+  ]
+}

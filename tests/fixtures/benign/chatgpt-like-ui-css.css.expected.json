@@ -1,0 +1,5 @@
+{
+  "description": "ChatGPT/app-shell style state selectors and :has() UI selectors with presentation properties are benign without a remote sink or sensitive value probe.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

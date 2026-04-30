@@ -1,0 +1,10 @@
+{
+  "description": "YouTube/player-style state selectors, :has(:hover), ARIA state selectors, unresolved presentation variables, and SVG paint without url() are normal UI CSS and must not produce actionable findings.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "selector.repeated_probe_pattern",
+    "sink.remote_url",
+    "sink.svg_paint_remote"
+  ]
+}

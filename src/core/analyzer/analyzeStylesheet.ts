@@ -1,7 +1,8 @@
-import type { AnalysisSummary, DeclarationInfo, Finding, ParsedCssRule, ReasonCode, SourceKind } from "../../shared/types";
+import type { AnalysisSummary, CssUrlAnalysis, DeclarationInfo, Finding, ParsedCssRule, ReasonCode, SourceKind } from "../../shared/types";
 import { ANALYSIS_LIMITS } from "../../shared/constants";
-import { analyzeDeclaration, collectCustomProperties, mergeCustomProperties, parseDeclarations } from "../css/declarations";
+import { analyzeDeclaration, collectCustomProperties, mergeCustomProperties, parseDeclarations, type RawDeclaration } from "../css/declarations";
 import { extractImportUrls } from "../css/normalizeUrl";
+import { splitTopLevel, unquoteCssString } from "../css/text";
 import { parseCss } from "../css/parseCss";
 import { createFinding } from "../findings/createFinding";
 import { analyzeDeclarationRisk } from "./analyzeDeclaration";
@@ -61,6 +62,7 @@ export function analyzeStylesheet(input: AnalyzeStylesheetInput): AnalysisSummar
 export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number = ANALYSIS_LIMITS.maxFindingsPerPage): Finding[] {
 	const findings: Finding[] = [];
 	let inheritedCustomProperties = new Map<string, string>();
+	const remoteFontFaces = collectRemoteFontFaces(rules);
 
 	for (const rule of rules) {
 		if (findings.length >= maxFindings) break;
@@ -87,10 +89,18 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 			continue;
 		}
 
+		// Standalone @font-face declarations are common and not CSS exfiltration by themselves.
+		// Remote font URLs are considered again only when a sensitive selector conditionally
+		// references a remote font-family declared in the same stylesheet.
+		if (rule.type === "font-face") continue;
+
 		for (const declaration of declarations) {
 			if (findings.length >= maxFindings) break;
 			const analyzed = analyzeDeclaration(declaration, rule.context.sourceUrl ?? rule.context.pageUrl, customProperties);
 			pushFindingForDeclaration(findings, rule, selectorAnalysis, analyzed);
+
+			const fontReference = remoteFontReferenceDeclaration(declaration, remoteFontFaces);
+			if (fontReference) pushFindingForDeclaration(findings, rule, selectorAnalysis, fontReference);
 		}
 	}
 	return findings;
@@ -108,15 +118,18 @@ function pushFindingForDeclaration(
 	declaration: DeclarationInfo,
 ): void {
 	const declarationRisk = analyzeDeclarationRisk(declaration, rule.type);
-	if (!declarationRisk.hasAnyUrlSink && !declaration.usesUnresolvedVar && !declarationRisk.hasCssOnlyRisk) return;
-
-	const hasCrossOriginUrl = declaration.urls.some((url) => url.isCrossOrigin);
-	const hasCssOnlyRisk = declarationRisk.hasCssOnlyRisk;
 	const hasSensitiveSelectorSignals = selectorAnalysis?.isSensitive ?? false;
-	const isNetworkOnlyAtRule = rule.type === "font-face" || rule.type === "import";
-	if (!hasCrossOriginUrl && !hasSensitiveSelectorSignals && !declaration.usesUnresolvedVar && !isNetworkOnlyAtRule && !hasCssOnlyRisk) return;
+	const isImportRule = rule.type === "import";
+	const isStandaloneFontFace = declarationRisk.isStandaloneFontFace;
+	const hasRemoteSink = declarationRisk.hasRemoteSink;
+	const hasLocalNetworkSink = declaration.urls.some((url) => url.isLocalNetwork);
+	const hasCssOnlyRisk = declarationRisk.hasCssOnlyRisk;
 
-	const selectorScore = selectorAnalysis?.score ?? (isNetworkOnlyAtRule ? 1 : 0);
+	if (isStandaloneFontFace) return;
+	if (!hasRemoteSink) return;
+	if (!isImportRule && !hasCssOnlyRisk && !hasSensitiveSelectorSignals && !hasLocalNetworkSink) return;
+
+	const selectorScore = selectorAnalysis?.score ?? (isImportRule ? 1 : 0);
 	const nestedScore = rule.context.atRuleStack.length > 0 ? 1 : 0;
 	const score = selectorScore + declarationRisk.score + nestedScore;
 	if (score < 3) return;
@@ -144,6 +157,52 @@ function pushFindingForDeclaration(
 			details: buildFindingDetails(rule, declaration, selectorAnalysis?.isSensitive ?? false),
 		}),
 	);
+}
+
+function collectRemoteFontFaces(rules: ParsedCssRule[]): Map<string, CssUrlAnalysis[]> {
+	const fonts = new Map<string, CssUrlAnalysis[]>();
+	for (const rule of rules) {
+		if (rule.type !== "font-face") continue;
+		const declarations = parseDeclarations(rule.declarationsText);
+		const fontFamily = declarations.find((declaration) => declaration.property === "font-family");
+		const src = declarations.find((declaration) => declaration.property === "src");
+		if (!fontFamily || !src) continue;
+		const analyzedSrc = analyzeDeclaration(src, rule.context.sourceUrl ?? rule.context.pageUrl, new Map());
+		const remoteUrls = analyzedSrc.urls.filter((url) => url.isRemote);
+		if (remoteUrls.length === 0) continue;
+		for (const family of fontFamilyNames(fontFamily.value)) {
+			const existing = fonts.get(family) ?? [];
+			fonts.set(family, [...existing, ...remoteUrls]);
+		}
+	}
+	return fonts;
+}
+
+function remoteFontReferenceDeclaration(declaration: RawDeclaration, fonts: Map<string, CssUrlAnalysis[]>): DeclarationInfo | null {
+	if (fonts.size === 0 || !(declaration.property === "font-family" || declaration.property === "font")) return null;
+	const urls: CssUrlAnalysis[] = [];
+	for (const family of fontFamilyNames(declaration.value)) {
+		const matches = fonts.get(family);
+		if (matches) urls.push(...matches);
+	}
+	if (urls.length === 0) return null;
+	return {
+		property: declaration.property,
+		value: declaration.value,
+		resolvedValue: declaration.value,
+		urls,
+		usesUnresolvedVar: false,
+		unresolvedVars: [],
+		usesCustomPropertyUrl: false,
+	};
+}
+
+function fontFamilyNames(value: string): string[] {
+	return splitTopLevel(value, ",")
+		.map((part) => unquoteCssString(part.trim()))
+		.map((part) => part.replace(/^(?:normal|italic|oblique|small-caps|bold|bolder|lighter|[0-9]{3}|(?:xx?-)?(?:small|large)|medium)\s+/gi, ""))
+		.map((part) => part.trim().toLowerCase())
+		.filter(Boolean);
 }
 
 function buildFindingDetails(rule: ParsedCssRule, declaration: DeclarationInfo, selectorSensitive: boolean): string {

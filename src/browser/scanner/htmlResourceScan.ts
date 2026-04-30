@@ -20,6 +20,7 @@ interface AttributeFindingInput {
   reasons: ReasonCode[];
   details: string;
   minSeverity?: "medium" | "high";
+  requireCrossOriginOrLocalNetwork?: boolean;
 }
 
 export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSummary {
@@ -29,6 +30,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
   const push = (item: AttributeFindingInput) => {
     const url = analyzeAttributeUrl(item.rawValue, input.pageUrl);
     if (!url?.isRemote) return;
+    if (item.requireCrossOriginOrLocalNetwork && !url.isCrossOrigin && !url.isLocalNetwork) return;
     const reasons = new Set<ReasonCode>([...item.reasons, "url.remote"]);
     if (url.isCrossOrigin) reasons.add("url.cross_origin");
     if (url.isHighEntropy) reasons.add("url.high_entropy");
@@ -62,6 +64,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
       property: "background",
       reasons: ["sink.html_body_background"],
       details: "HTML body background attribute loads a remote resource.",
+      requireCrossOriginOrLocalNetwork: true,
     });
   }
 
@@ -111,6 +114,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
       reasons: ["sink.svg_feimage_remote"],
       details: "SVG feImage references a remote resource.",
       minSeverity: "high",
+      requireCrossOriginOrLocalNetwork: true,
     });
   }
 
@@ -128,6 +132,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
       reasons: ["sink.svg_animate_remote"],
       details: "SVG animation attribute references a remote resource.",
       minSeverity: "high",
+      requireCrossOriginOrLocalNetwork: true,
     });
   }
 

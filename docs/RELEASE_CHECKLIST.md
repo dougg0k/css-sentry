@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/04/29 12:35:00 -03
+Last Updated: 2026/04/30 18:10:00 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -10,6 +10,7 @@ Use this checklist before publishing a release candidate or stable release.
 
 - [ ] Confirm `package.json` version is correct for the release stage, such as `1.0.0` or a future `1.0.1-rc.1`.
 - [ ] Confirm `README.md` claim language does not overpromise.
+- [ ] Confirm `README.md` does not contain `Last Updated`; timestamp metadata belongs only in documents under `docs/`.
 - [ ] Confirm `docs/STATUS.md` reflects the current package and verification state.
 - [ ] Confirm `docs/CVE_SPEC.md` has no unresolved v1-blocking CVE-derived items.
 - [ ] Confirm `docs/SECURITY.md`, `docs/PRIVACY.md`, and `docs/PERMISSIONS.md` are present and current.
@@ -17,6 +18,8 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm runtime message and import hardening tests pass.
 - [ ] Confirm manifest permissions match `docs/PERMISSIONS.md`.
 - [ ] Confirm DNR status appears in Options after a DNR operation.
+- [ ] For false-positive/noise-reduction releases, run or document `pnpm run audit:false-positives -- --limit 250 --save-reports actionable` and preserve any actionable per-site reports under `test-results/` only.
+- [ ] Confirm `pnpm-workspace.yaml` remains at the repository root when pnpm build-script approval is needed.
 
 ## Required Verification
 
@@ -95,7 +98,8 @@ The source package should include:
 - [ ] `src/`;
 - [ ] `tests/`;
 - [ ] `package.json`;
-- [ ] `pnpm-lock.yaml`.
+- [ ] `pnpm-lock.yaml`;
+- [ ] `pnpm-workspace.yaml`.
 
 ## v1 Release Criteria
 
@@ -216,3 +220,13 @@ Before future releases, confirm that status wording does not imply either under-
 - [ ] Firefox enhanced stylesheet response inspection is off by default and degrades safely outside Firefox or without `filterResponseData`.
 - [ ] DNR status text treats zero tab-scoped rules as a successful no-op, not an error.
 - [ ] Documentation states that externally loaded SVG image-document internals are not fully inspectable.
+
+## 1.0.12 False-Positive Release Checks
+
+Before publishing a release after `1.0.12`, confirm:
+
+- [ ] Balanced mode does not emit actionable findings for presentation-only CSS with zero remote URL sinks.
+- [ ] Standalone remote `@font-face` loads such as reCAPTCHA/Roboto are not DNR-blocked in Balanced mode.
+- [ ] YouTube/player, Gmail-like Material, ChatGPT-like UI, and reCAPTCHA font benign fixtures remain present.
+- [ ] Selector-driven CSS exfil fixtures with sensitive attributes plus remote sinks still produce actionable findings.
+- [ ] `pnpm run audit:false-positives -- --limit 100 --save-reports actionable` can be run as a development-only common-site sweep when preparing a publication candidate. Its output remains under `test-results/` and is not committed as runtime data.

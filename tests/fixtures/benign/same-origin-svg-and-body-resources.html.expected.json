@@ -1,0 +1,6 @@
+{
+  "description": "Same-origin decorative BODY background and SVG feImage/animate resources should not produce actionable CSS exfiltration findings.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": ["sink.html_body_background", "sink.svg_feimage_remote", "sink.svg_animate_remote", "url.cross_origin"]
+}

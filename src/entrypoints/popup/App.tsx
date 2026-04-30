@@ -3,7 +3,7 @@ import { browser } from "wxt/browser";
 import { getSitePolicy, getTabReport, saveSitePolicy } from "../../browser/storage/reports";
 import type { ExtensionMode, SitePolicy, StoredTabReport } from "../../shared/types";
 import { getOrigin, isPolicyOrigin } from "../../shared/url";
-import { FindingItem, Header, InfoTooltip, SummaryCard, pickHighestSeverity } from "./components";
+import { FindingItem, Header, InfoTooltip, SummaryCard, changesPage, isCoverageFinding, pickHighestSeverity } from "./components";
 import {
   ADVANCED_GLOBAL_MODE_ORDER,
   ADVANCED_MODE_EXPLANATION,
@@ -45,16 +45,25 @@ export default function App() {
   }, []);
 
   const findings = report?.summary.findings ?? [];
+  const pageChangedFindings = useMemo(() => findings.filter((finding) => changesPage(finding.action)), [findings]);
+  const coverageFindings = useMemo(() => findings.filter(isCoverageFinding), [findings]);
+  const infoOnlyFindings = useMemo(() => findings.filter((finding) => finding.severity === "info" && !isCoverageFinding(finding)), [findings]);
   const actionableFindings = useMemo(() => findings.filter((finding) => finding.severity !== "info"), [findings]);
+  const loggedOnlyFindings = useMemo(() => actionableFindings.filter((finding) => !changesPage(finding.action)), [actionableFindings]);
   const highestSeverity = useMemo(() => pickHighestSeverity(actionableFindings), [actionableFindings]);
   const currentOrigin = safeOrigin(report?.origin) ?? activeTab?.origin ?? null;
   const mode = policy?.mode ?? "balanced";
   const modeDefinition = getModeDefinition(mode);
   const popupModes = policy?.advancedModeEnabled ? ADVANCED_GLOBAL_MODE_ORDER : GLOBAL_MODE_ORDER;
   const hasReport = report !== null;
-  const statusTitle = actionableFindings.length === 0
-    ? "No risky CSS findings"
-    : `${actionableFindings.length} risky finding${actionableFindings.length === 1 ? "" : "s"}`;
+  const statusTitle = pageChangedFindings.length === 0
+    ? "No page changes made"
+    : `${pageChangedFindings.length} blocked or changed finding${pageChangedFindings.length === 1 ? "" : "s"}`;
+  const statusDetail = !hasReport
+    ? "Waiting for the first page scan"
+    : actionableFindings.length === 0
+      ? "No risky CSS findings were detected."
+      : `${actionableFindings.length} finding${actionableFindings.length === 1 ? "" : "s"} logged for review; ${loggedOnlyFindings.length} were not blocked.`;
 
   async function setGlobalMode(nextMode: ExtensionMode) {
     const basePolicy = policy ?? await getSitePolicy();
@@ -88,15 +97,20 @@ export default function App() {
       />
 
       <section className="statusLine" aria-label="Finding status">
-        <strong>{statusTitle}</strong>
-        <span>{hasReport ? "Latest page scan" : "Waiting for the first page scan"}</span>
+        <div>
+          <strong>{statusTitle}</strong>
+          <span>{statusDetail}</span>
+        </div>
         {(report?.summary.partialFrames ?? 0) > 0 ? <span>Partial frame coverage: {report?.summary.partialFrames} frame{report?.summary.partialFrames === 1 ? "" : "s"} not fully inspected</span> : null}
       </section>
 
       <section className="summaryGrid" aria-label="Current page summary">
         <SummaryCard stat="mode" value={modeDefinition.shortLabel} />
         <SummaryCard stat="severity" value={highestSeverity ?? "none"} />
-        <SummaryCard stat="findings" value={String(actionableFindings.length)} />
+        <SummaryCard stat="blocked" value={String(pageChangedFindings.length)} />
+        <SummaryCard stat="allowed" value={String(loggedOnlyFindings.length)} />
+        <SummaryCard stat="info" value={String(infoOnlyFindings.length)} />
+        <SummaryCard stat="coverage" value={String(coverageFindings.length)} />
         <SummaryCard stat="frames" value={`${report?.summary.analyzedFrames ?? 0}/${(report?.summary.analyzedFrames ?? 0) + (report?.summary.partialFrames ?? 0)}`} />
         <SummaryCard stat="partialSheets" value={String(report?.summary.partialStylesheets ?? 0)} />
       </section>
@@ -125,6 +139,7 @@ export default function App() {
 
       <section className="panel">
         <div className="panelTitle"><h2>Findings</h2><InfoTooltip text={LOGS_EXPLANATION} /></div>
+        <p className="muted">Each finding now shows whether CSS Sentry blocked/changed something, only logged it, or recorded a coverage notice.</p>
         {findings.length === 0 ? <p className="muted">No findings recorded for this tab yet.</p> : <ul className="findingList">{findings.slice(0, 8).map((finding) => <FindingItem key={finding.id} finding={finding} />)}</ul>}
       </section>
 

@@ -60,6 +60,7 @@ export async function blockHighConfidenceFindingUrls(findings: Finding[], tabId:
   for (const finding of findings) {
     if (rules.length >= MAX_DYNAMIC_RULES_PER_SCAN) break;
     if (!(finding.severity === "high" || finding.severity === "critical") || !finding.destinationUrl) continue;
+    if (!isBalancedDnrBlockCandidate(finding)) continue;
 
     const decision = policy ? destinationPolicyForUrl(finding.destinationUrl, policy) : { action: "neutral" as const, origin: getOrigin(finding.destinationUrl) };
     if (decision.action === "allow") {
@@ -233,6 +234,20 @@ function buildPolicyRules(policy: SitePolicy, tabId: number | undefined, baseRul
   }
 
   return addRules;
+}
+
+function isBalancedDnrBlockCandidate(finding: Finding): boolean {
+  if (finding.reasons.includes("sink.font_remote") && !hasSensitiveSelectorReason(finding)) return false;
+  if (!hasSinkReason(finding) && !finding.reasons.includes("url.local_network")) return false;
+  return true;
+}
+
+function hasSensitiveSelectorReason(finding: Finding): boolean {
+  return finding.reasons.some((reason) => reason.startsWith("selector.attribute") || reason === "selector.hidden_input" || reason === "selector.form_control");
+}
+
+function hasSinkReason(finding: Finding): boolean {
+  return finding.reasons.some((reason) => reason.startsWith("sink.") || reason === "sink.import_remote");
 }
 
 function emptyResult(ok = true, message = "no DNR rules applied"): DnrBlockResult {

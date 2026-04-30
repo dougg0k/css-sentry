@@ -1,10 +1,10 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/04/29 13:08:43 -03
+Last Updated: 2026/04/30 18:10:00 -03
 
-**Status document version:** 1.0.11
-**Package audited:** `css_sentry_1.0.11`
-**Audit timestamp:** 2026-04-29 13:08:43 -03 (`America/Sao_Paulo`)
+**Status document version:** 1.0.19
+**Package audited:** `css_sentry_1.0.19`
+**Audit timestamp:** 2026-04-30 18:10:00 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
@@ -31,6 +31,19 @@ This document is intentionally stricter than the README. Update it whenever impl
 
 ## Current Verification Snapshot
 
+
+`1.0.19` is a 250-site sweep-driven false-positive and popup clarity patch. It narrows selector sensitivity scoring for common UI class/data/type selectors, avoids Balanced-mode blocking for common remote font stylesheet imports, keeps unknown remote import sinks covered, adds action-state clarity to the popup, and expands false-positive sweep summary counters.
+
+`1.0.18` is a development-script convenience patch built from the passing `1.0.17` source line. It adds `pnpm run audit:false-positives:all` for the full 250-site false-positive sweep with full report saving enabled, while preserving the existing configurable `audit:false-positives` script.
+
+`1.0.17` is a false-positive sweep and noise-reduction patch built from the passing `1.0.16` source line. It expands the development false-positive sweep corpus to 250 sites, adds per-site report payload saving for actionable sweep results, accepts both package-manager argument forms for the audit script, keeps the root install-hygiene configuration and uploaded lockfile/package metadata synchronized, stops emitting standalone fixed-position `!important` CSS as actionable without an outbound leak path, suppresses same-origin decorative BODY/SVG resource findings, preserves explicit informational coverage notices for cross-origin frames/stylesheets, and keeps the standard partial-analysis compatibility control visible.
+
+`1.0.14` is a runtime PNG asset correction patch built from the passing `1.0.13` source line. It replaces `src/assets/icon.png` with the newly provided corrected PNG after the previous patch inadvertently kept the older asset. It intentionally does not change README content, analyzer, parser, DNR, storage, Firefox enhanced mode, fixtures, e2e, popup, options, or report behavior.
+
+`1.0.13` is a README and runtime PNG asset maintenance patch built from the passing `1.0.12` source line. It replaces the README introduction with the public-store oriented summary and Firefox Add-ons badge, keeps `Last Updated` metadata out of `README.md`, confirms date metadata belongs only in `docs/` documents, and refreshes `src/assets/icon.png` from the latest uploaded PNG asset. It intentionally does not change analyzer, parser, DNR, storage, Firefox enhanced mode, fixture, e2e, popup, options, or report behavior.
+
+`1.0.12` is a release-blocking false-positive correction built from the passing `1.0.11` source line. It changes analyzer and DNR behavior so Balanced mode ignores common presentation-only CSS with no outbound leak path, does not block standalone remote fonts such as reCAPTCHA/Roboto, and keeps partial-analysis details as advanced diagnostics instead of normal findings. New benign regression fixtures cover YouTube-style player CSS, Gmail-like Material CSS, ChatGPT-like UI state CSS, and reCAPTCHA font CSS; a conditional remote-font fixture preserves true font-family exfil coverage. A development-only false-positive sweep script and 250-site seed list let maintainers test common websites, save actionable per-site reports, and cluster noisy report patterns before future releases.
+
 `1.0.11` is an asset-only maintenance patch built from the passing `1.0.10` source line. It replaces `src/assets/icon.png` with the corrected uploaded PNG asset, keeps the SVG asset unchanged, and intentionally does not change analyzer, parser, DNR, storage, UI behavior, fixtures, permissions, or e2e behavior.
 
 `1.0.10` implemented the optional advanced SVG image-document reporting/policy controls, real Firefox enhanced stylesheet response-inspection path, and clearer DNR diagnostics wording. These remain the latest functional changes before the `1.0.11` PNG correction.
@@ -44,7 +57,7 @@ This document is intentionally stricter than the README. Update it whenever impl
 
 `1.0.5` preserves the restored detailed documentation set, adds CVE-2026-40301 executable coverage, and updates project tracking documents additively so the changelog, status coverage, specification requirements, CVE traceability, self-security controls, and release checklist remain consistent.
 
-Required local verification after extracting `1.0.11`:
+Required local verification after extracting `1.0.19`:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -58,6 +71,53 @@ pnpm run zip
 pnpm run zip:firefox
 ```
 
+
+
+## 1.0.19 Audit Note — Sweep-Driven Noise Reduction and Action-State UI
+
+- Source line: passing `1.0.18`.
+- Primary inputs: 250-site false-positive sweep with full reports.
+- Analyzer change: non-secret class/data/type substring/exact selectors no longer become sensitive value-probing signals by themselves. Sensitive value, token, nonce, CSRF, and repeated sensitive probe shapes remain covered.
+- Import handling: common font-provider imports from Google Fonts and Adobe Typekit are not Balanced-mode block candidates; unknown remote imports remain actionable and covered by attack fixtures.
+- UI change: popup now distinguishes blocked/changed, logged-only, info-only, and coverage findings while keeping the current mode controls and report access.
+
+## 1.0.18 Audit Note — Full False-Positive Sweep Script Alias
+
+- Source line: passing `1.0.17`.
+- Added `audit:false-positives:all` to `package.json` as a maintainer shortcut for `node scripts/false-positive-sweep.mjs --limit 250 --save-reports all`.
+- No analyzer, parser, DNR, report UI, options UI, fixture, or runtime browser behavior changed.
+
+## 1.0.17 Audit Note — False-Positive Sweep Expansion and Same-Origin Noise Reduction
+
+- Source line: passing `1.0.16`.
+- False-positive sweep: `scripts/false-positive-sites.txt` contains 250 common sites; `scripts/false-positive-sweep.mjs` can save full per-site reports with `--save-reports none|actionable|all` and accepts both `pnpm run audit:false-positives -- --limit 250` and `pnpm run audit:false-positives --limit 250`.
+- Analyzer behavior: Balanced mode keeps fixed-position `!important` CSS non-actionable unless it has a real outbound leak path, and same-origin decorative BODY/SVG resources are suppressed as actionable findings while cross-origin and local/private-network coverage remains intact.
+- Coverage behavior: browser-uninspectable cross-origin frame/stylesheet notices remain explicit informational findings, and the standard partial-analysis compatibility control remains visible.
+
+## 1.0.14 Audit Note — Corrected Runtime PNG Asset Replacement
+
+- Source line: passing `1.0.13`.
+- Scope: replace only `src/assets/icon.png` with the newly provided corrected PNG, then track the correction in release/status docs.
+- No analyzer, parser, DNR, Firefox enhanced mode, fixture, or UI logic changes were intended.
+
+## 1.0.13 Audit Note — README Metadata and Runtime PNG Asset Maintenance
+
+- Scope: README introduction, README metadata policy, and runtime PNG asset refresh.
+- Source line: passing `1.0.12`.
+- Corrected documentation policy: `README.md` must not contain `Last Updated` metadata; date metadata belongs only in documents under `docs/`.
+- Runtime asset: `src/assets/icon.png` was refreshed from the latest uploaded PNG.
+- No analyzer, parser, DNR, storage, Firefox enhanced mode, fixture, e2e, popup, options, or report behavior was intentionally changed.
+- Local verification gate remains `pnpm run verify:full`.
+
+## 1.0.12 Audit Note — Balanced False-Positive and DNR Safety Correction
+
+- Scope: analyzer, DNR safety, diagnostics default, and benign fixture regression package.
+- Source line: passing `1.0.11`.
+- Corrected behavior: Balanced mode now requires an actual outbound leak path or CSS-only security issue before emitting actionable findings.
+- Corrected behavior: standalone remote `@font-face` rules are no longer high-confidence block candidates. Selector-driven remote font-family usage remains covered by a dedicated attack fixture.
+- Corrected behavior: YouTube-style player CSS, Gmail-like Material CSS, ChatGPT-like app-shell CSS, and reCAPTCHA/Roboto font CSS are benign regression classes.
+- Local verification gate remains `pnpm run verify:full`.
+
 ## 1.0.11 Audit Note — Corrected Runtime PNG Asset
 
 - Scope: asset-only maintenance package.
@@ -68,7 +128,7 @@ pnpm run zip:firefox
 
 ## Current Executive Summary
 
-CSS Sentry is packaged as maintenance asset patch `1.0.11` after the stable v1 line. The feature set is sufficient for the v1 threat model; `0.0.32` added the self-security implementation and `0.0.35` made the seven requested safeguards explicit in `docs/SELF_SECURITY.md`.
+CSS Sentry is packaged as `1.0.17`, a false-positive sweep expansion and same-origin resource noise-reduction patch. The feature set is sufficient for the v1 threat model; `0.0.32` added the self-security implementation and `0.0.35` made the seven requested safeguards explicit in `docs/SELF_SECURITY.md`.
 
 Implemented and tested areas include:
 

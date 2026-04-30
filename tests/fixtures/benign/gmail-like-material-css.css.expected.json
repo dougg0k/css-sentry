@@ -1,0 +1,5 @@
+{
+  "description": "Gmail/Material-style ARIA and class-state selectors with presentation-only unresolved variables are not CSS exfiltration without a remote sink.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

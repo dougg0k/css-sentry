@@ -440,3 +440,8 @@ External SVG image-document handling is now in scope for partial-coverage report
 - keep pure JavaScript-XSS, package-version scanning, and server-side dependency-audit behavior out of scope.
 
 Firefox enhanced stylesheet response inspection may increase reporting coverage for stylesheet response bodies in Firefox, but it does not change CVE fixture acceptance criteria unless a fixture explicitly requires response-body inspection rather than DOM/CSSOM inspection.
+
+
+## 1.0.15 CVE/Fixture Classification Update
+
+The Roundcube fixed-position `!important` fixture is retained for traceability, but CSS Sentry no longer treats that CSS-only UI-integrity class as actionable without an outbound leak path. Same-origin BODY/SVG decorative resources are benign regression coverage; cross-origin and local/private-network BODY background, SVG `feImage`, and SVG animation resource sinks remain covered by the existing CVE-derived fixtures.

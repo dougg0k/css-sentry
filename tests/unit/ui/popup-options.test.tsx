@@ -147,6 +147,80 @@ describe("React UI", () => {
     expect(screen.getByText("https://third-party.example.test/mail")).toBeInTheDocument();
   });
 
+
+
+  it("popup explains whether findings changed the page or were only logged", async () => {
+    const now = Date.now();
+    const summary = {
+      ...EMPTY_ANALYSIS_SUMMARY,
+      findings: [
+        {
+          id: "logged-1",
+          severity: "medium" as const,
+          confidence: 76,
+          pageUrl: "https://app.example.test/",
+          pageOrigin: "https://app.example.test",
+          frameUrl: "https://app.example.test/",
+          frameOrigin: "https://app.example.test",
+          sourceKind: "style_element" as const,
+          sourceUrl: "https://app.example.test/",
+          sourceOrigin: "https://app.example.test",
+          selector: "input[value^=a]",
+          property: "background-image",
+          destinationOrigin: "https://attacker.example",
+          destinationUrl: "https://attacker.example/a",
+          action: "logged" as const,
+          state: "analysis.complete" as const,
+          reasons: ["selector.attribute.prefix_match", "sink.remote_url", "url.cross_origin"] as const,
+          timestamp: now,
+          details: "CSS rule with sensitive selector signals uses background-image with 1 remote URL sink(s).",
+        },
+        {
+          id: "coverage-1",
+          severity: "info" as const,
+          confidence: 100,
+          pageUrl: "https://app.example.test/",
+          pageOrigin: "https://app.example.test",
+          frameUrl: "https://app.example.test/",
+          frameOrigin: "https://app.example.test",
+          sourceKind: "stylesheet" as const,
+          sourceUrl: "https://cdn.example.test/app.css",
+          sourceOrigin: "https://cdn.example.test",
+          selector: null,
+          property: null,
+          destinationOrigin: null,
+          destinationUrl: null,
+          action: "logged" as const,
+          state: "stylesheet.cross_origin_uninspectable" as const,
+          reasons: ["stylesheet.cross_origin.uninspectable"] as const,
+          timestamp: now,
+          details: "Stylesheet rules were not inspectable.",
+        }
+      ],
+      analyzedFrames: 1,
+      analyzedStylesheets: 1,
+      partialStylesheets: 1,
+      startedAt: 1,
+      finishedAt: 2,
+    };
+    await browser.storage.local.set({
+      [`${STORAGE_KEYS.reportsPrefix}1`]: {
+        tabId: 1,
+        url: "https://app.example.test/",
+        origin: "https://app.example.test",
+        summary,
+        updatedAt: now,
+        frames: [],
+      },
+    });
+
+    render(<PopupApp />);
+    await waitFor(() => expect(screen.getByText("No page changes made")).toBeInTheDocument());
+    expect(screen.getAllByText("Logged only").length).toBeGreaterThan(0);
+    expect(screen.getByText("Coverage notice")).toBeInTheDocument();
+    expect(screen.getByText(/no request was blocked/i)).toBeInTheDocument();
+  });
+
   it("renders local report page actions", async () => {
     render(<ReportApp />);
     await waitFor(() => expect(screen.getByText("Finding report")).toBeInTheDocument());
