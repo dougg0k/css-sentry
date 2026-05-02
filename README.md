@@ -10,7 +10,9 @@ CSS Sentry is not a fork of [CSS Exfil Protection](https://github.com/mlgualtier
 
 > [!NOTE]
 > This project were built entirely with AI.
-> Moving forwared, the project will only do bugfixes (if needed) or handle recently discovered CVE (if reported).
+
+> [!NOTE]
+> Moving forwarded, the project will only do bugfixes (if needed) or handle recently discovered CVE (if reported).
 
 > [!IMPORTANT]
 > I didnt publish to Chrome Store, if needed, just clone the project and run `pnpm i; pnpm build; pnpm zip` and in the `.output` folder, drag-and-drop the `.zip` into chrome extension view, with `Developer Mode` enabled.
