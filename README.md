@@ -9,13 +9,13 @@ CSS Sentry is not a fork of [CSS Exfil Protection](https://github.com/mlgualtier
 [![Firefox Addon](docs/firefox-addon-logo.svg)](https://addons.mozilla.org/en-US/firefox/addon/css-sentry/)
 
 > [!NOTE]
-> This project were built entirely with AI.
+> This project were built entirely with AI. Built within a day.
 
 > [!NOTE]
 > Moving forwarded, the project will only do bugfixes (if needed) or handle recently discovered CVE (if reported).
 
 > [!IMPORTANT]
-> I didnt publish to Chrome Store, if needed, just clone the project and run `pnpm i; pnpm build; pnpm zip` and in the `.output` folder, drag-and-drop the `.zip` into chrome extension view, with `Developer Mode` enabled.
+> Chrome Store publish is under review, if interested, just clone the project and run `pnpm i; pnpm build; pnpm zip` and in the `.output` folder, drag-and-drop the `.zip` into chrome extension view, with `Developer Mode` enabled.
 
 ## What CSS Sentry Does
 
