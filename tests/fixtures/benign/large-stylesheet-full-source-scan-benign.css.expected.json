@@ -1,0 +1,5 @@
+{
+  "description": "Oversized generated CSS is scanned instead of being skipped; benign generated utility rules remain non-actionable.",
+  "maxActionableFindings": 0,
+  "forbiddenReasons": ["analysis.skipped.too_large"]
+}

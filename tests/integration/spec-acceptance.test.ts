@@ -91,7 +91,10 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
       "cve-2026-40301-domsanitizer-svg-style-url.html",
       "cve-2026-40301-domsanitizer-svg-style-import.html",
       "cve-2026-31873-unhead-mixed-case-data-css-link.html",
-      "cve-2026-28348-lxml-html-clean-escaped-import.css"
+      "cve-2026-28348-lxml-html-clean-escaped-import.css",
+      "large-stylesheet-full-source-scan-import.css",
+      "large-stylesheet-full-source-scan-value-probe.css",
+      "large-stylesheet-full-source-scan-nested.css"
     ]) {
       expect(attacks.has(expected), expected).toBe(true);
       expect(attacks.has(`${expected}.expected.json`), `${expected}.expected.json`).toBe(true);

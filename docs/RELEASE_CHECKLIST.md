@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/04/30 18:10:00 -03
+Last Updated: 2026/05/03 21:36:00 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -230,3 +230,7 @@ Before publishing a release after `1.0.12`, confirm:
 - [ ] YouTube/player, Gmail-like Material, ChatGPT-like UI, and reCAPTCHA font benign fixtures remain present.
 - [ ] Selector-driven CSS exfil fixtures with sensitive attributes plus remote sinks still produce actionable findings.
 - [ ] `pnpm run audit:false-positives -- --limit 100 --save-reports actionable` can be run as a development-only common-site sweep when preparing a publication candidate. Its output remains under `test-results/` and is not committed as runtime data.
+
+## 1.0.21 Large-Stylesheet Release Gate
+
+Before release, verify that oversized stylesheet fixtures do not emit `analysis.skipped.too_large`, that oversized benign generated CSS has zero actionable findings, that oversized remote import and value-probing URL fixtures are actionable, that capped finding collection still retains stronger later findings, and that DNR rule-cap selection keeps stronger candidates.

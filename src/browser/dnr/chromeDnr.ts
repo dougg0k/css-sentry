@@ -57,30 +57,32 @@ export async function blockHighConfidenceFindingUrls(findings: Finding[], tabId:
   const skippedAllowedUrls: string[] = [];
   const rules: ReturnType<typeof toDnrRule>[] = [];
 
-  for (const finding of findings) {
-    if (rules.length >= MAX_DYNAMIC_RULES_PER_SCAN) break;
-    if (!(finding.severity === "high" || finding.severity === "critical") || !finding.destinationUrl) continue;
-    if (!isBalancedDnrBlockCandidate(finding)) continue;
+  const candidates = findings
+    .filter((finding) => (finding.severity === "high" || finding.severity === "critical") && Boolean(finding.destinationUrl) && isBalancedDnrBlockCandidate(finding))
+    .sort(compareDnrCandidatePriority);
 
-    const decision = policy ? destinationPolicyForUrl(finding.destinationUrl, policy) : { action: "neutral" as const, origin: getOrigin(finding.destinationUrl) };
+  for (const finding of candidates) {
+    if (rules.length >= MAX_DYNAMIC_RULES_PER_SCAN) break;
+    const destinationUrl = finding.destinationUrl as string;
+    const decision = policy ? destinationPolicyForUrl(destinationUrl, policy) : { action: "neutral" as const, origin: getOrigin(destinationUrl) };
     if (decision.action === "allow") {
-      skippedAllowedUrls.push(finding.destinationUrl);
+      skippedAllowedUrls.push(destinationUrl);
       continue;
     }
 
-    const destination = parseUrl(finding.destinationUrl);
+    const destination = parseUrl(destinationUrl);
     const id = tabRuleId(tabId, rules.length);
     rules.push(toDnrRule({
       id,
       priority: decision.action === "block" ? 6 : 2,
       action: "block",
       requestDomains: destination ? [destination.hostname] : undefined,
-      urlFilter: destination ? undefined : finding.destinationUrl,
+      urlFilter: destination ? undefined : destinationUrl,
       tabId,
       resourceTypes: DNR_RESOURCE_TYPES
     }));
     blockedFindings.add(finding.id);
-    blockedUrls.push(finding.destinationUrl);
+    blockedUrls.push(destinationUrl);
   }
 
   try {
@@ -234,6 +236,21 @@ function buildPolicyRules(policy: SitePolicy, tabId: number | undefined, baseRul
   }
 
   return addRules;
+}
+
+
+const DNR_SEVERITY_PRIORITY = { info: 0, low: 1, medium: 2, high: 3, critical: 4 } as const;
+
+function compareDnrCandidatePriority(left: Finding, right: Finding): number {
+  const severityDelta = DNR_SEVERITY_PRIORITY[right.severity] - DNR_SEVERITY_PRIORITY[left.severity];
+  if (severityDelta !== 0) return severityDelta;
+  const localNetworkDelta = Number(right.reasons.includes("url.local_network")) - Number(left.reasons.includes("url.local_network"));
+  if (localNetworkDelta !== 0) return localNetworkDelta;
+  const importDelta = Number(right.reasons.includes("sink.import_remote")) - Number(left.reasons.includes("sink.import_remote"));
+  if (importDelta !== 0) return importDelta;
+  const selectorDelta = Number(hasSensitiveSelectorReason(right)) - Number(hasSensitiveSelectorReason(left));
+  if (selectorDelta !== 0) return selectorDelta;
+  return right.confidence - left.confidence;
 }
 
 function isBalancedDnrBlockCandidate(finding: Finding): boolean {

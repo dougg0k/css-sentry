@@ -35,7 +35,7 @@ function aggregateState(summaries: AnalysisSummary[]): AnalysisState {
 function dedupeFindings(findings: Finding[]): Finding[] {
   const byKey = new Map<string, Finding>();
   for (const finding of findings) {
-    const key = [finding.pageUrl, finding.frameUrl ?? "", finding.sourceKind, finding.sourceUrl ?? "", finding.selector ?? "", finding.property ?? "", finding.destinationUrl ?? "", finding.reasons.join(",")].join("|");
+    const key = [finding.pageUrl, finding.frameUrl ?? "", finding.sourceKind, canonicalSourceUrl(finding.sourceUrl), finding.selector ?? "", finding.property ?? "", finding.destinationUrl ?? "", finding.reasons.join(",")].join("|");
     const previous = byKey.get(key);
     if (!previous || SEVERITY_ORDER[finding.severity] > SEVERITY_ORDER[previous.severity]) byKey.set(key, finding);
   }
@@ -48,4 +48,15 @@ function compareFindings(left: Finding, right: Finding): number {
   const confidenceDelta = right.confidence - left.confidence;
   if (confidenceDelta !== 0) return confidenceDelta;
   return left.timestamp - right.timestamp;
+}
+
+function canonicalSourceUrl(sourceUrl: string | null): string {
+  if (!sourceUrl) return "";
+  try {
+    const url = new URL(sourceUrl);
+    url.hash = "";
+    return url.href;
+  } catch {
+    return sourceUrl.replace(/#$/, "");
+  }
 }

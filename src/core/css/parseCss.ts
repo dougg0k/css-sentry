@@ -11,6 +11,16 @@ interface ParseInput {
 	frameUrl?: string | null;
 }
 
+interface ParseOptions {
+	/**
+	 * Uses the complete source scanner instead of building a css-tree AST. This is
+	 * intended for very large stylesheets where allocating a full AST is the
+	 * higher-risk operation, but security analysis must still inspect the whole
+	 * stylesheet.
+	 */
+	largeSourceScan?: boolean;
+}
+
 const GROUPING_AT_RULES = new Set([
 	"@media",
 	"@supports",
@@ -28,7 +38,7 @@ const parser = cssTree as unknown as {
 	generate: (node: unknown) => string;
 };
 
-export function parseCss(input: ParseInput): ParsedCssRule[] {
+export function parseCss(input: ParseInput, options: ParseOptions = {}): ParsedCssRule[] {
 	const baseContext: RuleContext = {
 		pageUrl: input.pageUrl,
 		sourceKind: input.sourceKind,
@@ -37,9 +47,21 @@ export function parseCss(input: ParseInput): ParsedCssRule[] {
 		atRuleStack: [],
 	};
 	const normalizedCss = stripCssComments(input.cssText);
-	const parsed = parseWithCssTree(normalizedCss, baseContext);
-	const rules = parsed ?? parseBlockFallback(normalizedCss, baseContext);
+	const parsed = options.largeSourceScan ? parseCompleteSourceRules(normalizedCss, baseContext) : parseWithCssTree(normalizedCss, baseContext);
+	const rules = parsed ?? parseCompleteSourceRules(normalizedCss, baseContext);
 	return addRecoveredImportRules(input.cssText, baseContext, rules);
+}
+
+export function parseLargeStylesheetCss(input: ParseInput): ParsedCssRule[] {
+	const baseContext: RuleContext = {
+		pageUrl: input.pageUrl,
+		sourceKind: input.sourceKind,
+		sourceUrl: input.sourceUrl,
+		frameUrl: input.frameUrl ?? null,
+		atRuleStack: [],
+	};
+	const normalizedCss = stripCssComments(input.cssText);
+	return addRecoveredImportRules(input.cssText, baseContext, parseCompleteSourceRules(normalizedCss, baseContext));
 }
 
 
@@ -184,7 +206,7 @@ function asCssTreeNode(node: unknown): Record<string, unknown> | null {
 	return typeof node === "object" && node !== null ? (node as Record<string, unknown>) : null;
 }
 
-function parseBlockFallback(cssText: string, context: RuleContext): ParsedCssRule[] {
+function parseCompleteSourceRules(cssText: string, context: RuleContext): ParsedCssRule[] {
 	const rules: ParsedCssRule[] = [];
 	let index = 0;
 	while (index < cssText.length) {
@@ -211,12 +233,12 @@ function parseBlockFallback(cssText: string, context: RuleContext): ParsedCssRul
 			if (blockOpen === -1) break;
 			const prelude = cssText.slice(index, blockOpen).trim();
 			const close = findMatchingBrace(cssText, blockOpen);
-			if (close === -1) break;
-			const body = cssText.slice(blockOpen + 1, close);
+			const blockEnd = close === -1 ? cssText.length : close;
+			const body = cssText.slice(blockOpen + 1, blockEnd);
 			const atName = prelude.match(/^@[a-z-]+/i)?.[0]?.toLowerCase() ?? prelude.toLowerCase();
 			if (GROUPING_AT_RULES.has(atName)) {
 				rules.push(
-					...parseBlockFallback(body, {
+					...parseCompleteSourceRules(body, {
 						...context,
 						atRuleStack: [...context.atRuleStack, prelude],
 					}),
@@ -224,7 +246,7 @@ function parseBlockFallback(cssText: string, context: RuleContext): ParsedCssRul
 			} else if (atName === "@font-face") {
 				rules.push({ type: "font-face", selector: "@font-face", declarationsText: body, context });
 			}
-			index = close + 1;
+			index = close === -1 ? cssText.length : close + 1;
 			continue;
 		}
 
@@ -232,12 +254,15 @@ function parseBlockFallback(cssText: string, context: RuleContext): ParsedCssRul
 		if (blockOpen === -1) break;
 		const selectorText = cssText.slice(index, blockOpen).trim();
 		const close = findMatchingBrace(cssText, blockOpen);
-		if (close === -1) break;
-		const body = cssText.slice(blockOpen + 1, close);
+		const blockEnd = close === -1 ? cssText.length : close;
+		const body = cssText.slice(blockOpen + 1, blockEnd);
 		for (const selector of splitTopLevel(selectorText, ",").map((part) => part.trim()).filter(Boolean)) {
 			rules.push({ type: "style", selector, declarationsText: body, context });
 		}
-		index = close + 1;
+		if (body.includes("{")) {
+			rules.push(...parseCompleteSourceRules(body, { ...context, atRuleStack: [...context.atRuleStack, "nested-style-rule"] }));
+		}
+		index = close === -1 ? cssText.length : close + 1;
 	}
 	return rules;
 }

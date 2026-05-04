@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/04/30 18:10:00 -03
+Last Updated: 2026/05/03 21:36:00 -03
 
 ## 1. Project Summary
 
@@ -1566,3 +1566,20 @@ The development-only false-positive sweep (`pnpm run audit:false-positives`) is 
 Development false-positive sweeps should use `scripts/false-positive-sweep.mjs` with the maintained 250-site seed list in `scripts/false-positive-sites.txt`. The sweep is audit tooling only: outputs belong under `test-results/` and must not be bundled into runtime packages. The script may save full per-site reports for actionable cases to support triage and must accept package-manager argument delimiters such as `pnpm run audit:false-positives -- --limit 250 --save-reports actionable`.
 
 Actionable findings require an outbound leak path or a policy-relevant network destination. Standalone fixed-position `!important` CSS is documented as adjacent sanitizer/UI-integrity context but must not become an actionable CSS Sentry finding by itself. Same-origin decorative BODY background, SVG `feImage`, and SVG animation resources should not produce actionable findings; cross-origin and local/private-network destinations remain in scope.
+
+## 1.0.21 Large-Stylesheet Source Scan Requirement
+
+Large stylesheet size must never be treated as an analysis bypass. The configured stylesheet size threshold may select a lower-allocation parsing strategy, but it must not return `analysis.skipped.too_large` for stylesheet content that is available to the extension.
+
+Required behavior:
+
+- Oversized available stylesheet text must be scanned from start to finish.
+- Rules recovered from oversized stylesheets must be passed through the same selector, declaration, URL, custom-property, import, SVG paint, and font-reference risk analysis used for normal stylesheets.
+- Oversized benign generated CSS must remain non-actionable when it has no sensitive selector/probe plus outbound sink shape.
+- Oversized malicious CSS must remain detectable when `@import`, URL-bearing declarations, local/private-network destinations, or sensitive value-probing selectors appear after large benign padding.
+- Nested rules inside oversized stylesheets must be inspected so CSS nesting does not become a large-file evasion path.
+- Report caps must bound retained findings, not terminate scanning. After the cap is filled, later higher-priority findings must be able to replace earlier lower-priority findings.
+- Finding-based DNR rule caps must prioritize stronger high-confidence candidates before selecting rules to install.
+- Merged reports should deduplicate equivalent stylesheet source URLs that differ only by an empty fragment marker.
+
+Acceptance coverage for this requirement lives in oversized attack and benign fixtures plus unit tests for large-source scanning and finding-cap prioritization.

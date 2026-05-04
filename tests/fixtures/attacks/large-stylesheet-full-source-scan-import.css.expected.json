@@ -1,0 +1,9 @@
+{
+  "description": "Oversized CSS is scanned through the full-source scanner and detects a remote @import placed after large benign padding.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["sink.import_remote", "url.remote"],
+  "forbiddenReasons": ["analysis.skipped.too_large"],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

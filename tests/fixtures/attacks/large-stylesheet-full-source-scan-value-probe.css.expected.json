@@ -1,0 +1,9 @@
+{
+  "description": "Oversized CSS is scanned through the full-source scanner and detects a value-probing remote URL rule placed after large benign padding.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.prefix_match", "selector.attribute.sensitive_name", "sink.remote_url", "url.remote"],
+  "forbiddenReasons": ["analysis.skipped.too_large"],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

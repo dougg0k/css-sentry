@@ -3,7 +3,7 @@ import { ANALYSIS_LIMITS } from "../../shared/constants";
 import { analyzeDeclaration, collectCustomProperties, mergeCustomProperties, parseDeclarations, type RawDeclaration } from "../css/declarations";
 import { extractImportUrls } from "../css/normalizeUrl";
 import { splitTopLevel, unquoteCssString } from "../css/text";
-import { parseCss } from "../css/parseCss";
+import { parseCss, parseLargeStylesheetCss } from "../css/parseCss";
 import { createFinding } from "../findings/createFinding";
 import { analyzeDeclarationRisk } from "./analyzeDeclaration";
 import { analyzeSelector } from "./analyzeSelector";
@@ -20,32 +20,8 @@ export interface AnalyzeStylesheetInput {
 
 export function analyzeStylesheet(input: AnalyzeStylesheetInput): AnalysisSummary {
 	const startedAt = Date.now();
-	if (byteLength(input.cssText) > ANALYSIS_LIMITS.maxStyleTextBytes) {
-		return {
-			state: "analysis.skipped.too_large",
-			findings: [
-				createFinding({
-					severity: "info",
-					confidence: 100,
-					pageUrl: input.pageUrl,
-					frameUrl: input.frameUrl ?? null,
-					sourceKind: input.sourceKind,
-					sourceUrl: input.sourceUrl,
-					state: "analysis.skipped.too_large",
-					reasons: ["analysis.skipped.too_large"],
-					details: "Stylesheet exceeded the configured analysis size limit.",
-				}),
-			],
-			analyzedStylesheets: 0,
-			partialStylesheets: 1,
-			analyzedFrames: 0,
-			partialFrames: 0,
-			startedAt,
-			finishedAt: Date.now(),
-		};
-	}
-
-	const rules = parseCss(input);
+	const isLargeStylesheet = byteLength(input.cssText) > ANALYSIS_LIMITS.maxStyleTextBytes;
+	const rules = isLargeStylesheet ? parseLargeStylesheetCss(input) : parseCss(input);
 	const findings = analyzeParsedRules(rules, input.maxFindings ?? ANALYSIS_LIMITS.maxFindingsPerPage);
 	return {
 		state: findings.some((finding) => finding.state !== "analysis.complete") ? "analysis.partial" : "analysis.complete",
@@ -65,7 +41,6 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 	const remoteFontFaces = collectRemoteFontFaces(rules);
 
 	for (const rule of rules) {
-		if (findings.length >= maxFindings) break;
 		const localProperties = collectCustomProperties(rule.declarationsText);
 		const customProperties = mergeCustomProperties(inheritedCustomProperties, localProperties);
 		if (localProperties.size > 0) inheritedCustomProperties = customProperties;
@@ -85,7 +60,7 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 			for (const url of parseImportUrls(rule)) {
 				importDeclaration.urls.push(url);
 			}
-			pushFindingForDeclaration(findings, rule, selectorAnalysis, importDeclaration);
+			pushFindingForDeclaration(findings, rule, selectorAnalysis, importDeclaration, maxFindings);
 			continue;
 		}
 
@@ -95,12 +70,11 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 		if (rule.type === "font-face") continue;
 
 		for (const declaration of declarations) {
-			if (findings.length >= maxFindings) break;
 			const analyzed = analyzeDeclaration(declaration, rule.context.sourceUrl ?? rule.context.pageUrl, customProperties);
-			pushFindingForDeclaration(findings, rule, selectorAnalysis, analyzed);
+			pushFindingForDeclaration(findings, rule, selectorAnalysis, analyzed, maxFindings);
 
 			const fontReference = remoteFontReferenceDeclaration(declaration, remoteFontFaces);
-			if (fontReference) pushFindingForDeclaration(findings, rule, selectorAnalysis, fontReference);
+			if (fontReference) pushFindingForDeclaration(findings, rule, selectorAnalysis, fontReference, maxFindings);
 		}
 	}
 	return findings;
@@ -116,6 +90,7 @@ function pushFindingForDeclaration(
 	rule: ParsedCssRule,
 	selectorAnalysis: ReturnType<typeof analyzeSelector> | null,
 	declaration: DeclarationInfo,
+	maxFindings: number,
 ): void {
 	const declarationRisk = analyzeDeclarationRisk(declaration, rule.type);
 	const hasSensitiveSelectorSignals = selectorAnalysis?.isSensitive ?? false;
@@ -141,7 +116,8 @@ function pushFindingForDeclaration(
 	if (rule.context.atRuleStack.length > 0) reasons.add("css.grouping_rule.nested");
 
 	const primaryUrl = declaration.urls.find((url) => url.isRemote) ?? declaration.urls[0] ?? null;
-	findings.push(
+	addCappedFinding(
+		findings,
 		createFinding({
 			severity: severityFromScore(score),
 			confidence: confidenceFromScore(score),
@@ -156,7 +132,40 @@ function pushFindingForDeclaration(
 			reasons: [...reasons],
 			details: buildFindingDetails(rule, declaration, selectorAnalysis?.isSensitive ?? false),
 		}),
+		maxFindings,
 	);
+}
+
+function addCappedFinding(findings: Finding[], candidate: Finding, maxFindings: number): void {
+	if (maxFindings <= 0) return;
+	if (findings.length < maxFindings) {
+		findings.push(candidate);
+		return;
+	}
+	let weakestIndex = 0;
+	for (let index = 1; index < findings.length; index += 1) {
+		if (compareFindingPriority(findings[index], findings[weakestIndex]) < 0) weakestIndex = index;
+	}
+	if (compareFindingPriority(candidate, findings[weakestIndex]) > 0) findings[weakestIndex] = candidate;
+}
+
+const SEVERITY_PRIORITY = { info: 0, low: 1, medium: 2, high: 3, critical: 4 } as const;
+
+function compareFindingPriority(left: Finding, right: Finding): number {
+	const severityDelta = SEVERITY_PRIORITY[left.severity] - SEVERITY_PRIORITY[right.severity];
+	if (severityDelta !== 0) return severityDelta;
+	const confidenceDelta = left.confidence - right.confidence;
+	if (confidenceDelta !== 0) return confidenceDelta;
+	return reasonPriority(left) - reasonPriority(right);
+}
+
+function reasonPriority(finding: Finding): number {
+	let score = 0;
+	if (finding.reasons.includes("url.local_network")) score += 3;
+	if (finding.reasons.includes("selector.attribute.prefix_match") || finding.reasons.includes("selector.attribute.substring_match") || finding.reasons.includes("selector.attribute.suffix_match")) score += 2;
+	if (finding.reasons.includes("sink.import_remote")) score += 2;
+	if (finding.reasons.includes("sink.remote_url") || finding.reasons.includes("sink.svg_paint_remote")) score += 1;
+	return score;
 }
 
 function collectRemoteFontFaces(rules: ParsedCssRule[]): Map<string, CssUrlAnalysis[]> {

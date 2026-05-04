@@ -1,6 +1,6 @@
 # Self-Security Hardening Traceability
 
-Last Updated: 2026/04/30 18:10:00 -03
+Last Updated: 2026/05/03 21:36:00 -03
 
 ## Purpose
 
@@ -127,3 +127,7 @@ Advanced optional features must be off by default, documented, tested, and scope
 ## 1.0.15 Install-Hygiene Note
 
 `pnpm-workspace.yaml` is intentionally kept at the repository root to record approved pnpm build dependencies used by the toolchain. Development false-positive sweep reports are generated under `test-results/` and remain excluded from source and runtime packages.
+
+## SS-013 — Large Stylesheet Analysis Bypass Prevention
+
+CSS Sentry must not treat large available stylesheet text as safe or unscanned merely because it exceeds the normal parser size threshold. Large stylesheet handling must continue to inspect the source, route recovered rules through the normal risk analyzer, and retain high-priority findings even when report caps are reached.

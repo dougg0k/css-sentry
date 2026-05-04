@@ -1,10 +1,10 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/04/30 18:10:00 -03
+Last Updated: 2026/05/03 21:36:00 -03
 
-**Status document version:** 1.0.19
-**Package audited:** `css_sentry_1.0.19`
-**Audit timestamp:** 2026-04-30 18:10:00 -03 (`America/Sao_Paulo`)
+**Status document version:** 1.0.21
+**Package audited:** `css_sentry_1.0.21`
+**Audit timestamp:** 2026/05/03 21:36:00 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
@@ -32,6 +32,8 @@ This document is intentionally stricter than the README. Update it whenever impl
 ## Current Verification Snapshot
 
 
+`1.0.21` is a large-stylesheet analysis hardening patch built from the passing `1.0.19` source line. It replaces the old size-skip behavior with a complete source scanner for oversized stylesheets, routes those rules through the same selector/declaration analyzer used by normal stylesheets, keeps large benign generated CSS non-actionable, and detects malicious remote imports, remote URL sinks, local/private-network destinations, and nested value-probing selectors even when they appear after large benign padding. It also changes finding collection so the analyzer continues scanning after the report cap is filled and keeps the highest-priority findings instead of stopping at the first capped set. Source URL canonicalization in report merging prevents duplicate stylesheet findings caused only by empty URL fragments.
+
 `1.0.19` is a 250-site sweep-driven false-positive and popup clarity patch. It narrows selector sensitivity scoring for common UI class/data/type selectors, avoids Balanced-mode blocking for common remote font stylesheet imports, keeps unknown remote import sinks covered, adds action-state clarity to the popup, and expands false-positive sweep summary counters.
 
 `1.0.18` is a development-script convenience patch built from the passing `1.0.17` source line. It adds `pnpm run audit:false-positives:all` for the full 250-site false-positive sweep with full report saving enabled, while preserving the existing configurable `audit:false-positives` script.
@@ -57,7 +59,7 @@ This document is intentionally stricter than the README. Update it whenever impl
 
 `1.0.5` preserves the restored detailed documentation set, adds CVE-2026-40301 executable coverage, and updates project tracking documents additively so the changelog, status coverage, specification requirements, CVE traceability, self-security controls, and release checklist remain consistent.
 
-Required local verification after extracting `1.0.19`:
+Required local verification after extracting `1.0.21`:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -186,6 +188,7 @@ This index exists so implemented project behavior remains findable in at least o
 | Popup, Options, and Report UI | `docs/SPEC.md`; `docs/STATUS.md` | UI unit tests and e2e page exposure tests |
 | Passive, Balanced, Strict, paused/trusted, and advanced modes | `docs/SPEC.md`; `docs/STATUS.md` | settings storage, UI tests, e2e report/policy behavior |
 | Parser-backed CSS analysis | `docs/SPEC.md`; `docs/CVE_SPEC.md`; `docs/STATUS.md` | `src/core/css/parseCss.ts`; parser and fixture tests |
+| Large-stylesheet source scanning | `docs/SPEC.md`; `docs/STATUS.md` | oversized stylesheet attack/benign fixtures and analyzer cap-priority tests |
 | Lightweight parser fallback | `docs/SPEC.md`; `docs/STATUS.md` | parser tests and CVE/parser differential fixtures |
 | Selector-risk and declaration-risk reason codes | `docs/SPEC.md`; `docs/STATUS.md` | analyzer tests and fixture expectations |
 | Exact `[value]` selector handling without `[data-value]` false positive | `docs/SPEC.md`; `docs/STATUS.md` | historical issue criteria and fixture tests |
@@ -375,6 +378,24 @@ These are candidates after v1. They are not required for v1 unless explicitly mo
 | Badge severity options | Post-v1 UI customization for changing how the extension badge displays severity or counts. The current badge/status behavior is enough for v1; extra badge modes would be preference polish rather than a detection or mitigation improvement. |
 | SVG image-document policy handling | Implemented as advanced, off-by-default reporting and Strict-mode destination-policy handling. Inline/rendered SVG DOM content remains fully in scope; externally loaded SVG image-document internals are still not claimed inspectable. |
 | Additional sanitizer-specific fixture packs | Active future-watch item, not a blanket out-of-scope item. Add fixtures when an advisory maps to CSS-triggered remote-resource behavior, selector probing, CSS imports, inline style leaks, or rendered-content CSS injection. Keep pure JavaScript-XSS/package-version scanning out of scope. |
+
+
+## 1.0.21 Exploit-Resistance Review
+
+The large-stylesheet issue was a real bypass risk because a malicious stylesheet could exceed the configured full-parser size threshold and avoid the normal selector/declaration risk pipeline. `1.0.21` changes that threshold from a skip decision into a parser-strategy decision: large stylesheets avoid full AST allocation, but the file is still scanned from start to finish and detected rules are analyzed through the same risk engine as normal CSS.
+
+Additional implementation review findings handled in this patch:
+
+- **Early report-cap termination:** `analyzeParsedRules` previously stopped scanning once `maxFindings` was reached. A padded stylesheet could place lower-priority detections before a later higher-risk rule. The analyzer now keeps scanning and retains the highest-priority findings within the cap.
+- **Nested oversized CSS:** large-source scanning now descends into nested rule bodies so nested value-probing selectors do not become a large-file blind spot.
+- **Duplicate stylesheet source URLs:** report merging canonicalizes stylesheet source URLs for deduplication so an empty fragment variant such as `file.css#` does not duplicate the same finding as `file.css`.
+- **DNR dynamic-rule cap ordering:** finding-based DNR mitigation now sorts high-confidence candidates by severity and high-risk reasons before applying the dynamic rule cap, so later local-network or import candidates are not omitted only because lower-priority candidates appeared first.
+
+Remaining limitations after review:
+
+- Cross-origin stylesheets whose `cssRules` are blocked by the browser remain browser-uninspectable unless a browser-specific response-inspection path is available and explicitly enabled. CSS Sentry reports this as coverage, not as a safe result.
+- The analyzer still uses report caps to keep local reports bounded, but scanning continues after the cap and stronger later findings can replace weaker earlier findings.
+- The complete source scanner is intentionally simpler than the normal css-tree AST path. It is used for oversized stylesheets to avoid the prior skip behavior while preserving compatibility and avoiding extension-origin remote CSS fetching.
 
 ## Features Avoided
 

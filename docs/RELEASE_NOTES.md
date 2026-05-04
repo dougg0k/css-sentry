@@ -1,3 +1,11 @@
+## 1.0.21 — Full Large-Stylesheet Source Scan and Scan-Cap Hardening
+
+Implemented the large-stylesheet correction from the passing `1.0.19` source line instead of carrying forward the earlier `1.0.20` fallback package. Oversized stylesheets now use a complete source scanner and the normal analyzer/scoring path, so they are not reported as `analysis.skipped.too_large` and malicious rules placed after large benign padding are still evaluated. Large stylesheet size now selects a lower-allocation parsing strategy; it does not disable analysis.
+
+The analyzer also continues scanning after the report cap is filled and retains the highest-priority findings instead of stopping at the first `maxFindings` matches. This prevents padded stylesheets from filling the report with earlier lower-priority findings before a later local-network, import, SVG, or sensitive selector sink. Nested rules inside oversized stylesheets are also scanned, DNR rule generation prioritizes stronger candidates when the dynamic rule cap is reached, and merged reports canonicalize stylesheet source URLs for deduplication so `file.css` and `file.css#` do not create duplicate finding rows.
+
+Added regression fixtures for oversized benign generated CSS, oversized remote `@import`, oversized value-probing remote URL sinks, and oversized nested value-probing CSS. Added unit coverage for full large-stylesheet scanning and finding-cap prioritization.
+
 ## 1.0.19 — Sweep-Driven False-Positive Reduction and Popup Action Clarity
 
 Implemented the next compatibility hardening pass from the 250-site false-positive sweep. CSS Sentry now avoids treating common UI substring selectors such as icon/theme class selectors, non-secret `data-*` state selectors, and decorative `input[type=password]` / `input[type=email]` styling as sensitive value-probing patterns. Common third-party font stylesheet imports from Google Fonts and Adobe Typekit are no longer treated as high-confidence Balanced-mode block candidates, while unknown remote `@import` sinks remain covered by the existing attack fixtures.
@@ -60,7 +68,7 @@ Replaced `src/assets/icon.png` with the newly provided corrected PNG after `1.0.
 
 
 
-Last Updated: 2026/04/30 18:10:00 -03
+Last Updated: 2026/05/03 21:36:00 -03
 
 
 ## Document Role

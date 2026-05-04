@@ -174,9 +174,12 @@ describe("project structure", () => {
     expect(checklist).toContain("1.0.6 Additional Maintenance Checks");
     expect(checklist).toContain("1.0.7 Additional Search and Fixture Checks");
     expect(spec).toContain("1.0.10 Advanced Optional Coverage Requirements");
+    expect(spec).toContain("1.0.21 Large-Stylesheet Source Scan Requirement");
     expect(status).toContain("1.0.10 Advanced SVG, Firefox, and Diagnostics Options");
+    expect(status).toContain("1.0.21 Exploit-Resistance Review");
     expect(cveSpec).toContain("1.0.10 Advanced Optional CVE Coverage Policy");
     expect(releaseNotes).toContain("## 1.0.10");
+    expect(releaseNotes).toContain("## 1.0.21");
     expect(status).toContain("## Features Avoided");
     expect(status).not.toContain("## Features Avoided for v1");
     expect(status).not.toContain("| CI workflow |");
