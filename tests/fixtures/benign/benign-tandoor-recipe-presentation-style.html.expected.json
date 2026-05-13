@@ -1,0 +1,5 @@
+{
+  "description": "Benign recipe/rich-text presentation style should not become actionable when it contains no remote sink or sensitive probe.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

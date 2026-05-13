@@ -18,6 +18,7 @@ export interface DeclarationRisk {
   hasCssOnlyRisk: boolean;
   hasNetworkCapableProperty: boolean;
   isStandaloneFontFace: boolean;
+  hasDeclarationDataProbe: boolean;
 }
 
 export function analyzeDeclarationRisk(declaration: DeclarationInfo, ruleType: "style" | "font-face" | "import"): DeclarationRisk {
@@ -30,8 +31,11 @@ export function analyzeDeclarationRisk(declaration: DeclarationInfo, ruleType: "
   const hasCrossOriginSink = declaration.urls.some((url) => url.isRemote && url.isCrossOrigin);
   const hasNetworkCapableProperty = NETWORK_SINK_PROPERTIES.has(property) || FONT_REFERENCE_PROPERTIES.has(property) || ruleType === "import" || ruleType === "font-face";
   let hasCssOnlyRisk = false;
+  const hasDeclarationDataProbe = Boolean(declaration.usesAttributeSource || declaration.usesConditionalIf || declaration.usesStyleQuery);
 
-  if (ruleType === "import" && hasCrossOriginSink) {
+  const hasImageSetSink = declaration.urls.some((url) => url.isImageSet && url.isRemote);
+
+  if (ruleType === "import" && hasRemoteSink) {
     if (isCommonRemoteStylesheetImport(declaration)) {
       // Common font-provider @import rules are normal site plumbing and should not be
       // treated as blocked exfiltration attempts in Balanced mode. Unknown cross-origin
@@ -45,25 +49,52 @@ export function analyzeDeclarationRisk(declaration: DeclarationInfo, ruleType: "
         hasCssOnlyRisk,
         hasNetworkCapableProperty,
         isStandaloneFontFace: false,
+        hasDeclarationDataProbe,
       };
     }
     score += 6;
     reasons.add("sink.import_remote");
-  } else if (ruleType === "font-face" && hasCrossOriginSink) {
+  } else if (ruleType === "font-face" && hasRemoteSink) {
     // A standalone remote font is common on modern sites and is not CSS exfiltration by itself.
     // Keep the reason for diagnostics, but do not make it a high-confidence finding without a
     // separate selector-driven font-family reference.
     score += 1;
     reasons.add("sink.font_remote");
-  } else if (FONT_REFERENCE_PROPERTIES.has(property) && hasCrossOriginSink) {
-    score += 5;
+  } else if (FONT_REFERENCE_PROPERTIES.has(property) && hasRemoteSink) {
+    score += hasCrossOriginSink ? 5 : 3;
     reasons.add("sink.font_remote");
-  } else if (NETWORK_SINK_PROPERTIES.has(property) && hasCrossOriginSink) {
-    score += 5;
+  } else if (NETWORK_SINK_PROPERTIES.has(property) && hasRemoteSink) {
+    score += hasCrossOriginSink ? 5 : 3;
     reasons.add("sink.remote_url");
     if (property === "content") reasons.add("sink.inline_remote_url");
   } else if (NETWORK_SINK_PROPERTIES.has(property) && hasAnyUrlSink) {
     score += 1;
+  }
+
+  if (hasImageSetSink) {
+    score += hasCrossOriginSink ? 2 : 1;
+    reasons.add("sink.image_set_remote");
+  }
+
+  if (declaration.usesFontUnicodeRange && hasRemoteSink) {
+    score += hasCrossOriginSink ? 2 : 1;
+    reasons.add("sink.font_unicode_range_remote");
+  }
+
+  if (declaration.usesAttributeSource) {
+    score += hasRemoteSink ? 2 : 1;
+    reasons.add("css.value.attr_source");
+  }
+  if (declaration.usesConditionalIf) {
+    score += hasRemoteSink ? 2 : 1;
+    reasons.add("css.value.conditional_if");
+  }
+  if (declaration.usesStyleQuery) {
+    score += hasRemoteSink ? 2 : 1;
+    reasons.add("css.value.style_query");
+  }
+  if (hasRemoteSink && declaration.usesAttributeSource && (declaration.usesConditionalIf || declaration.usesStyleQuery)) {
+    score += hasCrossOriginSink ? 3 : 2;
   }
 
   if (property === "position" && /\bfixed\b/.test(value) && /!\s*important\b/.test(value)) {
@@ -96,6 +127,7 @@ export function analyzeDeclarationRisk(declaration: DeclarationInfo, ruleType: "
     hasCssOnlyRisk,
     hasNetworkCapableProperty,
     isStandaloneFontFace: ruleType === "font-face",
+    hasDeclarationDataProbe,
   };
 }
 

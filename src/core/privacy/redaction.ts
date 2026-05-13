@@ -54,6 +54,7 @@ export function sanitizeFindingForStorage(finding: Finding): Finding {
     sourceUrl: redactSensitiveUrl(finding.sourceUrl) ?? finding.sourceUrl,
     selector: finding.selector ? redactSensitiveText(finding.selector, 180) : null,
     destinationUrl: redactSensitiveUrl(finding.destinationUrl),
+    requestUrl: null,
     details: redactSensitiveText(finding.details, 260)
   };
 }

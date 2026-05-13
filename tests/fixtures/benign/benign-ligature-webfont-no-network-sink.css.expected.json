@@ -1,0 +1,5 @@
+{
+  "description": "Remote brand webfont ligature usage without a network-capable exfil sink should remain non-actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

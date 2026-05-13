@@ -28,6 +28,8 @@ export type MitigationAction =
   | "warned"
   | "neutralized"
   | "blocked_dnr"
+  | "rule_installed_dnr"
+  | "future_blocked_dnr"
   | "blocked_strict_third_party"
   | "disabled_stylesheet"
   | "removed_style_node";
@@ -57,9 +59,19 @@ export type ReasonCode =
   | "selector.repeated_probe_pattern"
   | "sink.remote_url"
   | "sink.import_remote"
+  | "sink.image_set_remote"
   | "sink.font_remote"
+  | "sink.font_unicode_range_remote"
+  | "sink.font_metric_side_channel"
+  | "css.font_ligature_feature"
+  | "css.font_generated_content_probe"
+  | "css.font_measurement_setup"
+  | "css.font_animation_chain"
+  | "css.font_import_chain"
+  | "css.container_size_query"
   | "sink.svg_reference"
   | "sink.svg_paint_remote"
+  | "sink.svg_resource_remote"
   | "sink.inline_remote_url"
   | "sink.html_body_background"
   | "sink.svg_feimage_remote"
@@ -67,6 +79,11 @@ export type ReasonCode =
   | "sink.stylesheet_link_remote"
   | "source.data_stylesheet"
   | "css.fixed_position.important"
+  | "css.value.attr_source"
+  | "css.value.conditional_if"
+  | "css.value.style_query"
+  | "css.container_query"
+  | "css.keyframes_remote_sink"
   | "url.cross_origin"
   | "url.remote"
   | "url.high_entropy"
@@ -95,6 +112,7 @@ export interface CssUrlAnalysis {
   isData: boolean;
   isSafeDataUrl: boolean;
   isSvgReference: boolean;
+  isImageSet: boolean;
   isHighEntropy: boolean;
   isLocalNetwork: boolean;
 }
@@ -107,7 +125,13 @@ export interface DeclarationInfo {
   usesUnresolvedVar: boolean;
   unresolvedVars: string[];
   usesCustomPropertyUrl: boolean;
+  usesFontUnicodeRange?: boolean;
+  usesAttributeSource?: boolean;
+  attributeSources?: string[];
+  usesConditionalIf?: boolean;
+  usesStyleQuery?: boolean;
 }
+
 
 export interface AttributeSelectorInfo {
   name: string;
@@ -155,7 +179,9 @@ export interface Finding {
   property: string | null;
   destinationOrigin: string | null;
   destinationUrl: string | null;
+  requestUrl?: string | null;
   action: MitigationAction;
+  additionalActions?: MitigationAction[];
   state: AnalysisState;
   reasons: ReasonCode[];
   timestamp: number;
@@ -181,6 +207,7 @@ export interface CompatibilitySettings {
   enableFirefoxEnhancedMode: boolean;
   reportExternalSvgImageDocuments: boolean;
   enableSvgImageDnrPolicy: boolean;
+  enableContentNeutralization: boolean;
 }
 
 export interface SitePolicy {

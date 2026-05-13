@@ -1,6 +1,6 @@
 import { browser } from "wxt/browser";
 import { STORAGE_KEYS } from "../../shared/constants";
-import type { DnrStatus, Finding, SitePolicy } from "../../shared/types";
+import type { DnrStatus, ExtensionMode, Finding, SitePolicy } from "../../shared/types";
 import { getOrigin } from "../../shared/url";
 
 const DNR_BASE_RULE_ID = 700_000;
@@ -25,6 +25,8 @@ type DnrScope = DnrStatus["scope"];
 export interface DnrBlockResult {
   blockedUrls: string[];
   blockedFindings: Set<string>;
+  ruleInstalledUrls: string[];
+  ruleInstalledFindings: Set<string>;
   skippedAllowedUrls: string[];
   strictThirdPartyRule: boolean;
   policyRuleCount: number;
@@ -49,46 +51,56 @@ interface RuleInput {
   domainType?: "thirdParty";
 }
 
-export async function blockHighConfidenceFindingUrls(findings: Finding[], tabId: number, policy?: SitePolicy): Promise<DnrBlockResult> {
+export async function blockHighConfidenceFindingUrls(findings: Finding[], tabId: number, policy?: SitePolicy, mode: ExtensionMode = "balanced"): Promise<DnrBlockResult> {
   if (!hasDnrSupport()) return unsupportedResult("finding");
 
   const blockedFindings = new Set<string>();
   const blockedUrls: string[] = [];
   const skippedAllowedUrls: string[] = [];
+  const ruleInstalledFindings = new Set<string>();
+  const ruleInstalledUrls: string[] = [];
   const rules: ReturnType<typeof toDnrRule>[] = [];
 
   const candidates = findings
-    .filter((finding) => (finding.severity === "high" || finding.severity === "critical") && Boolean(finding.destinationUrl) && isBalancedDnrBlockCandidate(finding))
+    .filter((finding) => Boolean(finding.destinationUrl) && isSeverityEligibleForDnr(finding, mode))
     .sort(compareDnrCandidatePriority);
 
   for (const finding of candidates) {
     if (rules.length >= MAX_DYNAMIC_RULES_PER_SCAN) break;
-    const destinationUrl = finding.destinationUrl as string;
+    const destinationUrl = (finding.requestUrl ?? finding.destinationUrl) as string;
     const decision = policy ? destinationPolicyForUrl(destinationUrl, policy) : { action: "neutral" as const, origin: getOrigin(destinationUrl) };
     if (decision.action === "allow") {
       skippedAllowedUrls.push(destinationUrl);
       continue;
     }
+    if (decision.action !== "block" && !isFindingDnrBlockCandidate(finding, mode)) continue;
 
     const destination = parseUrl(destinationUrl);
     const id = tabRuleId(tabId, rules.length);
+    const preciseFilter = destination ? preciseRequestRegex(destination) : null;
     rules.push(toDnrRule({
       id,
-      priority: decision.action === "block" ? 6 : 2,
+      priority: decision.action === "block" ? 6 : mode === "strict" ? 4 : 2,
       action: "block",
-      requestDomains: destination ? [destination.hostname] : undefined,
-      urlFilter: destination ? undefined : destinationUrl,
+      requestDomains: preciseFilter ? undefined : destination ? [destination.hostname] : undefined,
+      regexFilter: preciseFilter ?? undefined,
+      urlFilter: !destination ? destinationUrl : undefined,
       tabId,
       resourceTypes: DNR_RESOURCE_TYPES
     }));
-    blockedFindings.add(finding.id);
-    blockedUrls.push(destinationUrl);
+    if (decision.action === "block") {
+      blockedFindings.add(finding.id);
+      blockedUrls.push(destinationUrl);
+    } else {
+      ruleInstalledFindings.add(finding.id);
+      ruleInstalledUrls.push(destinationUrl);
+    }
   }
 
   try {
     await browser.declarativeNetRequest.updateSessionRules({ removeRuleIds: tabRuleIds(tabId), addRules: rules });
-    await recordDnrStatus("finding", true, `Installed ${rules.length} finding-based DNR rule(s) for tab ${tabId}.`, rules.length);
-    return { blockedUrls, blockedFindings, skippedAllowedUrls, strictThirdPartyRule: false, policyRuleCount: 0, ok: true, message: "finding rules applied" };
+    await recordDnrStatus("finding", true, `Installed ${rules.length} finding-derived DNR rule(s) for later matching requests in tab ${tabId}.`, rules.length);
+    return { blockedUrls, blockedFindings, ruleInstalledUrls, ruleInstalledFindings, skippedAllowedUrls, strictThirdPartyRule: false, policyRuleCount: 0, ok: true, message: "finding rules applied for future requests" };
   } catch (error) {
     const message = errorMessage(error);
     await recordDnrStatus("finding", false, message, rules.length);
@@ -106,6 +118,8 @@ export async function applyGlobalPolicyDnrRules(policy: SitePolicy): Promise<Dnr
     return {
       blockedUrls: originsToRuleTargets(policy.blocklistedOrigins).map((target) => target.origin),
       blockedFindings: new Set(),
+      ruleInstalledUrls: [],
+      ruleInstalledFindings: new Set(),
       skippedAllowedUrls: originsToRuleTargets(policy.allowlistedOrigins).map((target) => target.origin),
       strictThirdPartyRule: false,
       policyRuleCount: addRules.length,
@@ -156,6 +170,8 @@ export async function applyTabPolicyDnrRules(tabId: number, topLevelUrl: string,
     return {
       blockedUrls: blocklistedTargets.map((target) => target.origin),
       blockedFindings: new Set(),
+      ruleInstalledUrls: [],
+      ruleInstalledFindings: new Set(),
       skippedAllowedUrls: allowlistedTargets.map((target) => target.origin),
       strictThirdPartyRule: strictEnabled && (policy.compatibility.enableStrictThirdPartyBlocking || policy.compatibility.enableSvgImageDnrPolicy),
       policyRuleCount: addRules.length,
@@ -250,25 +266,71 @@ function compareDnrCandidatePriority(left: Finding, right: Finding): number {
   if (importDelta !== 0) return importDelta;
   const selectorDelta = Number(hasSensitiveSelectorReason(right)) - Number(hasSensitiveSelectorReason(left));
   if (selectorDelta !== 0) return selectorDelta;
+  const declarationProbeDelta = Number(hasDeclarationDataProbeReason(right)) - Number(hasDeclarationDataProbeReason(left));
+  if (declarationProbeDelta !== 0) return declarationProbeDelta;
+  const fontSideChannelDelta = Number(hasFontSideChannelReason(right)) - Number(hasFontSideChannelReason(left));
+  if (fontSideChannelDelta !== 0) return fontSideChannelDelta;
   return right.confidence - left.confidence;
+}
+
+function isSeverityEligibleForDnr(finding: Finding, mode: ExtensionMode): boolean {
+  if (mode === "strict") return finding.severity === "medium" || finding.severity === "high" || finding.severity === "critical";
+  return finding.severity === "high" || finding.severity === "critical";
+}
+
+function isFindingDnrBlockCandidate(finding: Finding, mode: ExtensionMode): boolean {
+  if (mode === "strict") return isStrictDnrBlockCandidate(finding);
+  return isBalancedDnrBlockCandidate(finding);
+}
+
+function isStrictDnrBlockCandidate(finding: Finding): boolean {
+  if (!hasSinkReason(finding) && !finding.reasons.includes("url.local_network")) return false;
+  if (finding.reasons.includes("sink.font_remote") && !hasSensitiveSelectorReason(finding)) return false;
+  if (hasSensitiveSelectorReason(finding)) return true;
+  if (hasDeclarationDataProbeReason(finding)) return true;
+  if (hasFontSideChannelReason(finding)) return true;
+  if (finding.reasons.includes("sink.import_remote")) return true;
+  if (finding.reasons.includes("url.local_network")) return true;
+  return finding.reasons.includes("sink.image_set_remote") || finding.reasons.includes("sink.svg_reference") || finding.reasons.includes("sink.svg_paint_remote");
 }
 
 function isBalancedDnrBlockCandidate(finding: Finding): boolean {
   if (finding.reasons.includes("sink.font_remote") && !hasSensitiveSelectorReason(finding)) return false;
   if (!hasSinkReason(finding) && !finding.reasons.includes("url.local_network")) return false;
-  return true;
+  if (finding.reasons.includes("url.local_network")) return true;
+  if (hasSensitiveSelectorReason(finding)) return true;
+  if (hasDeclarationDataProbeReason(finding)) return true;
+  if (hasFontSideChannelReason(finding) && finding.reasons.includes("url.cross_origin")) return true;
+  if (finding.reasons.includes("sink.import_remote") && finding.reasons.includes("url.cross_origin")) return true;
+  return false;
 }
 
 function hasSensitiveSelectorReason(finding: Finding): boolean {
   return finding.reasons.some((reason) => reason.startsWith("selector.attribute") || reason === "selector.hidden_input" || reason === "selector.form_control");
 }
 
+function hasDeclarationDataProbeReason(finding: Finding): boolean {
+  return finding.reasons.includes("css.value.attr_source") || finding.reasons.includes("css.value.conditional_if") || finding.reasons.includes("css.value.style_query");
+}
+
+function hasFontSideChannelReason(finding: Finding): boolean {
+  return finding.reasons.includes("sink.font_metric_side_channel")
+    || finding.reasons.includes("css.container_query")
+    || finding.reasons.includes("css.container_size_query")
+    || finding.reasons.includes("css.keyframes_remote_sink")
+    || finding.reasons.includes("css.font_generated_content_probe")
+    || finding.reasons.includes("css.font_ligature_feature")
+    || finding.reasons.includes("css.font_measurement_setup")
+    || finding.reasons.includes("css.font_animation_chain")
+    || finding.reasons.includes("css.font_import_chain");
+}
+
 function hasSinkReason(finding: Finding): boolean {
-  return finding.reasons.some((reason) => reason.startsWith("sink.") || reason === "sink.import_remote");
+  return finding.reasons.some((reason) => reason.startsWith("sink."));
 }
 
 function emptyResult(ok = true, message = "no DNR rules applied"): DnrBlockResult {
-  return { blockedUrls: [], blockedFindings: new Set(), skippedAllowedUrls: [], strictThirdPartyRule: false, policyRuleCount: 0, ok, message };
+  return { blockedUrls: [], blockedFindings: new Set(), ruleInstalledUrls: [], ruleInstalledFindings: new Set(), skippedAllowedUrls: [], strictThirdPartyRule: false, policyRuleCount: 0, ok, message };
 }
 
 function unsupportedResult(scope: DnrScope): DnrBlockResult {
@@ -303,6 +365,12 @@ function policyRuleId(tabId: number, index: number): number { return policyRuleB
 function policyRuleIds(tabId: number): number[] { return Array.from({ length: MAX_POLICY_RULES_PER_TAB }, (_value, index) => policyRuleId(tabId, index)); }
 function globalPolicyRuleIds(): number[] { return Array.from({ length: MAX_GLOBAL_POLICY_RULES }, (_value, index) => GLOBAL_POLICY_BASE_RULE_ID + index); }
 function parseUrl(value: string): URL | null { try { return new URL(value); } catch { return null; } }
+
+function preciseRequestRegex(url: URL): string {
+  const clone = new URL(url.href);
+  clone.hash = "";
+  return `^${escapeRegex(clone.href)}$`;
+}
 
 interface PolicyRuleTarget {
   origin: string;

@@ -1,0 +1,12 @@
+@font-face {
+  font-family: "BrandLigatures";
+  src: url("https://fonts.gstatic.com/s/brandligatures.woff2") format("woff2");
+}
+.logo {
+  font-family: "BrandLigatures", sans-serif;
+  font-feature-settings: "liga" 1;
+  font-variant-ligatures: common-ligatures;
+}
+.logo::before {
+  content: "CSS Sentry";
+}

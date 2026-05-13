@@ -1,0 +1,9 @@
+.card-list {
+  container-type: inline-size;
+}
+@container (min-width: 20rem) {
+  .card-list .card {
+    background-image: url("/assets/card-bg.svg");
+    padding: 1rem;
+  }
+}

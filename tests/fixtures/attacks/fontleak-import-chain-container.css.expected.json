@@ -1,0 +1,14 @@
+{
+  "description": "Remote font measurement setup plus remote import chaining and a container-query URL sink is a dynamic Fontleak-style exfiltration shape.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.container_query",
+    "css.font_import_chain",
+    "css.font_measurement_setup",
+    "sink.font_metric_side_channel",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

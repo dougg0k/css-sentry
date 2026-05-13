@@ -32,13 +32,42 @@ export function isCoverageFinding(finding: Finding): boolean {
   return finding.reasons.some((reason) => reason.startsWith("stylesheet.") || reason.startsWith("frame.") || reason.startsWith("resource.svg_image_document") || reason.startsWith("analysis.skipped"));
 }
 
-export function changesPage(action: MitigationAction): boolean {
+export function findingActions(finding: Finding): MitigationAction[] {
+  return [...new Set([finding.action, ...(finding.additionalActions ?? [])])];
+}
+
+export function changesPage(actionOrFinding: MitigationAction | Finding): boolean {
+  const actions = typeof actionOrFinding === "string" ? [actionOrFinding] : findingActions(actionOrFinding);
+  return actions.some(isPageChangingAction);
+}
+
+export function hasInstalledBlockingRule(actionOrFinding: MitigationAction | Finding): boolean {
+  const actions = typeof actionOrFinding === "string" ? [actionOrFinding] : findingActions(actionOrFinding);
+  return actions.some(isInstalledBlockingRuleAction);
+}
+
+function isPageChangingAction(action: MitigationAction): boolean {
   return action === "blocked_dnr" || action === "blocked_strict_third_party" || action === "neutralized" || action === "disabled_stylesheet" || action === "removed_style_node";
 }
 
+function isInstalledBlockingRuleAction(action: MitigationAction): boolean {
+  return action === "rule_installed_dnr" || action === "future_blocked_dnr";
+}
+
 function actionDisplay(finding: Finding): { label: string; description: string; className: string } {
-  if (changesPage(finding.action)) {
-    return { label: "Blocked/changed", description: "CSS Sentry changed page behavior for this finding.", className: "actionBlocked" };
+  const actions = findingActions(finding);
+  if (actions.includes("blocked_dnr")) {
+    return { label: "Blocked", description: "A pre-existing network rule or policy prevented matching requests for this finding.", className: "actionBlocked" };
+  }
+  if (actions.includes("neutralized") || actions.includes("disabled_stylesheet") || actions.includes("removed_style_node")) {
+    const dnrText = actions.some(isInstalledBlockingRuleAction) ? " A precise DNR rule was also installed for reloads and later matching requests." : "";
+    return { label: "Changed on page", description: `CSS Sentry changed page behavior for this finding.${dnrText}`, className: "actionBlocked" };
+  }
+  if (actions.some(isInstalledBlockingRuleAction)) {
+    return { label: "Rule installed", description: "A precise DNR rule was installed after analysis. Reloads and later matching requests are blocked, but this row is not counted as a request already prevented.", className: "actionBlocked" };
+  }
+  if (actions.includes("blocked_strict_third_party")) {
+    return { label: "Strict policy blocked", description: "A strict network policy blocked this request class before page CSS analysis was needed.", className: "actionBlocked" };
   }
   if (isCoverageFinding(finding)) {
     return { label: "Coverage notice", description: "Informational coverage gap; no page change was made.", className: "actionCoverage" };
@@ -46,7 +75,7 @@ function actionDisplay(finding: Finding): { label: string; description: string; 
   if (finding.severity === "info") {
     return { label: "Info only", description: "Recorded for visibility; no page change was made.", className: "actionInfo" };
   }
-  return { label: "Logged only", description: "Potential issue recorded; no request was blocked.", className: "actionAllowed" };
+  return { label: "Logged only", description: "Potential issue recorded; no blocking rule was installed for this finding.", className: "actionAllowed" };
 }
 
 export { InfoTooltip };

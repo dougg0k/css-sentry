@@ -1,0 +1,5 @@
+{
+  "description": "Preserved presentation-only style content and local SVG fragment filters should stay non-actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

@@ -1,0 +1,8 @@
+{
+  "description": "A remote unicode-range font referenced only under a sensitive selector is a font request oracle and must remain actionable.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.prefix_match", "sink.font_remote", "sink.font_unicode_range_remote", "url.cross_origin"],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

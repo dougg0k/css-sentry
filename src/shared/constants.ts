@@ -39,7 +39,8 @@ export const DEFAULT_SITE_POLICY: SitePolicy = {
     showPartialAnalysisFindings: false,
     enableFirefoxEnhancedMode: false,
     reportExternalSvgImageDocuments: false,
-    enableSvgImageDnrPolicy: false
+    enableSvgImageDnrPolicy: false,
+    enableContentNeutralization: true
   }
 };
 

@@ -1,0 +1,3 @@
+#exfil_test21[value*="secret"] ~ #exfil_img21 {
+  background-image: var(--missing-poc-url, var(--still-missing, url("https://app.example.test/src/pwned21.png")));
+}

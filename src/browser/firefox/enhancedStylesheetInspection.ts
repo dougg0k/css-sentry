@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { ANALYSIS_LIMITS, DEFAULT_SITE_POLICY } from "../../shared/constants";
+import { DEFAULT_SITE_POLICY } from "../../shared/constants";
 import type { SitePolicy } from "../../shared/types";
 import { analyzeStylesheet } from "../../core/analyzer/analyzeStylesheet";
 import { saveFrameReport } from "../storage/reports";
@@ -74,12 +74,9 @@ function inspectStylesheetResponse(webRequest: FirefoxWebRequest, details: WebRe
   const filter = webRequest.filterResponseData?.(details.requestId);
   if (!filter) return;
   const chunks: ArrayBuffer[] = [];
-  let totalBytes = 0;
-
   filter.ondata = (event) => {
     const copy = event.data.slice(0);
-    totalBytes += copy.byteLength;
-    if (totalBytes <= ANALYSIS_LIMITS.maxStyleTextBytes) chunks.push(copy);
+    chunks.push(copy);
     filter.write(event.data);
   };
 
@@ -89,7 +86,6 @@ function inspectStylesheetResponse(webRequest: FirefoxWebRequest, details: WebRe
 
   filter.onstop = () => {
     try { filter.close(); } catch {}
-    if (totalBytes > ANALYSIS_LIMITS.maxStyleTextBytes) return;
     const cssText = decodeChunks(chunks);
     if (!cssText.trim()) return;
     const frameUrl = details.documentUrl ?? details.originUrl ?? details.initiator ?? details.url;

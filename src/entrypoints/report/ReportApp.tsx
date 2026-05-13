@@ -64,5 +64,20 @@ function FrameDetails({ frame }: { frame: FrameReport }) {
 }
 
 function FindingRow({ finding }: { finding: Finding }) {
-  return <li className="finding"><strong>{finding.severity}</strong> <span>{finding.details}</span><code>{finding.reasons.join(" · ")}</code>{finding.frameUrl ? <code>{finding.frameUrl}</code> : null}{finding.destinationOrigin ? <code>{finding.destinationOrigin}</code> : null}</li>;
+  return <li className="finding"><strong>{finding.severity}</strong> <span>{finding.details}</span><code>{findingActionText(finding)}</code><code>{finding.reasons.join(" · ")}</code>{finding.frameUrl ? <code>{finding.frameUrl}</code> : null}{finding.destinationOrigin ? <code>{finding.destinationOrigin}</code> : null}</li>;
+}
+
+function findingActionText(finding: Finding): string {
+  const actions = new Set([finding.action, ...(finding.additionalActions ?? [])]);
+  if (actions.has("blocked_dnr")) return "Action: request blocked by an already-active network rule or page mitigation";
+  if (actions.has("neutralized") || actions.has("disabled_stylesheet") || actions.has("removed_style_node")) {
+    const dnrText = actions.has("rule_installed_dnr") || actions.has("future_blocked_dnr")
+      ? "; precise DNR rule installed after analysis; reloads and later matching requests are blocked"
+      : "";
+    return `Action: ${finding.action}${dnrText}`;
+  }
+  if (actions.has("rule_installed_dnr") || actions.has("future_blocked_dnr")) return "Action: precise DNR rule installed after analysis; reloads and later matching requests are blocked";
+  if (actions.has("blocked_strict_third_party")) return "Action: strict policy blocked this request class";
+  if (finding.severity === "info") return "Action: informational only";
+  return "Action: logged only; no blocking rule installed for this finding";
 }

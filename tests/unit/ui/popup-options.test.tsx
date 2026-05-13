@@ -21,7 +21,7 @@ describe("React UI", () => {
     expect(screen.getAllByText("Detect and record findings only.").length).toBeGreaterThan(0);
     expect(screen.getByText(/Scans CSS and stores local findings, but avoids blocking or sanitizing/)).toBeInTheDocument();
     expect(screen.getAllByText(/Use when:/).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Warn and block high-confidence exfiltration attempts.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Warn and mitigate high-confidence exfiltration attempts.").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fail closed on sensitive sites.").length).toBeGreaterThan(0);
     expect(screen.getByText("Do not scan or mitigate this origin.")).toBeInTheDocument();
     expect(screen.getByText(/Marks the origin as trusted/)).toBeInTheDocument();
@@ -38,6 +38,7 @@ describe("React UI", () => {
     await waitFor(() => expect(screen.getByText("Compatibility and privacy")).toBeInTheDocument());
     expect(screen.getByText("Never fetch remote CSS from the extension")).toBeInTheDocument();
     expect(screen.getByText("Enable declarative network blocking")).toBeInTheDocument();
+    expect(screen.getByText("Enable content-level CSS neutralization")).toBeInTheDocument();
     expect(screen.getByText("Enable strict third-party resource blocking")).toBeInTheDocument();
     expect(screen.getByText("Show partial-analysis findings")).toBeInTheDocument();
     expect(screen.queryByText("Enable Firefox enhanced stylesheet response inspection")).not.toBeInTheDocument();
@@ -88,6 +89,19 @@ describe("React UI", () => {
     expect(screen.queryByRole("button", { name: /Paused:/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Always scan \/ never sanitize:/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Never scan \/ never sanitize:/ })).toBeInTheDocument();
+  });
+
+
+
+  it("renders viewport-clamped tooltip content in a document-level portal on hover", async () => {
+    render(<PopupApp />);
+    await waitFor(() => expect(screen.getByText("Protection mode")).toBeInTheDocument());
+    const modeHelp = screen.getByRole("button", { name: /global protection mode shared/i });
+    fireEvent.mouseEnter(modeHelp);
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip).toHaveTextContent(/global protection mode shared/i);
+    expect(tooltip.parentElement).toBe(document.body);
+    expect(tooltip).toHaveClass("tooltipBubble");
   });
 
   it("saves a global-mode update from the popup and settings reflects the same mode", async () => {
@@ -219,6 +233,54 @@ describe("React UI", () => {
     expect(screen.getAllByText("Logged only").length).toBeGreaterThan(0);
     expect(screen.getByText("Coverage notice")).toBeInTheDocument();
     expect(screen.getByText(/no request was blocked/i)).toBeInTheDocument();
+  });
+
+
+  it("popup distinguishes installed DNR rules from already-prevented requests", async () => {
+    const now = Date.now();
+    const summary = {
+      ...EMPTY_ANALYSIS_SUMMARY,
+      findings: [{
+        id: "future-1",
+        severity: "critical" as const,
+        confidence: 99,
+        pageUrl: "https://app.example.test/",
+        pageOrigin: "https://app.example.test",
+        frameUrl: "https://app.example.test/",
+        frameOrigin: "https://app.example.test",
+        sourceKind: "stylesheet" as const,
+        sourceUrl: "https://app.example.test/style.css",
+        sourceOrigin: "https://app.example.test",
+        selector: "input[value*=a]",
+        property: "background-image",
+        destinationOrigin: "https://app.example.test",
+        destinationUrl: "https://app.example.test/leak.png",
+        action: "rule_installed_dnr" as const,
+        state: "analysis.complete" as const,
+        reasons: ["selector.attribute.substring_match", "sink.remote_url", "url.remote"] as const,
+        timestamp: now,
+        details: "CSS rule with sensitive selector signals uses background-image with 1 remote URL sink(s).",
+      }],
+      analyzedFrames: 1,
+      analyzedStylesheets: 1,
+      startedAt: 1,
+      finishedAt: 2,
+    };
+    await browser.storage.local.set({
+      [`${STORAGE_KEYS.reportsPrefix}1`]: {
+        tabId: 1,
+        url: "https://app.example.test/",
+        origin: "https://app.example.test",
+        summary,
+        updatedAt: now,
+        frames: [],
+      },
+    });
+
+    render(<PopupApp />);
+    await waitFor(() => expect(screen.getByText("1 blocking rule active after analysis")).toBeInTheDocument());
+    expect(screen.getByText("Rule installed")).toBeInTheDocument();
+    expect(screen.getByText(/No request is counted as already prevented/i)).toBeInTheDocument();
   });
 
   it("renders local report page actions", async () => {

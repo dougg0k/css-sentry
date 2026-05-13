@@ -1,0 +1,15 @@
+{
+  "description": "Remote font use combined with container-query-controlled remote URL sinks is a Fontleak-style side-channel shape and should be actionable.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.container_query",
+    "sink.font_metric_side_channel",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

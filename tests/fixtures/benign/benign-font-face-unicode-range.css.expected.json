@@ -1,0 +1,5 @@
+{
+  "description": "Normal remote unicode-range webfont usage without a sensitive selector should not be an actionable finding.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

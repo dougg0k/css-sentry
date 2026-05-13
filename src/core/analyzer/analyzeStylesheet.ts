@@ -35,10 +35,20 @@ export function analyzeStylesheet(input: AnalyzeStylesheetInput): AnalysisSummar
 	};
 }
 
+interface StylesheetRiskContext {
+	hasRemoteFontFace: boolean;
+	hasRemoteFontMeasurementSetup: boolean;
+	hasGeneratedContentFontProbe: boolean;
+	hasFontLigatureFeatures: boolean;
+	hasFontAnimationChain: boolean;
+	hasFontImportChain: boolean;
+}
+
 export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number = ANALYSIS_LIMITS.maxFindingsPerPage): Finding[] {
 	const findings: Finding[] = [];
 	let inheritedCustomProperties = new Map<string, string>();
 	const remoteFontFaces = collectRemoteFontFaces(rules);
+	const stylesheetRiskContext = collectFontSideChannelContext(rules, remoteFontFaces);
 
 	for (const rule of rules) {
 		const localProperties = collectCustomProperties(rule.declarationsText);
@@ -60,7 +70,7 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 			for (const url of parseImportUrls(rule)) {
 				importDeclaration.urls.push(url);
 			}
-			pushFindingForDeclaration(findings, rule, selectorAnalysis, importDeclaration, maxFindings);
+			pushFindingForDeclaration(findings, rule, selectorAnalysis, importDeclaration, maxFindings, stylesheetRiskContext);
 			continue;
 		}
 
@@ -71,10 +81,10 @@ export function analyzeParsedRules(rules: ParsedCssRule[], maxFindings: number =
 
 		for (const declaration of declarations) {
 			const analyzed = analyzeDeclaration(declaration, rule.context.sourceUrl ?? rule.context.pageUrl, customProperties);
-			pushFindingForDeclaration(findings, rule, selectorAnalysis, analyzed, maxFindings);
+			pushFindingForDeclaration(findings, rule, selectorAnalysis, analyzed, maxFindings, stylesheetRiskContext);
 
 			const fontReference = remoteFontReferenceDeclaration(declaration, remoteFontFaces);
-			if (fontReference) pushFindingForDeclaration(findings, rule, selectorAnalysis, fontReference, maxFindings);
+			if (fontReference) pushFindingForDeclaration(findings, rule, selectorAnalysis, fontReference, maxFindings, stylesheetRiskContext);
 		}
 	}
 	return findings;
@@ -85,12 +95,143 @@ function parseImportUrls(rule: ParsedCssRule) {
 	return extractImportUrls(rule.declarationsText, baseUrl);
 }
 
+function collectFontSideChannelContext(rules: ParsedCssRule[], remoteFontFaces: Map<string, RemoteFontFace>): StylesheetRiskContext {
+	if (remoteFontFaces.size === 0) {
+		return {
+			hasRemoteFontFace: false,
+			hasRemoteFontMeasurementSetup: false,
+			hasGeneratedContentFontProbe: false,
+			hasFontLigatureFeatures: false,
+			hasFontAnimationChain: false,
+			hasFontImportChain: false,
+		};
+	}
+
+	let remoteFontUsage = false;
+	let metricSetup = false;
+	let generatedContent = false;
+	let generatedContentWithRemoteFont = false;
+	let ligatureFeatures = false;
+	let animationChain = false;
+	let remoteImport = false;
+
+	for (const rule of rules) {
+		if (rule.type === "import") {
+			remoteImport = remoteImport || parseImportUrls(rule).some((url) => url.isRemote);
+			continue;
+		}
+		if (rule.type === "font-face") continue;
+
+		const declarations = parseDeclarations(rule.declarationsText);
+		const referencesRemoteFont = declarations.some((declaration) => declarationReferencesRemoteFont(declaration, remoteFontFaces));
+		const hasGeneratedSelector = isGeneratedContentSelector(rule.selector);
+		const ruleHasGeneratedContent = hasGeneratedSelector || declarations.some(isGeneratedContentDeclaration);
+		const ruleHasLigatureFeature = declarations.some(isFontLigatureDeclaration);
+		const ruleHasMetricSetup = declarations.some(isFontMetricSetupDeclaration);
+		const ruleHasAnimation = declarations.some(isAnimationDeclaration) || rule.context.atRuleStack.some((entry) => /^@(?:-webkit-)?keyframes\b/i.test(entry));
+
+		remoteFontUsage = remoteFontUsage || referencesRemoteFont;
+		generatedContent = generatedContent || ruleHasGeneratedContent;
+		ligatureFeatures = ligatureFeatures || (referencesRemoteFont && ruleHasLigatureFeature);
+		metricSetup = metricSetup || (referencesRemoteFont && (ruleHasMetricSetup || ruleHasLigatureFeature || ruleHasGeneratedContent || isTextBearingLeakSelector(rule.selector)));
+		generatedContentWithRemoteFont = generatedContentWithRemoteFont || (referencesRemoteFont && ruleHasGeneratedContent);
+		animationChain = animationChain || (referencesRemoteFont && ruleHasAnimation);
+	}
+
+	const hasRemoteFontMeasurementSetup = remoteFontUsage && (metricSetup || (generatedContent && ligatureFeatures));
+	const hasGeneratedContentFontProbe = generatedContentWithRemoteFont || (remoteFontUsage && generatedContent && (ligatureFeatures || metricSetup));
+	const hasFontAnimationChain = animationChain || (remoteFontUsage && rules.some((rule) => rule.context.atRuleStack.some((entry) => /^@(?:-webkit-)?keyframes\b/i.test(entry))));
+	const hasFontImportChain = remoteImport && (hasRemoteFontMeasurementSetup || hasGeneratedContentFontProbe || hasFontAnimationChain);
+
+	return {
+		hasRemoteFontFace: true,
+		hasRemoteFontMeasurementSetup,
+		hasGeneratedContentFontProbe,
+		hasFontLigatureFeatures: ligatureFeatures,
+		hasFontAnimationChain,
+		hasFontImportChain,
+	};
+}
+
+function hasFontSideChannelContextForRule(
+	rule: ParsedCssRule,
+	context: StylesheetRiskContext,
+	hasContainerQueryContext: boolean,
+	hasKeyframesContext: boolean,
+): boolean {
+	if (!context.hasRemoteFontFace) return false;
+	if (hasContainerQueryContext && (context.hasRemoteFontMeasurementSetup || context.hasGeneratedContentFontProbe || context.hasFontImportChain)) return true;
+	if (hasKeyframesContext && (context.hasFontAnimationChain || context.hasGeneratedContentFontProbe || context.hasRemoteFontMeasurementSetup)) return true;
+	if ((rule.selector.includes("::before") || rule.selector.includes("::after")) && context.hasGeneratedContentFontProbe) return true;
+	return false;
+}
+
+function fontSideChannelScoreForContext(context: StylesheetRiskContext, hasContainerSizeQueryContext: boolean, hasKeyframesContext: boolean): number {
+	let score = 4;
+	if (hasContainerSizeQueryContext) score += 1;
+	if (hasKeyframesContext) score += 1;
+	if (context.hasRemoteFontMeasurementSetup) score += 1;
+	if (context.hasGeneratedContentFontProbe) score += 1;
+	if (context.hasFontLigatureFeatures) score += 1;
+	if (context.hasFontAnimationChain) score += 1;
+	if (context.hasFontImportChain) score += 1;
+	return score;
+}
+
+function isContainerSizeQuery(entry: string): boolean {
+	return /^@container\b/i.test(entry) && /\b(?:width|height|inline-size|block-size|min-width|max-width|min-height|max-height|cqw|cqh|cqi|cqb|cqmin|cqmax)\b/i.test(entry);
+}
+
+function declarationReferencesRemoteFont(declaration: RawDeclaration, fonts: Map<string, RemoteFontFace>): boolean {
+	return remoteFontReferenceDeclaration(declaration, fonts) !== null;
+}
+
+function isGeneratedContentSelector(selector: string): boolean {
+	return /::(?:before|after|marker|first-letter|first-line)\b/i.test(selector);
+}
+
+function isGeneratedContentDeclaration(declaration: RawDeclaration): boolean {
+	if (declaration.property !== "content") return false;
+	const value = declaration.value.trim().toLowerCase();
+	return value !== "normal" && value !== "none" && value !== '""' && value !== "''";
+}
+
+function isFontLigatureDeclaration(declaration: RawDeclaration): boolean {
+	if (declaration.property === "font-feature-settings") {
+		return splitTopLevel(declaration.value, ",").some((part) => {
+			const match = part.trim().match(/^["']?(liga|clig|dlig|hlig|calt|salt|rlig)["']?\s*(.*)$/i);
+			if (!match) return false;
+			const featureValue = (match[2] ?? "").trim();
+			return !/^(?:0|off|false)\b/i.test(featureValue);
+		});
+	}
+	if (declaration.property === "font-variant-ligatures") return !/\bnone\b/i.test(declaration.value);
+	return false;
+}
+
+function isFontMetricSetupDeclaration(declaration: RawDeclaration): boolean {
+	const property = declaration.property;
+	const value = declaration.value.toLowerCase();
+	if (property === "width" || property === "inline-size" || property === "max-width" || property === "min-width") return /\b(?:fit-content|max-content|min-content|calc\(|cqw|cqi|px|ch|em|rem)\b/i.test(value);
+	if (property === "height" || property === "line-height" || property === "font-size" || property === "letter-spacing" || property === "white-space" || property === "overflow") return true;
+	return false;
+}
+
+function isAnimationDeclaration(declaration: RawDeclaration): boolean {
+	return declaration.property === "animation" || declaration.property === "animation-name" || declaration.property === "-webkit-animation" || declaration.property === "-webkit-animation-name";
+}
+
+function isTextBearingLeakSelector(selector: string): boolean {
+	return /\b(?:script|style|textarea|pre|code|output|kbd|samp)\b|(?:secret|token|credential|password|nonce|csrf|access[-_]?key)/i.test(selector);
+}
+
 function pushFindingForDeclaration(
 	findings: Finding[],
 	rule: ParsedCssRule,
 	selectorAnalysis: ReturnType<typeof analyzeSelector> | null,
 	declaration: DeclarationInfo,
 	maxFindings: number,
+	stylesheetRiskContext: StylesheetRiskContext,
 ): void {
 	const declarationRisk = analyzeDeclarationRisk(declaration, rule.type);
 	const hasSensitiveSelectorSignals = selectorAnalysis?.isSensitive ?? false;
@@ -99,14 +240,21 @@ function pushFindingForDeclaration(
 	const hasRemoteSink = declarationRisk.hasRemoteSink;
 	const hasLocalNetworkSink = declaration.urls.some((url) => url.isLocalNetwork);
 	const hasCssOnlyRisk = declarationRisk.hasCssOnlyRisk;
+	const hasDeclarationDataProbe = declarationRisk.hasDeclarationDataProbe;
+	const hasContainerQueryContext = rule.context.atRuleStack.some((entry) => /^@container\b/i.test(entry));
+	const hasKeyframesContext = rule.context.atRuleStack.some((entry) => /^@(?:-webkit-)?keyframes\b/i.test(entry));
+	const hasContainerSizeQueryContext = rule.context.atRuleStack.some(isContainerSizeQuery);
+	const hasFontSideChannelContext = hasFontSideChannelContextForRule(rule, stylesheetRiskContext, hasContainerQueryContext, hasKeyframesContext);
 
 	if (isStandaloneFontFace) return;
 	if (!hasRemoteSink) return;
-	if (!isImportRule && !hasCssOnlyRisk && !hasSensitiveSelectorSignals && !hasLocalNetworkSink) return;
+	if (!isImportRule && !hasCssOnlyRisk && !hasSensitiveSelectorSignals && !hasLocalNetworkSink && !hasDeclarationDataProbe && !hasFontSideChannelContext) return;
 
 	const selectorScore = selectorAnalysis?.score ?? (isImportRule ? 1 : 0);
 	const nestedScore = rule.context.atRuleStack.length > 0 ? 1 : 0;
-	const score = selectorScore + declarationRisk.score + nestedScore;
+	const declarationProbeScore = hasDeclarationDataProbe ? 4 : 0;
+	const fontSideChannelScore = hasFontSideChannelContext ? fontSideChannelScoreForContext(stylesheetRiskContext, hasContainerSizeQueryContext, hasKeyframesContext) : 0;
+	const score = selectorScore + declarationRisk.score + nestedScore + declarationProbeScore + fontSideChannelScore;
 	if (score < 3) return;
 
 	const reasons = new Set<ReasonCode>([
@@ -114,6 +262,15 @@ function pushFindingForDeclaration(
 		...declarationRisk.reasons,
 	]);
 	if (rule.context.atRuleStack.length > 0) reasons.add("css.grouping_rule.nested");
+	if (hasContainerQueryContext) reasons.add("css.container_query");
+	if (hasContainerSizeQueryContext) reasons.add("css.container_size_query");
+	if (hasKeyframesContext) reasons.add("css.keyframes_remote_sink");
+	if (hasFontSideChannelContext) reasons.add("sink.font_metric_side_channel");
+	if (hasFontSideChannelContext && stylesheetRiskContext.hasRemoteFontMeasurementSetup) reasons.add("css.font_measurement_setup");
+	if (hasFontSideChannelContext && stylesheetRiskContext.hasGeneratedContentFontProbe) reasons.add("css.font_generated_content_probe");
+	if (hasFontSideChannelContext && stylesheetRiskContext.hasFontLigatureFeatures) reasons.add("css.font_ligature_feature");
+	if (hasFontSideChannelContext && stylesheetRiskContext.hasFontAnimationChain) reasons.add("css.font_animation_chain");
+	if (hasFontSideChannelContext && stylesheetRiskContext.hasFontImportChain) reasons.add("css.font_import_chain");
 
 	const primaryUrl = declaration.urls.find((url) => url.isRemote) ?? declaration.urls[0] ?? null;
 	addCappedFinding(
@@ -163,36 +320,46 @@ function reasonPriority(finding: Finding): number {
 	let score = 0;
 	if (finding.reasons.includes("url.local_network")) score += 3;
 	if (finding.reasons.includes("selector.attribute.prefix_match") || finding.reasons.includes("selector.attribute.substring_match") || finding.reasons.includes("selector.attribute.suffix_match")) score += 2;
+	if (finding.reasons.includes("css.value.attr_source") || finding.reasons.includes("css.value.conditional_if") || finding.reasons.includes("css.value.style_query")) score += 2;
+	if (finding.reasons.includes("sink.font_metric_side_channel") || finding.reasons.includes("css.container_query") || finding.reasons.includes("css.container_size_query") || finding.reasons.includes("css.keyframes_remote_sink")) score += 2;
+	if (finding.reasons.includes("css.font_generated_content_probe") || finding.reasons.includes("css.font_ligature_feature") || finding.reasons.includes("css.font_animation_chain") || finding.reasons.includes("css.font_import_chain")) score += 2;
 	if (finding.reasons.includes("sink.import_remote")) score += 2;
 	if (finding.reasons.includes("sink.remote_url") || finding.reasons.includes("sink.svg_paint_remote")) score += 1;
 	return score;
 }
 
-function collectRemoteFontFaces(rules: ParsedCssRule[]): Map<string, CssUrlAnalysis[]> {
-	const fonts = new Map<string, CssUrlAnalysis[]>();
+interface RemoteFontFace { urls: CssUrlAnalysis[]; hasUnicodeRange: boolean; }
+
+function collectRemoteFontFaces(rules: ParsedCssRule[]): Map<string, RemoteFontFace> {
+	const fonts = new Map<string, RemoteFontFace>();
 	for (const rule of rules) {
 		if (rule.type !== "font-face") continue;
 		const declarations = parseDeclarations(rule.declarationsText);
 		const fontFamily = declarations.find((declaration) => declaration.property === "font-family");
 		const src = declarations.find((declaration) => declaration.property === "src");
+		const unicodeRange = declarations.find((declaration) => declaration.property === "unicode-range");
 		if (!fontFamily || !src) continue;
 		const analyzedSrc = analyzeDeclaration(src, rule.context.sourceUrl ?? rule.context.pageUrl, new Map());
 		const remoteUrls = analyzedSrc.urls.filter((url) => url.isRemote);
 		if (remoteUrls.length === 0) continue;
 		for (const family of fontFamilyNames(fontFamily.value)) {
-			const existing = fonts.get(family) ?? [];
-			fonts.set(family, [...existing, ...remoteUrls]);
+			const existing = fonts.get(family);
+			fonts.set(family, { urls: [...(existing?.urls ?? []), ...remoteUrls], hasUnicodeRange: Boolean(existing?.hasUnicodeRange || unicodeRange) });
 		}
 	}
 	return fonts;
 }
 
-function remoteFontReferenceDeclaration(declaration: RawDeclaration, fonts: Map<string, CssUrlAnalysis[]>): DeclarationInfo | null {
+function remoteFontReferenceDeclaration(declaration: RawDeclaration, fonts: Map<string, RemoteFontFace>): DeclarationInfo | null {
 	if (fonts.size === 0 || !(declaration.property === "font-family" || declaration.property === "font")) return null;
 	const urls: CssUrlAnalysis[] = [];
+	let usesFontUnicodeRange = false;
 	for (const family of fontFamilyNames(declaration.value)) {
 		const matches = fonts.get(family);
-		if (matches) urls.push(...matches);
+		if (matches) {
+			urls.push(...matches.urls);
+			usesFontUnicodeRange = usesFontUnicodeRange || matches.hasUnicodeRange;
+		}
 	}
 	if (urls.length === 0) return null;
 	return {
@@ -203,6 +370,7 @@ function remoteFontReferenceDeclaration(declaration: RawDeclaration, fonts: Map<
 		usesUnresolvedVar: false,
 		unresolvedVars: [],
 		usesCustomPropertyUrl: false,
+		usesFontUnicodeRange,
 	};
 }
 
@@ -216,7 +384,7 @@ function fontFamilyNames(value: string): string[] {
 
 function buildFindingDetails(rule: ParsedCssRule, declaration: DeclarationInfo, selectorSensitive: boolean): string {
 	const source = rule.type === "style" ? "CSS rule" : rule.type === "font-face" ? "@font-face rule" : "@import rule";
-	const sensitivity = selectorSensitive ? " with sensitive selector signals" : "";
+	const sensitivity = selectorSensitive ? " with sensitive selector signals" : declaration.usesAttributeSource || declaration.usesConditionalIf || declaration.usesStyleQuery ? " with declaration-level data-probe signals" : "";
 	const urlCount = declaration.urls.filter((url) => url.isRemote).length;
 	return `${source}${sensitivity} uses ${declaration.property} with ${urlCount} remote URL sink(s).`;
 }

@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/05/03 21:36:00 -03
+Last Updated: 2026/05/13 01:54:22 -03
 
 ## 1. Project Summary
 
@@ -22,6 +22,8 @@ Conceptually:
 ```text
 selector/probe capability + network/output sink + sensitive context = risk
 ```
+
+Mitigation can happen through more than one enforcement authority. DNR rules control browser network requests. Content-level neutralization controls page-visible CSS effects by injecting precise override rules for confirmed high-confidence findings. These mechanisms must remain distinct in reports because a network rule does not rewrite computed style, and a computed-style neutralization does not prove that a request was already blocked before the rule existed.
 
 ## 3. Non-Goals
 
@@ -75,6 +77,7 @@ Chrome limitations are architectural constraints, not bugs:
 - no arbitrary blocking `webRequest`-style response rewriting;
 - no guarantee of full stylesheet body inspection before application;
 - DNR is rule-based, not a full runtime CSS firewall.
+- content-level neutralization is a bounded page CSS override mechanism for confirmed high-confidence findings, not arbitrary stylesheet rewriting.
 
 ### 5.2 Firefox
 
@@ -612,7 +615,9 @@ selector.relational.has
 selector.repeated_probe_pattern
 sink.remote_url
 sink.import_remote
+sink.image_set_remote
 sink.font_remote
+sink.font_unicode_range_remote
 sink.svg_reference
 url.cross_origin
 url.high_entropy
@@ -1583,3 +1588,150 @@ Required behavior:
 - Merged reports should deduplicate equivalent stylesheet source URLs that differ only by an empty fragment marker.
 
 Acceptance coverage for this requirement lives in oversized attack and benign fixtures plus unit tests for large-source scanning and finding-cap prioritization.
+
+
+## 1.0.22 Strict-Mode POC Enforcement and Sink Hardening
+
+Last Updated: 2026/05/13 01:54:22 -03
+
+Strict mode must not reuse the Balanced-mode mitigation threshold for confirmed CSS exfil shapes. The required Strict invariant is:
+
+```text
+sensitive selector/value probe + network-capable CSS sink = finding-derived block candidate
+```
+
+The invariant applies even when the destination is same-origin. Same-origin image, font, stylesheet, or other CSS-triggered requests can still disclose which selector matched when an attacker can observe request paths, logs, cache state, application endpoints, or hosted rendered-content behavior. Balanced mode may remain conservative for compatibility, but Strict mode exists to enforce this higher-risk interpretation.
+
+Finding-derived DNR rules must be generated from raw internal request URLs before report redaction, but stored reports and exported JSON must keep only redacted URLs. Rule generation should prefer precise request matching and strip URL fragments, because fragments are not sent on HTTP requests. Host-wide finding rules are not acceptable for ordinary finding-derived mitigation because they can block unrelated same-host resources.
+
+The public POC regression set is part of the required corpus:
+
+```text
+TEST 1   ;base64, fragment URL
+TEST 1.1 ;base64, path URL
+TEST 2   CSS custom-property URL indirection
+TEST 2.1 fallback CSS custom-property URL indirection
+TEST 3   nested CSSSupportsRule
+TEST 3.1 nested CSSMediaRule
+```
+
+Modern URL sink coverage must include direct `url(...)`, custom-property-resolved URLs, fallback-variable URLs, nested grouping rules, string-form `image-set()` / `-webkit-image-set()`, and targeted remote unicode-range font request oracles when a remote font family is applied under a sensitive selector. Normal decorative `image-set()` usage and normal remote unicode-range webfonts without sensitive selector context remain non-actionable.
+
+
+## 1.0.24 Balanced Mitigation and DNR Action Semantics
+
+Balanced mode is the default protection mode and must mitigate confirmed high-confidence CSS exfiltration shapes. A high-confidence finding is eligible for finding-derived DNR mitigation when it combines a sensitive selector or value-probing selector with a network-capable CSS sink, including same-origin destinations. Same-origin does not make a CSS exfiltration pattern safe because the destination may still observe path, query, or resource requests.
+
+Finding-derived DNR mitigation is reactive: the rule is installed after CSS analysis. Therefore it must not be reported as an already-prevented request unless an already-active policy rule or page-changing mitigation actually prevented the request before the page could observe it. Reports must use these action meanings:
+
+- `blocked_dnr`: matching request was prevented by an already-active network rule or equivalent page-changing mitigation.
+- `rule_installed_dnr`: CSS Sentry installed a precise finding-derived DNR rule after analysis; reloads and later matching requests are blocked, but the initial request is not claimed as prevented. Older locally stored reports may still contain the legacy `future_blocked_dnr` action and must be displayed with the same installed-rule semantics.
+- `blocked_strict_third_party`: Strict policy blocked a third-party request class independently of finding-derived analysis.
+- `logged`: finding was recorded without network or page behavior change.
+
+The popup and full report must surface this distinction. A finding-derived rule is useful mitigation and can protect refreshes, repeated requests, and later matching requests in the same tab, but it is not the same as first-load prevention. Destination blocklists and strict policy rules are the primary source of first-load prevention because they can exist before CSS analysis.
+
+
+## 1.0.27 Inline Conditional CSS and Font Side-Channel Requirements
+
+CSS Sentry must not rely exclusively on selector predicates to identify CSS exfiltration. Modern inline-style attacks can place the data source, branch condition, and request sink inside declaration values. The analyzer must therefore treat declaration-level data-probe signals as security-relevant when they are paired with a network-capable sink.
+
+Required declaration-level signals:
+
+- `attr(...)` is a CSS value data source because it can retrieve an attribute value from the selected element.
+- `if(...)` is conditional value selection and can encode branch behavior into a CSS property value.
+- `style(...)` inside `if()` is a style-query probe and can test custom property state.
+- Custom properties used by `style(...)` must be traced far enough to notice when the queried property is populated by `attr(...)`.
+
+Required sink handling:
+
+- `url(...)` sinks inside nested `if(...)` chains must be extracted.
+- String-form `image-set(...)` URLs must be extracted even when nested inside conditional function arguments.
+- Non-URL condition strings inside `style(...)` must not be treated as image URLs.
+- A declaration-level `attr()` / `if(style(...))` data probe plus a remote URL sink is a high-confidence finding even when the selector is not sensitive.
+- Presentation-only `attr()` / `if()` usage without a network-capable sink must remain non-actionable.
+
+Font side-channel modeling is intentionally narrower than universal font attack prevention. Normal remote fonts, normal unicode-range webfonts, and ordinary font-family usage are common site behavior and must not become actionable by themselves. CSS Sentry treats a remote `@font-face` combined with container-query-controlled or keyframe-controlled remote URL sinks as a Fontleak-style side-channel shape because the remote font can influence layout or timing behavior that gates later CSS-triggered requests. This is partial side-channel hardening, not a claim that every crafted-font, ligature, metric, container, animation, or generated-content text extraction technique is fully prevented.
+
+`1.0.28` refines that model into explicit evidence requirements. A Fontleak-style finding is actionable only when a network-capable sink is combined with modeled side-channel evidence, such as remote-font measurement setup, generated-content probing, ligature feature activation, animation-driven font-family chaining, remote import-chain participation, or a size-based `@container` query. This prevents normal remote webfonts and ordinary component container queries from becoming actionable while preserving coverage for observable request-producing Fontleak shapes.
+
+CVE-2026-39315 must be tracked as a CSS-relevant conditional advisory when a browser-decoded leading-zero numeric entity produces a `data:text/css` stylesheet link that then reaches CSS Sentry's data stylesheet scanner. CVE-2026-6861 must remain out of scope because it is a local GNU Emacs SVG/CSS memory-corruption issue, not a browser-rendered CSS exfiltration pattern that this extension can enforce.
+
+### 1.0.29 Fontleak Ligature Evidence Parsing Correction
+
+`1.0.29` preserves the `1.0.28` Fontleak evidence model and corrects the parser-normalized ligature feature path. Active `font-feature-settings` values must remain detectable even when the CSS parser serializes `"liga" 1` as `"liga"1`; disabled feature values such as `"liga" 0` must not produce `css.font_ligature_feature`. This keeps the enforcement authority tied to actual active ligature evidence rather than whitespace-sensitive source formatting.
+
+### 1.0.30 DNR Action Semantics and Popup Clarity Correction
+
+CSS Sentry must not use user-facing wording that makes finding-derived DNR timing look like already-proven current-load prevention. New reports use `rule_installed_dnr` when CSS Sentry detects a high-confidence finding and installs a precise DNR rule after analysis. The popup and report must display this as an installed rule that protects reloads and later matching requests, not as a request that is known to have been prevented on the current load.
+
+The popup summary must distinguish these concepts:
+
+- `Mitigated`: already-prevented findings plus installed-rule findings.
+- `Prevented`: findings where an already-active policy, pre-existing DNR rule, or page-changing mitigation affected the current load.
+- `Rules active`: findings where precise DNR rules were installed after analysis.
+
+The legacy `future_blocked_dnr` action remains supported only for older local reports. New findings should use `rule_installed_dnr`.
+
+## 1.0.32 Neutralization and DNR Composition Requirement
+
+Content-level neutralization and finding-derived DNR mitigation are independent mitigation mechanisms and must be allowed to compose. A finding that is safely neutralized in the page must not lose evidence that CSS Sentry also installed a precise DNR rule for reloads and later matching requests. Conversely, a finding with an installed DNR rule must not lose the fact that CSS Sentry changed page CSS when a content-level neutralization rule was injected.
+
+The report data model therefore permits additional mitigation actions alongside the primary action. The primary action identifies the strongest page-visible or request-prevention state for the finding; additional actions preserve complementary mitigation such as installed-rule protection. Summary counts must treat a finding with multiple mitigation actions as one mitigated finding rather than double-counting it. UI labels, report rows, and development sweep output must inspect the complete action set when deciding whether a finding changed the page, installed a DNR rule, remained log-only, or stayed informational.
+
+E2E tests that inspect page styles must distinguish original page-authored style elements from CSS Sentry's own neutralization style element. Neutralization is an intended page effect for confirmed high-confidence findings and must not be treated as an unexpected extra author style.
+
+
+## 1.0.33 Advisory Coverage and Firefox Enhanced Inspection Requirements
+
+`1.0.33` adds the postponed advisory coverage and correction work that follows the content-neutralization line. These requirements refine existing behavior; they do not change CSS Sentry into a package vulnerability scanner.
+
+### Mermaid CSS injection coverage
+
+Generated Mermaid diagram CSS is treated as ordinary active page CSS once it appears in the browser. CSS Sentry must detect browser-visible exfiltration shapes caused by diagram style injection, including scope-escape selectors, classDef-style breakout, `:has()` / attribute probing, and request-producing CSS properties. Normal diagram-scoped presentation CSS, local SVG marker fragments, and static theme styling must remain non-actionable.
+
+### justhtml sanitizer bypass coverage
+
+Sanitizer advisories are accepted into the executable corpus only when they map to browser-observable CSS request behavior. Preserved `<style>` blocks with `@import` or selector-driven remote sinks are in scope. Preserved SVG attributes with external `url(...)` resource references are in scope. Pure package-version scanning and pure JavaScript XSS are out of scope.
+
+### XWiki CSS injection classification
+
+CSS injection that only redraws or overlays UI is adjacent to CSS Sentry but not an exfiltration finding. XWiki-style CSS injection becomes in scope only when the CSS also contains value probing or another data-dependent signal plus a network-capable sink.
+
+### Firefox enhanced large-stylesheet requirement
+
+Firefox enhanced stylesheet response inspection must not reintroduce a large-stylesheet skip boundary. If the response-inspection option is enabled and the stylesheet body is available from the response stream, CSS Sentry must pass the response through unchanged and analyze the collected body through the same analyzer used by normal stylesheet text. Large responses must enter the large-source scanner path instead of returning without analysis after the standard parser size threshold.
+
+### Tooltip interaction requirement
+
+Popup and Options help tooltips must remain inside the extension viewport and must open immediately on hover or focus. The tooltip may be rendered through a document-level portal for clipping control, but hover behavior must not depend on a click-only interaction. Clicking the help control opens the tooltip for pointer/touch compatibility and must not immediately close a tooltip that is already open due to hover.
+
+
+## 1.0.34 Hono and Tandoor Advisory Traceability Requirements
+
+`1.0.34` closes the advisory-traceability gap identified after the `1.0.33` release candidate by adding executable coverage for two rendered-content CSS injection contexts. The requirements do not add package-version scanning and do not broaden CSS Sentry into a server-side sanitizer detector. They refine the browser-visible CSS behavior already owned by the inline-style and rendered-content scanners.
+
+### Hono JSX SSR inline-style declaration injection
+
+Hono CVE-2026-44458 maps to CSS Sentry only after the server-rendered output reaches the browser as inline style declarations. CSS Sentry must treat this output like any other inline `style` attribute: declaration-level `attr(...)`, `if(...)`, and `style(...)` probes become security-relevant when paired with a network-capable CSS sink such as `url(...)` or string-form `image-set(...)`.
+
+Required behavior:
+
+- Inline style attributes produced by framework rendering must enter the same inline-style scanner path as handwritten inline styles.
+- A declaration-level data probe plus a remote CSS resource sink must remain actionable even when the selector is generated by the fixture harness rather than authored as a stylesheet selector.
+- Benign style-object presentation state without a URL-bearing declaration must remain non-actionable.
+- The scanner must not claim to identify Hono package versions, server-side JSX source, or vulnerable dependency state.
+
+### Tandoor stored recipe/rich-text style injection
+
+Tandoor CVE-2026-35046 maps to CSS Sentry when stored recipe or rich-text content renders active `<style>` blocks into a trusted page. The existing rendered-content scanner must analyze those style blocks and classify only the CSS-exfiltration subset as actionable.
+
+Required behavior:
+
+- Stored rendered-content `<style>` blocks with hidden-token selector/value probes and remote CSS resource sinks must be actionable.
+- Recipe/rich-text presentation styles with no sensitive selector probe and no remote sink must remain non-actionable.
+- UI redress, visual defacement, phishing overlays, and server-side sanitizer bypass state remain adjacent unless the browser-visible CSS also creates a modeled request-producing exfiltration path.
+
+### PostCSS stringifier breakout boundary
+
+PostCSS CVE-2026-41305 remains adjacent/out of scope for implementation because CSS Sentry does not stringify user CSS into HTML `<style>` tags. The project invariant is to avoid extension UI HTML injection and to scan resulting browser-visible CSS request behavior when it exists, not to patch build-time stringifier behavior.

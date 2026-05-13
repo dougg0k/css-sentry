@@ -1,0 +1,17 @@
+{
+  "description": "Inline CSS attr() plus if(style()) can branch on an element attribute and trigger a remote CSS sink without selector-based probing.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.value.attr_source",
+    "css.value.conditional_if",
+    "css.value.style_query",
+    "sink.remote_url",
+    "sink.image_set_remote",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

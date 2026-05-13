@@ -1,6 +1,6 @@
 # CSS Sentry — CVE_SPEC.md
 
-Last Updated: 2026/04/29 12:35:00 -03
+Last Updated: 2026/05/13 01:54:22 -03
 
 ## Purpose
 
@@ -33,8 +33,85 @@ The following external CVEs are not vulnerabilities in CSS Sentry, but they repr
 | CVE-2024-34697 | FreeScout stored HTML injection in incoming email rendering, with possible CSS-injection data exfiltration. | Rendered email/helpdesk content is in scope as a risk context. Include fixtures for attacker-controlled email HTML rendered in application origin. |
 | CVE-2024-42010 | Roundcube `mod_css_styles` insufficient CSS token filtering in rendered email messages, allowing information disclosure. | Avoid regex/blocklist-only CSS filtering. Include fixtures with comments, whitespace, escapes, nested constructs, and token-boundary bypasses around `url()` / `@import`. |
 | CVE-2024-8760 | WordPress Stackable plugin CSS injection in comments, with possible nonce exfiltration. | Treat comment/rendered user-content CSS as in-scope. Include fixtures for nonce-like hidden fields and admin-token-like DOM state. |
-| CVE-2026-35046 | Tandoor stored CSS injection through recipe instructions / markdown-rendered content. | Treat markdown-to-HTML rendering and API-delivered rich text as in-scope content sources. Include fixtures for stored `<style>` in rendered markdown-like content. |
+| CVE-2026-35046 | Tandoor stored CSS injection through recipe instructions / markdown-rendered content. | Treat markdown-to-HTML rendering and API-delivered rich text as in-scope content sources. Include fixtures for stored `<style>` in rendered markdown-like content. Fixture-backed in `1.0.34`. |
 | CVE-2026-40301 | DOMSanitizer SVG `<style>` CSS injection through unfiltered `url()` and `@import` directives. | Treat SVG `<style>` text as active CSS when rendered into a trusted page. Include fixtures for SVG style `url()` paint sinks and SVG style `@import`. Document externally loaded SVG-image inspection limits. |
+| CVE-2026-44458 | Hono JSX SSR CSS declaration injection through style-object values or property names. | Treat the browser-rendered inline style output as in scope when injected declarations include data-probe signals plus remote CSS resource sinks. Include attack and benign style-object fixtures without turning CSS Sentry into a Hono package scanner. |
+
+### 2.1 Mermaid CSS injection advisory coverage
+
+Mermaid-rendered diagram CSS remains relevant to CSS Sentry when attacker-controlled diagram styling escapes the intended diagram scope or breaks out of generated style contexts and creates browser-observable CSS exfiltration behavior. CSS Sentry is not a Mermaid package scanner, but it must detect the resulting browser-side CSS patterns when they appear in a page.
+
+Tracked coverage:
+
+- CVE-2026-41159 / Mermaid themeCSS, fontFamily, or altFontFamily style injection class: represented by a fixture where scoped diagram styling escapes into a page-level `:has()` / attribute-value probe and remote `background-image` sink.
+- CVE-2026-41148 / Mermaid classDef breakout class: represented by a fixture where attacker-controlled generated CSS creates a new selector/value-probing rule with a remote `background-image` sink.
+- Historical Mermaid CSS injection class CVE-2022-31108: retained as supporting provenance for the same browser-side requirement, namely arbitrary CSS injection capable of selector-driven information disclosure through request-producing CSS functions.
+
+Acceptance criteria:
+
+- Mermaid-like scope selectors must not be treated as trusted merely because they originate from generated diagram CSS.
+- CSS Sentry must detect the exfiltration shape, not the Mermaid package version.
+- Normal Mermaid-scoped diagram presentation CSS with local fragment markers must remain non-actionable.
+
+### 2.2 justhtml sanitizer bypass advisory coverage
+
+The justhtml custom-policy sanitizer bypass advisory is tracked as advisory-derived coverage rather than a package scanner requirement. The in-scope browser-side behavior is preserved CSS or SVG resource markup that survives sanitization and causes remote CSS requests, selector probing, `@import`, `background-image:url(...)`, or SVG resource URL loads.
+
+Tracked coverage:
+
+- Preserved `<style>` content with selector/value probing and a remote `background-image` sink.
+- Preserved `<style>` content with remote `@import`.
+- Preserved SVG `filter="url(...)"` remote-resource attributes.
+
+Out of scope:
+
+- Pure sanitizer package-version detection.
+- Pure JavaScript XSS without CSS request behavior.
+- Default-safe sanitizer behavior with presentation-only preserved styles.
+
+### 2.3 XWiki CVE-2026-26000 classification
+
+XWiki CVE-2026-26000 is tracked as a CSS-injection watchlist item. The published vulnerability class is primarily CSS-driven UI redress/click manipulation through comments. CSS Sentry does not claim complete protection against UI redress. The in-scope subset is CSS injection that also contains selector/value probing plus a request-producing CSS sink.
+
+Acceptance criteria:
+
+- UI-redress-only fixed overlays remain non-actionable unless they include network exfiltration behavior.
+- Selector/value probing plus remote `url(...)`, `image-set(...)`, `@import`, SVG resource URLs, or modeled font/container side-channel sinks remains actionable.
+
+### 2.4 Hono CVE-2026-44458 inline-style declaration injection coverage
+
+Hono CVE-2026-44458 is tracked as rendered inline-style CSS declaration injection coverage. CSS Sentry does not inspect Hono package versions, server-side JSX source, or framework internals. The in-scope behavior is the browser-visible result: an inline `style` attribute whose injected declaration value or property name creates a data-dependent CSS request path.
+
+Tracked coverage:
+
+- Attack fixture: `tests/fixtures/attacks/cve-2026-44458-hono-jsx-ssr-inline-style.html` represents server-rendered JSX style-object output with `attr(value)`, `if(style(...))`, string-form `image-set(...)`, and remote attacker-controlled URL sinks.
+- Benign fixture: `tests/fixtures/benign/benign-hono-jsx-ssr-style-object-presentation.html` represents normal style-object presentation state with declaration-level `attr(...)` and `if(...)` but no network-capable sink.
+
+Acceptance criteria:
+
+- Inline-style declaration-level data probes paired with remote URL or string-form `image-set(...)` sinks remain actionable even when the attack enters through a framework style object.
+- Presentation-only style-object output without URL-bearing declarations remains non-actionable.
+- The implementation must detect the resulting CSS behavior and must not claim to detect vulnerable Hono dependency versions.
+
+### 2.5 Tandoor CVE-2026-35046 fixture-backed coverage
+
+Tandoor CVE-2026-35046 is tracked as stored recipe/rich-text CSS injection coverage. Earlier traceability required fixtures for stored `<style>` inside markdown-like rendered content; `1.0.34` makes that traceability executable.
+
+Tracked coverage:
+
+- Attack fixture: `tests/fixtures/attacks/cve-2026-35046-tandoor-stored-recipe-style.html` represents stored recipe instruction content that preserves a `<style>` block with a hidden-token selector probe and a remote `background-image` sink.
+- Benign fixture: `tests/fixtures/benign/benign-tandoor-recipe-presentation-style.html` represents recipe presentation CSS with no sensitive selector probe and no remote resource sink.
+
+Acceptance criteria:
+
+- Stored rendered-content `<style>` blocks with selector/value probing and remote CSS request sinks remain actionable.
+- Benign recipe/rich-text presentation CSS remains non-actionable.
+- CSS Sentry remains scoped to browser-observable CSS behavior, not server-side Tandoor vulnerability detection.
+
+### 2.6 PostCSS CVE-2026-41305 adjacent classification
+
+PostCSS CVE-2026-41305 remains adjacent/out of scope for implementation because the issue is CSS stringification into HTML `<style>` context and `</style>` breakout behavior. CSS Sentry does not stringify user CSS into HTML and does not patch server-side or build-time stringifier output. The browser-visible CSS-exfiltration subset remains covered only if the resulting page contains active CSS request behavior already modeled by the scanner.
+
 
 ## 3. CVE-Derived Design Requirements
 
@@ -445,3 +522,43 @@ Firefox enhanced stylesheet response inspection may increase reporting coverage 
 ## 1.0.15 CVE/Fixture Classification Update
 
 The Roundcube fixed-position `!important` fixture is retained for traceability, but CSS Sentry no longer treats that CSS-only UI-integrity class as actionable without an outbound leak path. Same-origin BODY/SVG decorative resources are benign regression coverage; cross-origin and local/private-network BODY background, SVG `feImage`, and SVG animation resource sinks remain covered by the existing CVE-derived fixtures.
+
+
+## 1.0.22 Public POC and Modern CSS Sink Traceability
+
+Last Updated: 2026/05/13 01:54:22 -03
+
+The public CSS Exfil Protection POC and Issue #1 are tracked as regression requirements for parser-bypass and mitigation-enforcement classes rather than as a dependency on the older extension. The required classes are `;base64,` fragment/path URL handling, CSS custom-property URL indirection, fallback-variable URL indirection, and nested `@supports` / `@media` style-rule extraction.
+
+This release also records two modern sink families as executable coverage requirements: string-form `image-set()` / `-webkit-image-set()` URL extraction and targeted remote unicode-range font request oracles when a sensitive selector conditionally applies the remote font family. Pure package-version scanning, generic JavaScript XSS, and broad font blocking remain out of scope.
+
+
+## 1.0.27 CVE and Research Traceability Update
+
+### CVE-2026-39315 — Unhead leading-zero numeric-entity protocol bypass
+
+Disposition: Conditional in-scope fixture coverage.
+
+The advisory class is relevant when browser-decoded padded numeric character references turn a stylesheet `href` into a dangerous or data-bearing protocol that an upstream sanitizer failed to recognize. CSS Sentry is not a package vulnerability scanner for Unhead, but it must correctly analyze the browser-observed DOM result. If the parsed page contains a `link rel="stylesheet"` whose decoded `href` is `data:text/css,...`, the data stylesheet scanner must decode that CSS and run the normal analyzer. `tests/fixtures/attacks/cve-2026-39315-unhead-leading-zero-data-css-link.html` preserves this behavior.
+
+### CVE-2026-6861 — GNU Emacs SVG/CSS memory corruption
+
+Disposition: Out of scope.
+
+The issue concerns local GNU Emacs processing of specially crafted SVG/CSS data and possible denial of service or information disclosure in that application. CSS Sentry runs as a browser extension and mitigates browser-rendered CSS exfiltration patterns; it cannot patch or enforce local SVG/CSS parsing behavior inside Emacs. The class should remain documented as adjacent but not implemented unless a separate browser-rendered CSS remote-request pattern is identified.
+
+### Inline-style exfiltration research
+
+Disposition: In-scope implementation and fixture coverage.
+
+Inline-style exfiltration using `attr()`, `if(style(...))`, custom properties, and `image-set()` is in scope because it can trigger CSS-controlled network requests from active page styles without JavaScript and without selector-based attribute probes. CSS Sentry must analyze declaration-level data-probe signals and must not require a sensitive selector when the declaration value itself contains the data source and branch condition.
+
+### Fontleak-style crafted-font side channels
+
+Disposition: Partially covered and explicitly bounded.
+
+Remote font loading alone is not actionable because normal webfonts are common. Targeted coverage exists for unicode-range request oracles under sensitive selectors and for remote-font side-channel shapes that combine remote fonts with container-query or keyframe-controlled remote URL sinks. Full coverage of every crafted-font, ligature, metric, animation, generated-content, and text-node extraction technique is not claimed. Future fixtures should be added only when they map to observable CSS-triggered remote requests that CSS Sentry can detect or mitigate without broad font blocking.
+
+`1.0.28` adds explicit traceability for Fontleak-style evidence classes: generated content probes, ligature feature activation, size-based container queries, import-chain participation, and animation-driven font-family chaining. This remains a partial enforcement model because CSS Sentry observes CSS declarations, selectors, URLs, and extension-enforceable request paths; it does not parse or validate attacker-supplied font binary substitution tables.
+
+`1.0.29` corrects the ligature feature evidence parser used by this Fontleak traceability section. Active ligature feature values remain detectable after CSS parser serialization, while disabled feature values remain non-contributory.

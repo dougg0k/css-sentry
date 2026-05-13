@@ -1,0 +1,16 @@
+{
+  "description": "String-form image-set URLs nested inside if(style()) must be extracted and treated as inline declaration-level exfiltration when attr() supplies the probed value.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.value.attr_source",
+    "css.value.conditional_if",
+    "css.value.style_query",
+    "sink.image_set_remote",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

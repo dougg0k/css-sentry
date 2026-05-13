@@ -1,0 +1,5 @@
+{
+  "description": "Same-origin decorative container-query UI assets without remote font side-channel context should remain non-actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

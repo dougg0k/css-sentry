@@ -1,0 +1,14 @@
+{
+  "description": "Animation-controlled remote font-family chaining with a container-query URL sink is a Fontleak-style dynamic font side-channel shape.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.container_query",
+    "css.font_animation_chain",
+    "css.font_ligature_feature",
+    "sink.font_metric_side_channel",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

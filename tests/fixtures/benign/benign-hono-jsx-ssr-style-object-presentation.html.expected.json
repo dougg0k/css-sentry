@@ -1,0 +1,5 @@
+{
+  "description": "Hono-style JSX SSR style-object presentation values without URL-bearing declarations should remain non-actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

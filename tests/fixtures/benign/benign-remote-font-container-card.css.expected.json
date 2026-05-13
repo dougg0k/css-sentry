@@ -1,0 +1,5 @@
+{
+  "description": "A normal remote webfont with an ordinary component container query and decorative remote image should not be treated as Fontleak without metric/generation/animation probe evidence.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

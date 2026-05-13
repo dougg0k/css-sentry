@@ -1,0 +1,4 @@
+/* Ordinary Mermaid-scoped diagram styling should not become actionable. */
+#mermaid-graph .node rect { fill: #f8fafc; stroke: #334155; }
+#mermaid-graph .edgePath path { stroke: #64748b; marker-end: url(#arrowhead); }
+#mermaid-graph text { font-family: "Inter", sans-serif; font-size: 14px; }

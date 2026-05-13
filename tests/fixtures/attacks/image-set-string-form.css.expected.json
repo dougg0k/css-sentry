@@ -1,0 +1,8 @@
+{
+  "description": "String-form image-set URLs must be extracted as network-capable CSS sinks, not only url(...) form.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.prefix_match", "sink.image_set_remote", "sink.remote_url", "url.cross_origin"],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

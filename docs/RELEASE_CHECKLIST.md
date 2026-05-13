@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/03 21:36:00 -03
+Last Updated: 2026/05/13 01:54:22 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -18,8 +18,15 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm runtime message and import hardening tests pass.
 - [ ] Confirm manifest permissions match `docs/PERMISSIONS.md`.
 - [ ] Confirm DNR status appears in Options after a DNR operation.
+- [ ] Confirm popup/report action labels distinguish already-blocked requests from finding-derived installed DNR rules.
+- [ ] Confirm content-level neutralization remains optional, bounded to high-confidence findings, and does not apply to redacted selectors or low-confidence UI CSS.
+- [ ] Confirm popup and Options help tooltips are viewport-clamped and readable inside the extension popup/window.
+- [ ] Confirm Balanced mode installs installed DNR rules for high-confidence same-origin CSS exfil findings and does not label them as already prevented.
+- [ ] Confirm destination-policy/blocklist tests still prove first-load prevention where policy rules exist before page analysis.
 - [ ] For false-positive/noise-reduction releases, run or document `pnpm run audit:false-positives -- --limit 250 --save-reports actionable` and preserve any actionable per-site reports under `test-results/` only.
 - [ ] Confirm `pnpm-workspace.yaml` remains at the repository root when pnpm build-script approval is needed.
+- [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
+- [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
 
 ## Required Verification
 
@@ -234,3 +241,50 @@ Before publishing a release after `1.0.12`, confirm:
 ## 1.0.21 Large-Stylesheet Release Gate
 
 Before release, verify that oversized stylesheet fixtures do not emit `analysis.skipped.too_large`, that oversized benign generated CSS has zero actionable findings, that oversized remote import and value-probing URL fixtures are actionable, that capped finding collection still retains stronger later findings, and that DNR rule-cap selection keeps stronger candidates.
+
+
+## 1.0.22 Release Gate Additions
+
+Last Updated: 2026/05/13 01:54:22 -03
+
+Before distributing a package that includes the strict-mode POC enforcement work, verify all of the following:
+
+- The six public POC fixtures are present and expectation-driven.
+- URL fragments do not produce `sink.svg_reference` unless the resource path is an actual SVG resource.
+- Balanced mode does not block same-origin sensitive-selector URL sinks by default.
+- Strict mode does install finding-derived DNR rules for same-origin sensitive-selector URL sinks.
+- Finding-derived DNR rules use raw internal request URLs, but stored/exported reports have `requestUrl: null`.
+- Finding-derived rules are precise URL rules with fragments stripped, not host-wide rules.
+- String-form `image-set()` URLs and targeted unicode-range font request-oracle cases are covered without making benign decorative image sets or normal webfonts actionable.
+- Fontleak-style coverage distinguishes remote-font presence from actionable evidence: generated-content probes, ligature features, size container queries, animation font chains, import chains, and remote URL sinks must be tested without making ordinary remote webfonts/container UI actionable.
+
+
+## 1.0.27 Additional Release Checks
+
+Before releasing a package containing the `1.0.27` hardening work, verify the following:
+
+- Inline `attr()` plus `if(style(...))` fixtures produce actionable findings only when a network-capable sink is present.
+- String-form `image-set()` URLs nested inside conditional function arguments are extracted, while condition strings such as `"admin"` are not misclassified as URLs.
+- Remote font plus container-query/keyframe remote sink fixtures remain actionable.
+- Normal remote fonts and presentation-only inline `attr()` / `if()` usage remain non-actionable.
+- CVE-2026-39315 is represented by an executable fixture and CVE-2026-6861 remains documented as out of scope.
+- `pnpm run test`, `pnpm run compile`, `pnpm run build`, and `pnpm run build:firefox` must pass before packaging; `pnpm run verify:full` remains the local release gate when e2e browser execution is available.
+
+
+## 1.0.33 Advisory and UI Interaction Checks
+
+- [ ] Confirm Mermaid CSS injection fixtures cover scope-escape and classDef-style breakout into selector/value probing plus remote request sinks.
+- [ ] Confirm justhtml advisory fixtures cover preserved style `@import`, preserved style remote sinks, and preserved SVG `filter="url(...)"` resource behavior.
+- [ ] Confirm XWiki CVE-2026-26000 is documented as UI-redress-adjacent while the exfil-only subset remains fixture-backed.
+- [ ] Confirm Firefox enhanced stylesheet response inspection does not return without analysis only because the response exceeds `maxStyleTextBytes`.
+- [ ] Confirm tooltip help opens immediately on hover/focus and remains viewport-clamped inside popup/options pages.
+
+
+## 1.0.34 Hono and Tandoor Advisory Coverage Checks
+
+- [ ] Confirm `tests/fixtures/attacks/cve-2026-44458-hono-jsx-ssr-inline-style.html` and its expectation file remain present and executable through the fixture corpus.
+- [ ] Confirm `tests/fixtures/benign/benign-hono-jsx-ssr-style-object-presentation.html` remains present so style-object presentation state without remote sinks stays non-actionable.
+- [ ] Confirm `tests/fixtures/attacks/cve-2026-35046-tandoor-stored-recipe-style.html` and its expectation file remain present and executable through the fixture corpus.
+- [ ] Confirm `tests/fixtures/benign/benign-tandoor-recipe-presentation-style.html` remains present so benign recipe/rich-text presentation CSS stays non-actionable.
+- [ ] Confirm `docs/CVE_SPEC.md`, `docs/SPEC.md`, `docs/STATUS.md`, and `docs/RELEASE_NOTES.md` keep Hono and Tandoor as browser-visible CSS behavior coverage, not package-version scanning.
+- [ ] Confirm PostCSS CVE-2026-41305 remains adjacent/out of scope unless a future browser-visible CSS request fixture is intentionally added.

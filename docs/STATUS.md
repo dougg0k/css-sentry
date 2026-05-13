@@ -1,10 +1,10 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/03 21:36:00 -03
+Last Updated: 2026/05/13 01:54:22 -03
 
-**Status document version:** 1.0.21
-**Package audited:** `css_sentry_1.0.21`
-**Audit timestamp:** 2026/05/03 21:36:00 -03 (`America/Sao_Paulo`)
+**Status document version:** 1.0.34
+**Package audited:** `css_sentry_1.0.34`
+**Audit timestamp:** 2026/05/13 00:53:10 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
@@ -13,6 +13,88 @@ Last Updated: 2026/05/03 21:36:00 -03
 `docs/STATUS.md` tracks what is implemented, what is tested, what is partially covered, and what remains before CSS Sentry can honestly move from pre-release packages to the next release candidate and then stable `1.0.0`.
 
 This document is intentionally stricter than the README. Update it whenever implementation behavior, tests, parser coverage, mitigation behavior, UI behavior, privacy behavior, or release readiness changes.
+
+
+
+## 1.0.34 Audit Note — Hono Inline-Style and Tandoor Stored-Style Advisory Coverage
+
+`1.0.34` closes the known post-`1.0.33` advisory traceability gaps without adding a new detector class. Hono CVE-2026-44458 is now represented by a rendered JSX SSR inline-style fixture with declaration-level data probing and remote string-form `image-set(...)` sinks, plus a benign style-object presentation fixture. Tandoor CVE-2026-35046 is now fixture-backed with stored recipe/rich-text `<style>` selector-probe coverage and a benign recipe presentation fixture. PostCSS CVE-2026-41305 remains adjacent/out of scope because CSS Sentry does not stringify user CSS into HTML style tags.
+
+## 1.0.33 Audit Note — Postponed Advisory Coverage and Tooltip Hover Correction
+
+`1.0.33` completes the postponed advisory and implementation items that were intentionally left out of the neutralization/tooltip containment work. Mermaid CSS injection is now represented by fixtures for scope-escape selector probing and classDef-style breakout into a remote `background-image` sink. justhtml custom-policy sanitizer bypass coverage is represented by preserved `<style>` exfiltration and preserved SVG `filter="url(...)"` remote-resource fixtures. XWiki CVE-2026-26000 is tracked as a CSS-injection watchlist item with executable exfil-only coverage; UI-redress-only click manipulation remains adjacent/out of scope unless it also includes CSS request-based exfiltration.
+
+The optional Firefox enhanced stylesheet response-inspection path no longer reintroduces the previous large-stylesheet skip class. It writes the original response through unchanged, collects the response body, and analyzes it through the same stylesheet analyzer used by the baseline path. Large response bodies therefore use the large-source scanner rather than returning without analysis after the standard text-size threshold.
+
+The popup/options tooltip implementation remains viewport-clamped, but hover behavior has been restored to immediate open semantics. The `?` control opens on hover/focus/click, the tooltip remains available while moving from the trigger into the bubble, and outside click/Escape close it.
+
+## 1.0.32 Audit Note — Neutralization/DNR Composition and E2E Regression Corrections
+
+`1.0.32` corrects the mitigation composition model exposed by `1.0.31`. Content-level neutralization and finding-derived DNR mitigation are not mutually exclusive. A high-confidence finding may need a page-visible neutralization rule so computed styles no longer expose a dangerous request-producing declaration, while also needing a precise DNR rule so reloads and later matching requests are blocked at the network boundary.
+
+Findings can now carry an additional mitigation action when a page-changing primary action also receives an installed DNR rule. Popup, report, and false-positive sweep logic inspect the full mitigation action set instead of looking only at the primary action. `Mitigated` remains a unique-finding count and does not double-count a finding that was both neutralized and backed by a DNR rule.
+
+The e2e regression expectations were also corrected to account for the neutralization style element injected by CSS Sentry. Tests now count the original page style separately from `#css-sentry-neutralization-rules` and preserve the report assertion that a same-origin POC finding records installed-rule mitigation even when content neutralization is enabled.
+
+## 1.0.31 Audit Note — Content Neutralization and Tooltip Containment
+
+`1.0.31` adds an optional content-level neutralization layer for confirmed high-confidence CSS exfil findings. This complements DNR mitigation by injecting precise override CSS for safely targetable request-producing declarations, so page-visible computed style checks can stop seeing the dangerous sink value where the selector and property are known. The feature is enabled by default but remains a compatibility setting because it changes page CSS for confirmed high-confidence findings.
+
+Neutralization is bounded to avoid repeating prior false-positive classes. It requires high or critical severity, a selector, a network-capable CSS property, a remote destination, a sink reason, and data-probe evidence from sensitive selectors, declaration-level `attr()` / `if()` / `style()` logic, or modeled font-side-channel findings. It does not neutralize redacted selectors or arbitrary low-confidence layout CSS.
+
+The popup tooltip implementation was replaced with a viewport-clamped root-level tooltip. The help text remains accessible through the compact `?` controls, but the bubble is fixed-positioned and clamped inside the popup viewport instead of being clipped inside each card.
+
+## 1.0.30 Audit Note — DNR Action Semantics and Popup Clarity Correction
+
+`1.0.30` corrects the popup/report wording around finding-derived DNR mitigation. The implementation introduced `rule_installed_dnr` as the current action for precise DNR rules installed after CSS analysis. `blocked_dnr` remains reserved for already-active prevention semantics. Older reports using `rule_installed_dnr` are still displayed as installed-rule findings for compatibility, but new reports no longer use the “future” action label.
+
+The popup summary now uses `Mitigated`, `Prevented`, and `Rules active`. `Prevented` is intentionally zero when no already-active policy or page-changing mitigation is known to have prevented the current load. `Rules active` counts high-confidence findings for which precise DNR rules were installed after analysis. `Mitigated` combines already-prevented findings and installed-rule findings so the user does not see a misleading “Blocked 0” as the primary protection signal.
+
+## 1.0.29 Audit Note — Fontleak Ligature Feature Evidence Correction
+
+`1.0.29` corrects the Fontleak ligature-feature evidence path introduced in `1.0.28`. The analyzer now recognizes active `font-feature-settings` values when parser normalization removes the whitespace between a feature tag and its numeric value, such as `"liga"1`. The correction preserves the intended evidence model: active ligature features can contribute to Fontleak-style generated-content and font-chain findings, while disabled values such as `"liga" 0` do not contribute `css.font_ligature_feature`.
+
+## 1.0.28 Audit Note — Fontleak Container-Query Text-Exfil Tracking and Partial Enforcement
+
+`1.0.28` extends the `1.0.27` Fontleak-side-channel work with more precise evidence modeling. The analyzer now distinguishes remote font presence from actionable Fontleak evidence. Remote `@font-face` alone remains non-actionable. A container query alone remains non-actionable. Actionable Fontleak-style findings require a network-capable sink plus modeled evidence such as remote-font measurement setup, generated-content probing, ligature feature activation, animation-driven font-family chaining, remote import-chain participation, or a size-based container query that gates the request.
+
+New executable coverage includes static ligature/container text-exfiltration, remote-import-chain container exfiltration, animation-based font-family chaining, normal remote webfont plus component-container UI, and normal remote ligature font usage without a network exfil sink. This preserves the project boundary: CSS Sentry partially detects and mitigates observable CSS-triggered Fontleak request paths, but it does not inspect crafted font binaries or claim universal prevention of every font metric side channel.
+
+## 1.0.27 Audit Note — Inline Conditional CSS and Font Side-Channel Hardening
+
+`1.0.27` extends CSS Sentry beyond selector-only sensitivity by adding declaration-level data-probe detection. Inline style attacks can now be actionable when `attr()` supplies an element attribute value, `if()` branches on CSS state, `style(...)` queries a custom property, and a network-capable sink such as `url()` or string-form `image-set()` can trigger a request. This closes the gap where a modern inline-style exfiltration chain could avoid attribute-selector scoring because the sensitive test happened inside the declaration value rather than in the selector.
+
+The release also hardens modern side-channel coverage around image and font primitives. `image-set()` extraction now uses balanced-function parsing so nested `if(style(...))` branches are inspected correctly, while non-URL condition strings are not misclassified as image URLs. Remote `@font-face` combined with container-query or keyframe-controlled remote URL sinks is now modeled as a Fontleak-style side-channel shape; normal remote fonts remain non-actionable unless paired with sensitive selectors or the modeled side-channel context.
+
+CVE tracking now includes CVE-2026-39315 as a conditional CSS-relevant Unhead numeric-entity decoding case, with an executable fixture proving that browser-decoded `data:text/css` links reach the data stylesheet scanner. CVE-2026-6861 is documented as out of scope because it describes local GNU Emacs SVG/CSS memory corruption rather than browser-side CSS exfiltration behavior that CSS Sentry can enforce.
+
+## 1.0.26 Audit Note — Balanced POC Timing Regression Test Correction
+
+`1.0.26` preserves the `1.0.24` Balanced mitigation model and the `1.0.25` verification fixes while correcting the same-origin POC e2e expectation. The test no longer requires the first load to leak before the finding-derived DNR rule is installed, because current Chromium timing can legitimately allow CSS Sentry to analyze the inline high-confidence exfil rule and install mitigation before the background-image request reaches the fixture server. The regression still verifies the important invariant: if the first request leaks, the report must label the mitigation as installed-rule rather than already-prevented; after analysis, a reload must not reach the leak endpoint.
+
+## 1.0.25 Audit Note — E2E Policy Synchronization and Locator Corrections
+
+`1.0.25` preserves the `1.0.24` Balanced mitigation and DNR action semantics while correcting verification-surface defects reported by the local `verify:full` gate. The e2e policy helper no longer waits for policy DNR filters when the supplied policy has no blocklisted or allowlisted origins; it still validates expected filters for blocklist/allowlist tests. The same-origin iframe report assertion now accepts multiple visible occurrences of the same attacker origin instead of failing due Playwright strict locator ambiguity.
+
+## 1.0.24 Audit Note — Balanced Mitigation and DNR Action Semantics
+
+`1.0.24` corrects the default protection model and the action vocabulary exposed to users. Balanced mode now installs precise finding-derived DNR rules for high-confidence CSS exfiltration findings even when the destination is same-origin, provided the finding has a sensitive selector/value-probing signal and a network-capable CSS sink. This means the default mode no longer treats confirmed same-origin POC-style exfil shapes as log-only.
+
+The release also fixes the misleading `blocked_dnr` action assignment. A finding-derived DNR rule installed after analysis is now recorded as `rule_installed_dnr`, not as an already-blocked request. `blocked_dnr` remains reserved for cases where an already-active network rule or page-changing mitigation prevented matching requests. The popup, full report, and false-positive sweep now expose this distinction so users can understand why a dev-mode first load may still show a website-side request while a refresh is protected by the installed rule.
+
+Regression coverage now includes a same-origin POC timing e2e case: Balanced may observe an initial request before analysis, then must install a installed-rule rule and block the same matching request on reload. This documents the browser timing boundary while ensuring the default mode still mitigates confirmed high-confidence exfil shapes after detection.
+
+## 1.0.23 Audit Note — Verification Fixes and Native Build Tooling
+
+`1.0.23` is a maintenance and verification-correction package. It adds `node-gyp` as an explicit development dependency with lockfile coverage, preserves the `1.0.22` strict-mode enforcement behavior, and fixes the verification failures reported by `pnpm run verify:full`: popup copy now includes the exact no-blocking statement expected by the action-state UI contract, the same-origin iframe e2e check no longer fails when the report legitimately renders the same attacker destination origin in more than one visible finding row, and frame-report storage avoids redundant report-wide re-sanitization after frame-level sanitization so report cap tests complete within the normal unit-test timeout.
+
+## 1.0.22 Audit Note — Strict POC Enforcement and Non-Proxy Blocking
+
+Issue #1 and the strict-mode report showed that CSS Sentry detected the public POC exfil patterns but left most same-origin findings as `logged`; only the fragment case was marked blocked because the URL fragment was incorrectly classified as `sink.svg_reference`. `1.0.22` fixes the enforcement model rather than special-casing the POC: Strict mode blocks sensitive selector/value-probe plus network-capable sink findings regardless of destination origin, while Balanced mode remains conservative for same-origin findings.
+
+The DNR integration now uses raw internal request URLs for rule installation but stores/exports redacted report URLs. Finding-derived rules are precise URL rules with fragments removed instead of broad host-only rules. This prevents both underblocking caused by redaction and overblocking caused by hostname-wide rules.
+
+Additional coverage added in this release includes the six public POC cases, string-form `image-set()` URLs, unicode-range font request oracles under sensitive selectors, benign decorative `image-set()`, and benign normal unicode-range webfont usage.
 
 ## Status Vocabulary
 
@@ -31,6 +113,12 @@ This document is intentionally stricter than the README. Update it whenever impl
 
 ## Current Verification Snapshot
 
+
+`1.0.28` is a Fontleak/container-query text-exfil tracking and partial-enforcement patch built from the passing `1.0.27` source line. It adds explicit reason-coded evidence for remote-font measurement setup, generated-content probes, ligature feature activation, animation-driven font-family chaining, remote import-chain participation, and size-based container query sinks. It also adds attack and benign fixtures to keep ordinary remote webfonts and ordinary component container queries non-actionable.
+
+`1.0.27` is an analyzer and fixture hardening patch built from the passing `1.0.26` source line. It adds declaration-level inline `attr()` / `if(style())` exfiltration detection, nested `image-set()` extraction, CVE-2026-39315 data stylesheet fixture coverage, and partial Fontleak-style container/keyframe side-channel modeling while preserving the `1.0.26` Balanced POC timing behavior.
+
+`1.0.26` is an e2e regression-correction patch built from the `1.0.25` source line. It updates the Balanced same-origin POC timing assertion so a stronger first-load prevention outcome is not treated as a failure while preserving the requirement that matching requests must be blocked after analysis. It does not change analyzer, DNR, storage, popup, report, or policy behavior.
 
 `1.0.21` is a large-stylesheet analysis hardening patch built from the passing `1.0.19` source line. It replaces the old size-skip behavior with a complete source scanner for oversized stylesheets, routes those rules through the same selector/declaration analyzer used by normal stylesheets, keeps large benign generated CSS non-actionable, and detects malicious remote imports, remote URL sinks, local/private-network destinations, and nested value-probing selectors even when they appear after large benign padding. It also changes finding collection so the analyzer continues scanning after the report cap is filled and keeps the highest-priority findings instead of stopping at the first capped set. Source URL canonicalization in report merging prevents duplicate stylesheet findings caused only by empty URL fragments.
 
@@ -59,7 +147,7 @@ This document is intentionally stricter than the README. Update it whenever impl
 
 `1.0.5` preserves the restored detailed documentation set, adds CVE-2026-40301 executable coverage, and updates project tracking documents additively so the changelog, status coverage, specification requirements, CVE traceability, self-security controls, and release checklist remain consistent.
 
-Required local verification after extracting `1.0.21`:
+Required local verification after extracting `1.0.30`:
 
 ```bash
 pnpm install --frozen-lockfile
@@ -263,7 +351,7 @@ Additional issue classes represented by the current document set include:
 | Release notes | Covered | `docs/RELEASE_NOTES.md` is the changelog home and tracks reconstructed release history from `0.0.1` through `1.0.4`, with an explicit boundary where per-version evidence is unavailable. |
 | Self-security traceability | Covered | `docs/SELF_SECURITY.md` explicitly maps the seven pre-v1 self-security safeguards plus documentation-regression prevention to code, tests, and docs. |
 | Extension self-security | Covered | Runtime messages, settings import, UI injection invariants, permission minimization, DNR status, and storage caps are now tested. |
-| Modern inline-style and SVG-style fixtures | Covered by current corpus | Current fixtures cover inline `url()`, inline custom-property URL indirection, `image-set(url(...))`, SVG `<style>` `url()` paint sinks, and SVG `<style>` `@import`. Future browser support can expand this corpus. |
+| Modern inline-style and SVG-style fixtures | Covered by current corpus | Current fixtures cover inline `url()`, inline custom-property URL indirection, `image-set(url(...))`, declaration-level `attr()` plus `if(style(...))`, nested conditional string-form `image-set()`, SVG `<style>` `url()` paint sinks, and SVG `<style>` `@import`. Future browser support can expand this corpus. |
 | Mixed-case `data:text/css` stylesheet links | Covered by current corpus | `1.0.7` adds Unhead-derived mixed-case data CSS link fixture coverage and scans data CSS stylesheet links without logging raw data URL contents. |
 | Escaped CSS `@import` sanitizer bypass class | Covered by current corpus | `1.0.7` adds lxml_html_clean-derived CSS Unicode escape `@import` recovery and fixture coverage. |
 
@@ -274,7 +362,7 @@ Additional issue classes represented by the current document set include:
 | **Parser robustness** | `css-tree` is primary and fallback parser remains. This is strong enough for v1 scope, but future CSS syntax/bypasses may require new fixtures. |
 | **CSS variables** | Direct custom properties and fallback chains are handled best-effort. Full browser-equivalent cascade/computed-value resolution is not claimed. |
 | **Nested rules** | Common grouping/nesting cases are walked. Future syntax edge cases can expand the corpus. |
-| **Inline styles** | Inline `style=""` URL sinks are scanned, but every known inline-style exfil class is not claimed. |
+| **Inline styles** | Inline `style=""` URL sinks, custom-property URL chains, `image-set()` sinks, and declaration-level `attr()` / `if(style(...))` probes are scanned. This still does not claim universal coverage for every future CSS conditional or side-channel primitive. |
 | **Iframe handling** | Current same-origin and cross-origin partial behavior is tested. Deep/niche embedding cases can be added later. |
 | **Strict mode** | Strict policy and DNR hooks exist. Strict can still break sites and is intentionally opt-in. |
 | **Compatibility** | Design avoids default extension-origin remote CSS fetching. Broad extension interoperability is handled through reports, not exhaustive pre-v1 testing. |
@@ -290,6 +378,8 @@ This section records the current search triage so future work is not lost. The s
 |---|---|---|
 | CVE-2026-31873 — Unhead mixed-case `DATA:text/css` link injection | Added | Directly maps to CSS-loaded data stylesheet behavior and CSS attribute-selector exfiltration. `1.0.7` adds fixture and data-stylesheet scanning. |
 | CVE-2026-28348 — `lxml_html_clean` CSS Unicode escape bypass for `@import` / `expression()` filters | Added for `@import`; `expression()` remains documented legacy-adjacent | The escaped `@import` class maps to CSS Sentry's remote stylesheet/import detection. Legacy IE `expression()` execution is not a modern browser-extension target, but the advisory stays documented as sanitizer-bypass context. |
+| CVE-2026-44458 — Hono JSX SSR style-object CSS declaration injection | Added | Maps to browser-rendered inline `style` attributes when injected declaration values/property names create data-probe plus remote CSS resource behavior. `1.0.34` adds attack and benign fixtures without package-version scanning. |
+| CVE-2026-35046 — Tandoor stored CSS injection through recipe instructions | Fixture-backed | Stored rendered recipe/rich-text `<style>` content maps to CSS Sentry only when the browser-visible CSS contains selector/value probing plus a request-producing remote sink. `1.0.34` adds attack and benign recipe fixtures. |
 | CVE-2026-41305 — PostCSS stringifier does not escape `</style>` | Adjacent / out of scope | CSS Sentry does not parse and re-stringify user CSS into HTML `<style>` tags. The relevant project invariant is already “no extension UI HTML injection.” Track in CVE_SPEC as dependency/tooling adjacent, not a fixture target. |
 | CVE-2026-41240 — DOMPurify `FORBID_TAGS` / `ADD_TAGS` inconsistency | Watchlist / conditional | Not CSS-specific by itself. Add fixtures only if a concrete surviving tag path produces CSS remote-resource behavior. |
 | CVE-2026-2441 — Chrome CSS use-after-free | Out of scope | Browser engine memory corruption/RCE must be fixed by browser updates. CSS Sentry can document the boundary but cannot remediate engine UAFs. |
@@ -328,12 +418,15 @@ This section records the current search triage so future work is not lost. The s
 | Comments/escapes/whitespace hiding `url()` / `@import` | Covered by current corpus |
 | Remote `;base64,` misclassification | Covered |
 | Data URL scheme classification | Covered |
-| Rendered webmail/helpdesk/markdown/comment contexts | Covered by current fixture corpus |
+| Rendered webmail/helpdesk/markdown/comment contexts | Covered by current fixture corpus, including Tandoor-style recipe/rich-text stored style coverage |
+| Hono CVE-2026-44458 inline-style declaration injection | Covered by current corpus |
+| Tandoor CVE-2026-35046 stored recipe/rich-text style injection | Fixture-backed in current corpus |
 | Nonce/token/CSRF probes | Covered for documented scope |
 | Sensitive value redaction | Covered for documented scope |
 | Same-origin iframe scanning | Covered for current supported scope |
 | Cross-origin iframe reporting | Covered for current supported scope |
 | README limitations | Covered |
+| PostCSS CVE-2026-41305 stringifier `</style>` breakout | Adjacent / out of scope |
 | Release CVE checklist and search log | Manual / policy |
 
 ## Milestone Coverage

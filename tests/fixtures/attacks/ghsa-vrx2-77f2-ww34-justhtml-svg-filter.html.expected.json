@@ -1,0 +1,13 @@
+{
+  "description": "justhtml custom-policy preserved SVG filter URL attributes are reported when they reference cross-origin remote resources.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "sink.svg_resource_remote",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

@@ -1,0 +1,5 @@
+{
+  "description": "Common theme/decorative image-set CSS without sensitive value probing should not become actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

@@ -1,0 +1,5 @@
+{
+  "description": "Inline attr() and if() without a network-capable URL sink are presentation-only and should not produce actionable findings.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

@@ -1,0 +1,15 @@
+{
+  "description": "justhtml custom-policy preserved style content remains in scope when it contains CSS imports or selector-driven remote resource sinks.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "selector.attribute.prefix_match",
+    "selector.attribute.sensitive_name",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

@@ -1,0 +1,17 @@
+{
+  "description": "A remote ligature font, generated content probe, container size query, and remote content URL models the static Fontleak metric-exfiltration shape.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.container_query",
+    "css.container_size_query",
+    "css.font_measurement_setup",
+    "css.font_generated_content_probe",
+    "css.font_ligature_feature",
+    "sink.font_metric_side_channel",
+    "sink.inline_remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

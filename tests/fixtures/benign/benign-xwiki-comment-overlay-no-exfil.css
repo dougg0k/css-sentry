@@ -1,0 +1,7 @@
+/* UI-redress-like fixed overlay without a request-producing sink remains outside CSS Sentry's exfil enforcement. */
+.xwiki-comment .overlay {
+  position: fixed !important;
+  inset: 0;
+  background: transparent;
+  pointer-events: auto;
+}

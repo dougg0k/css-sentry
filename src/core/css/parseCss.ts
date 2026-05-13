@@ -31,6 +31,8 @@ const GROUPING_AT_RULES = new Set([
 	"@starting-style",
 	"@when",
 	"@else",
+	"@keyframes",
+	"@-webkit-keyframes",
 ]);
 
 const parser = cssTree as unknown as {

@@ -3,7 +3,7 @@ import { DEFAULT_SITE_POLICY, EMPTY_ANALYSIS_SUMMARY, POLICY_LIMITS, REPORT_LIMI
 import type { AnalysisSummary, ExtensionMode, FrameReport, SitePolicy, StoredTabReport } from "../../shared/types";
 import { getOrigin, isPolicyOrigin } from "../../shared/url";
 import { mergeSummaries } from "../scanner/summarize";
-import { sanitizeFrameReportForStorage, sanitizeStoredReportForExport } from "../../core/privacy/redaction";
+import { redactSensitiveUrl, sanitizeFrameReportForStorage, sanitizeStoredReportForExport } from "../../core/privacy/redaction";
 
 const VALID_MODES = new Set<ExtensionMode>([
   "default",
@@ -21,7 +21,14 @@ export async function saveFrameReport(tabId: number, topLevelUrl: string, frame:
   const sanitizedFrame = capFrameReport(sanitizeFrameReportForStorage(frame));
   const frames = upsertFrame(current?.frames ?? [], sanitizedFrame).slice(0, REPORT_LIMITS.maxFramesPerReport);
   const summary = capSummary(mergeSummaries(frames.map((item) => item.summary)), REPORT_LIMITS.maxFindingsPerReport);
-  const report: StoredTabReport = sanitizeStoredReportForExport({ tabId, url: topLevelUrl, origin: getOrigin(topLevelUrl), summary, frames, updatedAt: Date.now() });
+  const report: StoredTabReport = {
+    tabId,
+    url: redactSensitiveUrl(topLevelUrl) ?? topLevelUrl,
+    origin: getOrigin(topLevelUrl),
+    summary,
+    frames,
+    updatedAt: Date.now(),
+  };
   await browser.storage.local.set({ [`${STORAGE_KEYS.reportsPrefix}${tabId}`]: report });
   await enforceReportRetention();
   return report;
@@ -115,6 +122,7 @@ export function normalizePolicy(policy?: Partial<SitePolicy> | Record<string, un
       enableFirefoxEnhancedMode: booleanOrDefault(compatibility.enableFirefoxEnhancedMode, DEFAULT_SITE_POLICY.compatibility.enableFirefoxEnhancedMode),
       reportExternalSvgImageDocuments: booleanOrDefault(compatibility.reportExternalSvgImageDocuments, DEFAULT_SITE_POLICY.compatibility.reportExternalSvgImageDocuments),
       enableSvgImageDnrPolicy: booleanOrDefault(compatibility.enableSvgImageDnrPolicy, DEFAULT_SITE_POLICY.compatibility.enableSvgImageDnrPolicy),
+      enableContentNeutralization: booleanOrDefault(compatibility.enableContentNeutralization, DEFAULT_SITE_POLICY.compatibility.enableContentNeutralization),
     }
   };
 }

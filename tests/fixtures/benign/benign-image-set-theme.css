@@ -1,0 +1,6 @@
+.card-icon {
+  background-image: image-set("https://cdn.example.test/icons/card.png" 1x, "https://cdn.example.test/icons/card@2x.png" 2x);
+}
+[data-light-theme*="dark"] .card-icon {
+  background-position: center;
+}

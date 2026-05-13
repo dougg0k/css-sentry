@@ -1,7 +1,7 @@
 import { defineBackground } from "wxt/utils/define-background";
 import { browser } from "wxt/browser";
 import { DEFAULT_SITE_POLICY, STORAGE_KEYS } from "../shared/constants";
-import type { AnalysisSummary, ExtensionMode, SitePolicy } from "../shared/types";
+import type { AnalysisSummary, ExtensionMode, MitigationAction, SitePolicy, Finding } from "../shared/types";
 import { applyGlobalPolicyDnrRules, applyTabPolicyDnrRules, blockHighConfidenceFindingUrls, clearTabDnrRules } from "../browser/dnr/chromeDnr";
 import { clearTabReport, getSitePolicy, pruneOldReports, saveFrameReport, saveSitePolicy } from "../browser/storage/reports";
 import { effectiveModeForUrl, setOriginMode, shouldMitigate, shouldStrictBlockThirdParty } from "../core/policy/mode";
@@ -113,12 +113,13 @@ async function handleScanComplete(tabId: number, topLevelUrl: string, frameId: n
   await applyTabPolicyDnrRules(tabId, topLevelUrl, policy, shouldStrictBlockThirdParty(mode));
 
   if (policy.compatibility.enableDnrMitigation && shouldMitigate(mode)) {
-    const blockResult = await blockHighConfidenceFindingUrls(summary.findings, tabId, policy);
-    if (blockResult.blockedFindings.size > 0 || blockResult.skippedAllowedUrls.length > 0) {
+    const blockResult = await blockHighConfidenceFindingUrls(summary.findings, tabId, policy, mode);
+    if (blockResult.blockedFindings.size > 0 || blockResult.ruleInstalledFindings.size > 0 || blockResult.skippedAllowedUrls.length > 0) {
       finalSummary = {
         ...summary,
         findings: summary.findings.map((finding) => {
-          if (blockResult.blockedFindings.has(finding.id)) return { ...finding, action: "blocked_dnr" };
+          if (blockResult.blockedFindings.has(finding.id)) return withMitigationAction(finding, "blocked_dnr");
+          if (blockResult.ruleInstalledFindings.has(finding.id)) return withMitigationAction(finding, "rule_installed_dnr");
           return finding;
         })
       };
@@ -127,6 +128,17 @@ async function handleScanComplete(tabId: number, topLevelUrl: string, frameId: n
 
   const report = await saveFrameReport(tabId, topLevelUrl, { frameId, parentFrameId, frameUrl, frameOrigin: getOrigin(frameUrl), summary: finalSummary, updatedAt: Date.now() });
   await updateBadge(tabId, report.summary);
+}
+
+function withMitigationAction(finding: Finding, action: MitigationAction): Finding {
+  if (finding.action === action) return finding;
+  const pageChangingActions = new Set<MitigationAction>(["neutralized", "disabled_stylesheet", "removed_style_node"]);
+  if (pageChangingActions.has(finding.action) && (action === "blocked_dnr" || action === "rule_installed_dnr")) {
+    const additionalActions = [...new Set([...(finding.additionalActions ?? []), action])];
+    return { ...finding, additionalActions };
+  }
+  const additionalActions = (finding.additionalActions ?? []).filter((existing) => existing !== action);
+  return additionalActions.length > 0 ? { ...finding, action, additionalActions } : { ...finding, action };
 }
 
 async function updateBadge(tabId: number, summary: AnalysisSummary): Promise<void> {

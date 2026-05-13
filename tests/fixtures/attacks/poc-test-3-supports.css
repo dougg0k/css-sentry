@@ -1,0 +1,5 @@
+@supports (display: grid) {
+  #exfil_test3[value*="secret"] ~ #exfil_img3 {
+    background-image: url("https://app.example.test/src/pwned3.png");
+  }
+}

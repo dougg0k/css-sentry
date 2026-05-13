@@ -33,8 +33,8 @@ export const MODE_DEFINITIONS: ModeDefinition[] = [
     mode: "balanced",
     label: "Balanced",
     shortLabel: "Balanced",
-    summary: "Warn and block high-confidence exfiltration attempts.",
-    details: "Scans CSS, records findings, warns on suspicious patterns, and can block high-confidence remote exfiltration URLs while trying to avoid page breakage.",
+    summary: "Warn and mitigate high-confidence exfiltration attempts.",
+    details: "Scans CSS, records findings, and installs precise network rules for high-confidence CSS exfiltration shapes, including same-origin value-probing sinks. Finding-derived rules protect matching future requests; destination-policy rules can block before analysis.",
     recommendedUse: "General browsing once the extension is stable.",
     prominent: true
   },
@@ -43,7 +43,7 @@ export const MODE_DEFINITIONS: ModeDefinition[] = [
     label: "Strict",
     shortLabel: "Strict",
     summary: "Fail closed on sensitive sites.",
-    details: "Uses stronger blocking for suspicious CSS and third-party CSS-triggered resources. This offers more protection but can break complex sites.",
+    details: "Includes Balanced high-confidence mitigation and adds stronger blocking for suspicious CSS and optional third-party CSS-triggered resources. This offers more protection but can break complex sites.",
     recommendedUse: "Webmail, banking, admin panels, cloud consoles, identity providers, and other sensitive sites.",
     prominent: true
   },
@@ -164,8 +164,17 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
   {
     key: "enableDnrMitigation",
     label: "Enable declarative network blocking",
-    summary: "Allow Chrome MV3 DNR rules for high-confidence findings.",
-    tooltip: "Recommended on. DNR is Chrome Manifest V3's request-blocking mechanism. CSS Sentry uses it only for scoped, high-confidence mitigation decisions.",
+    summary: "Allow browser network rules for high-confidence findings.",
+    tooltip: "Recommended on. CSS Sentry uses scoped network rules for high-confidence mitigation decisions. Finding-derived rules are installed after analysis for later matching requests; destination-policy rules can be active before analysis.",
+    recommendedValue: true,
+    advanced: false
+  },
+
+  {
+    key: "enableContentNeutralization",
+    label: "Enable content-level CSS neutralization",
+    summary: "Override confirmed high-confidence CSS exfil declarations on the page.",
+    tooltip: "Recommended on. CSS Sentry can inject precise override rules for confirmed high-confidence CSS exfil findings so page-visible computed styles no longer keep dangerous request-producing declarations. This is limited to network-capable CSS properties with selector, declaration, or font-side-channel evidence and can be disabled if a site has a compatibility issue.",
     recommendedValue: true,
     advanced: false
   },
@@ -212,7 +221,7 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
 ];
 
 export interface SummaryStatDefinition {
-  key: "mode" | "severity" | "frames" | "partialSheets" | "findings" | "blocked" | "allowed" | "info" | "coverage";
+  key: "mode" | "severity" | "frames" | "partialSheets" | "findings" | "mitigated" | "blocked" | "futureRules" | "allowed" | "info" | "coverage";
   label: string;
   tooltip: string;
 }
@@ -243,10 +252,20 @@ export const SUMMARY_STAT_DEFINITIONS: Record<SummaryStatDefinition["key"], Summ
     label: "Findings",
     tooltip: "Actionable CSS Sentry findings recorded for this tab, excluding informational coverage notes."
   },
+  mitigated: {
+    key: "mitigated",
+    label: "Mitigated",
+    tooltip: "Findings with either an already-applied prevention action or a precise DNR rule installed after analysis."
+  },
   blocked: {
     key: "blocked",
-    label: "Blocked",
-    tooltip: "Findings where CSS Sentry installed or used a blocking/mitigation action for the current tab."
+    label: "Prevented",
+    tooltip: "Findings where a pre-existing network rule or page-changing mitigation prevented or changed current page behavior on this load."
+  },
+  futureRules: {
+    key: "futureRules",
+    label: "Rules active",
+    tooltip: "Findings where CSS Sentry installed precise DNR rules after analysis. Reloads and later matching requests are blocked, but these are not counted as already prevented."
   },
   allowed: {
     key: "allowed",

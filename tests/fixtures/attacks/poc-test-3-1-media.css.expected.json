@@ -1,0 +1,8 @@
+{
+  "description": "POC TEST 3.1: nested CSSMediaRule content must be recursively analyzed for sensitive selector plus URL sink exfil.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.substring_match", "sink.remote_url", "css.grouping_rule.nested", "url.remote"],
+  "requiredDestinationOrigins": ["https://app.example.test"],
+  "mustBeBlockCandidate": true
+}

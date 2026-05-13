@@ -1,0 +1,8 @@
+{
+  "description": "POC TEST 2: CSS custom-property URL indirection behind a sensitive value selector must be a high-confidence exfil finding.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.substring_match", "sink.remote_url", "css.custom_property.url_sink", "url.remote"],
+  "requiredDestinationOrigins": ["https://app.example.test"],
+  "mustBeBlockCandidate": true
+}

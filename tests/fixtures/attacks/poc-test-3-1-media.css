@@ -1,0 +1,5 @@
+@media screen {
+  #exfil_test31[value*="secret"] ~ #exfil_img31 {
+    background-image: url("https://app.example.test/src/pwned31.png");
+  }
+}

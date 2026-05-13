@@ -1,0 +1,16 @@
+{
+  "description": "Nested if() chains in inline styles must remain actionable when they combine attr() data sources with remote url() sinks.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.value.attr_source",
+    "css.value.conditional_if",
+    "css.value.style_query",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://attacker.example"
+  ],
+  "mustBeBlockCandidate": true
+}

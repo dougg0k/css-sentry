@@ -1,0 +1,8 @@
+{
+  "description": "POC TEST 1.1: a ;base64, path URL behind a sensitive value selector must remain a high-confidence same-origin exfil finding.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": ["selector.attribute.substring_match", "sink.remote_url", "url.remote"],
+  "requiredDestinationOrigins": ["https://app.example.test"],
+  "mustBeBlockCandidate": true
+}

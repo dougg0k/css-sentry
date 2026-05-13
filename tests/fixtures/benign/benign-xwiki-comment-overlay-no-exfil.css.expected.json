@@ -1,0 +1,8 @@
+{
+  "description": "XWiki-style CSS overlay/click-redress without network exfiltration remains outside actionable CSS Sentry findings.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenReasons": [
+    "sink.remote_url"
+  ]
+}

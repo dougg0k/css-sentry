@@ -113,12 +113,20 @@ describe("project structure", () => {
 
   it("documents the self-security safeguards", () => {
     const text = readFileSync(join(process.cwd(), "docs", "SELF_SECURITY.md"), "utf8");
-    for (const marker of ["SS-001", "SS-002", "SS-003", "SS-004", "SS-005", "SS-006", "SS-007", "SS-008", "SS-009", "SS-010", "SS-011", "SS-012"]) {
+    for (const marker of ["SS-001", "SS-002", "SS-003", "SS-004", "SS-005", "SS-006", "SS-007", "SS-008", "SS-009", "SS-010", "SS-011", "SS-012", "SS-013", "SS-014", "SS-015"]) {
       expect(text).toContain(marker);
     }
     expect(text).toContain("Extension UI injection invariant");
     expect(text).toContain("not CSS-specific");
     expect(text).toContain("Documentation regression prevention");
+  });
+
+  it("keeps Firefox enhanced stylesheet inspection aligned with large-source scanning", () => {
+    const text = readFileSync(join(process.cwd(), "src", "browser", "firefox", "enhancedStylesheetInspection.ts"), "utf8");
+    expect(text).not.toContain("maxStyleTextBytes");
+    expect(text).not.toMatch(/totalBytes\s*>/);
+    expect(text).toContain("analyzeStylesheet");
+    expect(text).toContain("filter.write(event.data)");
   });
 
   it("keeps manifest permissions aligned with the documented minimal set", async () => {
@@ -175,11 +183,37 @@ describe("project structure", () => {
     expect(checklist).toContain("1.0.7 Additional Search and Fixture Checks");
     expect(spec).toContain("1.0.10 Advanced Optional Coverage Requirements");
     expect(spec).toContain("1.0.21 Large-Stylesheet Source Scan Requirement");
+    expect(spec).toContain("1.0.27 Inline Conditional CSS and Font Side-Channel Requirements");
+    expect(spec).toContain("1.0.28");
+    expect(spec).toContain("1.0.29 Fontleak Ligature Evidence Parsing Correction");
+    expect(spec).toContain("1.0.30 DNR Action Semantics and Popup Clarity Correction");
+    expect(spec).toContain("content-level neutralization");
+    expect(spec).toContain("1.0.32 Neutralization and DNR Composition Requirement");
+    expect(spec).toContain("1.0.33 Advisory Coverage and Firefox Enhanced Inspection Requirements");
+    expect(spec).toContain("1.0.34 Hono and Tandoor Advisory Traceability Requirements");
     expect(status).toContain("1.0.10 Advanced SVG, Firefox, and Diagnostics Options");
     expect(status).toContain("1.0.21 Exploit-Resistance Review");
     expect(cveSpec).toContain("1.0.10 Advanced Optional CVE Coverage Policy");
+    expect(cveSpec).toContain("1.0.27 CVE and Research Traceability Update");
+    expect(cveSpec).toContain("Mermaid CSS injection advisory coverage");
+    expect(cveSpec).toContain("justhtml sanitizer bypass advisory coverage");
+    expect(cveSpec).toContain("XWiki CVE-2026-26000 classification");
+    expect(cveSpec).toContain("Hono CVE-2026-44458 inline-style declaration injection coverage");
+    expect(cveSpec).toContain("Tandoor CVE-2026-35046 fixture-backed coverage");
     expect(releaseNotes).toContain("## 1.0.10");
     expect(releaseNotes).toContain("## 1.0.21");
+    expect(releaseNotes).toContain("## 1.0.27");
+    expect(releaseNotes).toContain("## 1.0.28");
+    expect(releaseNotes).toContain("## 1.0.29");
+    expect(releaseNotes).toContain("## 1.0.30");
+    expect(releaseNotes).toContain("## 1.0.31");
+    expect(releaseNotes).toContain("## 1.0.32");
+    expect(releaseNotes).toContain("## 1.0.33");
+    expect(releaseNotes).toContain("## 1.0.34");
+    expect(status).toContain("1.0.31 Audit Note");
+    expect(status).toContain("1.0.32 Audit Note");
+    expect(status).toContain("1.0.33 Audit Note");
+    expect(status).toContain("1.0.34 Audit Note");
     expect(status).toContain("## Features Avoided");
     expect(status).not.toContain("## Features Avoided for v1");
     expect(status).not.toContain("| CI workflow |");

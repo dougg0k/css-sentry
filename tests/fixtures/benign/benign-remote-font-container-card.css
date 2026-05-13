@@ -1,0 +1,14 @@
+@font-face {
+  font-family: "CardUi";
+  src: url("https://fonts.gstatic.com/s/cardui.woff2") format("woff2");
+}
+.card-grid {
+  font-family: "CardUi", sans-serif;
+  container-type: inline-size;
+}
+@container (min-width: 30rem) {
+  .card-grid .card {
+    background-image: url("https://cdn.example.test/card-texture.svg");
+    padding: 1rem;
+  }
+}

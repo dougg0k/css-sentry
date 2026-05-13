@@ -3,7 +3,7 @@ import { browser } from "wxt/browser";
 import { getSitePolicy, getTabReport, saveSitePolicy } from "../../browser/storage/reports";
 import type { ExtensionMode, SitePolicy, StoredTabReport } from "../../shared/types";
 import { getOrigin, isPolicyOrigin } from "../../shared/url";
-import { FindingItem, Header, InfoTooltip, SummaryCard, changesPage, isCoverageFinding, pickHighestSeverity } from "./components";
+import { FindingItem, Header, InfoTooltip, SummaryCard, changesPage, hasInstalledBlockingRule, isCoverageFinding, pickHighestSeverity } from "./components";
 import {
   ADVANCED_GLOBAL_MODE_ORDER,
   ADVANCED_MODE_EXPLANATION,
@@ -45,25 +45,33 @@ export default function App() {
   }, []);
 
   const findings = report?.summary.findings ?? [];
-  const pageChangedFindings = useMemo(() => findings.filter((finding) => changesPage(finding.action)), [findings]);
+  const pageChangedFindings = useMemo(() => findings.filter(changesPage), [findings]);
+  const ruleInstalledFindings = useMemo(() => findings.filter(hasInstalledBlockingRule), [findings]);
   const coverageFindings = useMemo(() => findings.filter(isCoverageFinding), [findings]);
   const infoOnlyFindings = useMemo(() => findings.filter((finding) => finding.severity === "info" && !isCoverageFinding(finding)), [findings]);
   const actionableFindings = useMemo(() => findings.filter((finding) => finding.severity !== "info"), [findings]);
-  const loggedOnlyFindings = useMemo(() => actionableFindings.filter((finding) => !changesPage(finding.action)), [actionableFindings]);
+  const loggedOnlyFindings = useMemo(() => actionableFindings.filter((finding) => !changesPage(finding) && !hasInstalledBlockingRule(finding)), [actionableFindings]);
   const highestSeverity = useMemo(() => pickHighestSeverity(actionableFindings), [actionableFindings]);
   const currentOrigin = safeOrigin(report?.origin) ?? activeTab?.origin ?? null;
   const mode = policy?.mode ?? "balanced";
   const modeDefinition = getModeDefinition(mode);
   const popupModes = policy?.advancedModeEnabled ? ADVANCED_GLOBAL_MODE_ORDER : GLOBAL_MODE_ORDER;
   const hasReport = report !== null;
-  const statusTitle = pageChangedFindings.length === 0
-    ? "No page changes made"
-    : `${pageChangedFindings.length} blocked or changed finding${pageChangedFindings.length === 1 ? "" : "s"}`;
+  const mitigatedFindings = new Set([...pageChangedFindings, ...ruleInstalledFindings].map((finding) => finding.id)).size;
+  const statusTitle = pageChangedFindings.length > 0
+    ? `${pageChangedFindings.length} request${pageChangedFindings.length === 1 ? "" : "s"} prevented or page change${pageChangedFindings.length === 1 ? "" : "s"} applied`
+    : ruleInstalledFindings.length > 0
+      ? `${ruleInstalledFindings.length} blocking rule${ruleInstalledFindings.length === 1 ? "" : "s"} active after analysis`
+      : "No page changes made";
   const statusDetail = !hasReport
     ? "Waiting for the first page scan"
     : actionableFindings.length === 0
       ? "No risky CSS findings were detected."
-      : `${actionableFindings.length} finding${actionableFindings.length === 1 ? "" : "s"} logged for review; ${loggedOnlyFindings.length} were not blocked.`;
+      : pageChangedFindings.length === 0
+        ? ruleInstalledFindings.length > 0
+          ? `${actionableFindings.length} finding${actionableFindings.length === 1 ? "" : "s"} logged; ${ruleInstalledFindings.length} precise rule${ruleInstalledFindings.length === 1 ? "" : "s"} installed for reloads and later matching requests. No request is counted as already prevented unless a rule or policy was active before it fired.`
+          : `${actionableFindings.length} finding${actionableFindings.length === 1 ? "" : "s"} logged for review; ${loggedOnlyFindings.length} were not blocked. No request was blocked.`
+        : `${actionableFindings.length} finding${actionableFindings.length === 1 ? "" : "s"} logged for review; ${loggedOnlyFindings.length} were logged only; ${ruleInstalledFindings.length} have installed blocking rules.`;
 
   async function setGlobalMode(nextMode: ExtensionMode) {
     const basePolicy = policy ?? await getSitePolicy();
@@ -107,7 +115,9 @@ export default function App() {
       <section className="summaryGrid" aria-label="Current page summary">
         <SummaryCard stat="mode" value={modeDefinition.shortLabel} />
         <SummaryCard stat="severity" value={highestSeverity ?? "none"} />
+        <SummaryCard stat="mitigated" value={String(mitigatedFindings)} />
         <SummaryCard stat="blocked" value={String(pageChangedFindings.length)} />
+        <SummaryCard stat="futureRules" value={String(ruleInstalledFindings.length)} />
         <SummaryCard stat="allowed" value={String(loggedOnlyFindings.length)} />
         <SummaryCard stat="info" value={String(infoOnlyFindings.length)} />
         <SummaryCard stat="coverage" value={String(coverageFindings.length)} />
@@ -139,7 +149,7 @@ export default function App() {
 
       <section className="panel">
         <div className="panelTitle"><h2>Findings</h2><InfoTooltip text={LOGS_EXPLANATION} /></div>
-        <p className="muted">Each finding now shows whether CSS Sentry blocked/changed something, only logged it, or recorded a coverage notice.</p>
+        <p className="muted">Each finding shows whether CSS Sentry prevented a request, installed a precise rule after analysis, changed page behavior, only logged it, or recorded a coverage notice. Finding-derived DNR rules apply after analysis; policy rules can prevent matching requests before analysis.</p>
         {findings.length === 0 ? <p className="muted">No findings recorded for this tab yet.</p> : <ul className="findingList">{findings.slice(0, 8).map((finding) => <FindingItem key={finding.id} finding={finding} />)}</ul>}
       </section>
 

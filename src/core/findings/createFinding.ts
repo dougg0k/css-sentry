@@ -21,7 +21,7 @@ interface CreateFindingInput {
 export function createFinding(input: CreateFindingInput): Finding {
   const timestamp = Date.now();
   const stablePayload = [input.pageUrl, input.frameUrl ?? "", input.sourceUrl ?? "", input.selector ?? "", input.property ?? "", input.destinationUrl ?? "", input.reasons.join(",")].join("|");
-  return {
+  const finding: Finding = {
     id: `finding-${stableHash(stablePayload)}-${timestamp}`,
     severity: input.severity,
     confidence: input.confidence,
@@ -36,10 +36,20 @@ export function createFinding(input: CreateFindingInput): Finding {
     property: input.property ?? null,
     destinationOrigin: getOrigin(input.destinationUrl),
     destinationUrl: redactSensitiveUrl(input.destinationUrl),
+    requestUrl: input.destinationUrl ?? null,
     action: input.action ?? "logged",
     state: input.state,
     reasons: [...new Set(input.reasons)],
     timestamp,
     details: redactSensitiveText(input.details, 240)
   };
+  if (input.selector) {
+    Object.defineProperty(finding, "__cssSentryRawSelector", {
+      value: input.selector,
+      enumerable: false,
+      configurable: false,
+      writable: false,
+    });
+  }
+  return finding;
 }

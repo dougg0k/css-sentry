@@ -118,6 +118,25 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
     });
   }
 
+
+  for (const svgResource of Array.from(input.documentRef.querySelectorAll("[filter], [clip-path], [mask], [fill], [stroke], [marker], [marker-start], [marker-mid], [marker-end]"))) {
+    for (const attributeName of ["filter", "clip-path", "mask", "fill", "stroke", "marker", "marker-start", "marker-mid", "marker-end"]) {
+      const value = svgResource.getAttribute(attributeName);
+      if (!value || !/url\s*\(/i.test(value)) continue;
+      push({
+        element: svgResource,
+        attributeName,
+        rawValue: value,
+        sourceKind: "svg_attribute",
+        property: attributeName,
+        reasons: svgResourceAttributeReasons(attributeName),
+        details: `SVG ${attributeName} attribute references a remote resource.`,
+        minSeverity: "high",
+        requireCrossOriginOrLocalNetwork: true,
+      });
+    }
+  }
+
   for (const animate of Array.from(input.documentRef.querySelectorAll("animate, animateTransform, animateMotion, set"))) {
     const attributeName = (animate.getAttribute("attributeName") ?? "").toLowerCase();
     if (attributeName && !["href", "xlink:href", "fill", "filter", "stroke"].includes(attributeName)) continue;
@@ -147,6 +166,12 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
     finishedAt: Date.now(),
   });
   return mergeSummaries(summaries);
+}
+
+function svgResourceAttributeReasons(attributeName: string): ReasonCode[] {
+  return attributeName === "fill" || attributeName === "stroke" || attributeName.startsWith("marker")
+    ? ["sink.svg_paint_remote"]
+    : ["sink.svg_resource_remote"];
 }
 
 function scanExternalSvgImageDocuments(input: HtmlResourceInput): Finding[] {

@@ -170,7 +170,9 @@ async function setExtensionPolicy(context: BrowserContext, extensionId: string, 
         })
         .filter((filter): filter is string => Boolean(filter));
 
-      for (let attempt = 0; expectedFilters.length > 0 && attempt < 80; attempt += 1) {
+      if (expectedFilters.length === 0) return;
+
+      for (let attempt = 0; attempt < 80; attempt += 1) {
         const rules = await getSessionRules();
         const filters = new Set(rules.map((rule) => rule.condition?.regexFilter ?? rule.condition?.urlFilter).filter((filter): filter is string => Boolean(filter)));
         if (expectedFilters.every((filter) => filters.has(filter))) return;
@@ -219,12 +221,15 @@ function defaultPolicy(overrides: Record<string, unknown> = {}): Record<string, 
       enableStrictThirdPartyBlocking: true,
       showPartialAnalysisFindings: true,
       enableFirefoxEnhancedMode: false,
+      reportExternalSvgImageDocuments: false,
+      enableSvgImageDnrPolicy: false,
+      enableContentNeutralization: true,
     },
     ...overrides,
   };
 }
 
-type BlockingServer = { appOrigin: string; attackerOrigin: string; leakHits: () => number; close: () => Promise<void> };
+type BlockingServer = { appOrigin: string; attackerOrigin: string; leakHits: () => number; resetLeakHits: () => void; close: () => Promise<void> };
 
 async function startBlockingServer(): Promise<BlockingServer> {
   let leakHits = 0;
@@ -232,8 +237,13 @@ async function startBlockingServer(): Promise<BlockingServer> {
     const host = request.headers.host ?? "";
     const url = new URL(request.url ?? "/", `http://${host || "localhost"}`);
     if (url.pathname === "/strict-blocklist.html") {
-      response.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
       response.end(`<!doctype html><html><head><style>body{background-image:url("http://127.0.0.1:${addressPort(server)}/leak.png?via=css")}</style></head><body>strict blocklist fixture</body></html>`);
+      return;
+    }
+    if (url.pathname === "/same-origin-poc.html") {
+      response.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" });
+      response.end(`<!doctype html><html><head><style>input[value*=secret]~#probe{background-image:url("http://localhost:${addressPort(server)}/leak.png?via=same-origin-poc")}</style></head><body><input value="secret"><div id="probe">same-origin poc</div></body></html>`);
       return;
     }
     if (url.pathname === "/leak.png") {
@@ -252,6 +262,7 @@ async function startBlockingServer(): Promise<BlockingServer> {
     appOrigin: `http://localhost:${port}`,
     attackerOrigin: `http://127.0.0.1:${port}`,
     leakHits: () => leakHits,
+    resetLeakHits: () => { leakHits = 0; },
     close: () => new Promise<void>((resolveClose, reject) => server.close((error) => error ? reject(error) : resolveClose())),
   };
 }
@@ -290,7 +301,8 @@ test("content script stores attack findings and report page renders them", async
   try {
     const attackPage = await context.newPage();
     await attackPage.goto(`${server.origin}/fixtures/attacks/rendered-email-style-exfil.html`);
-    await expect(attackPage.locator("style")).toHaveCount(1);
+    await expect(attackPage.locator("style:not(#css-sentry-neutralization-rules)")).toHaveCount(1);
+    await expect(attackPage.locator("style#css-sentry-neutralization-rules")).toHaveCount(1);
 
     const report = await context.newPage();
     await report.goto(`chrome-extension://${extensionId}/report.html`);
@@ -324,7 +336,7 @@ test("same-origin iframe findings are merged into the local report", async () =>
       return await report.getByText(/Frame \d+:/).count();
     }, { timeout: 10_000, message: "expected report page to include frame entries from the top page and iframe" }).toBeGreaterThan(1);
 
-    await expect(report.getByText("https://attacker.example")).toBeVisible();
+    await expect(report.getByText("https://attacker.example").first()).toBeVisible();
   } finally {
     await closeExtensionContext(context, userDataDir);
     await server.close();
@@ -506,6 +518,41 @@ test("CSS Modules output remains rendered and non-actionable", async () => {
   }
 });
 
+
+
+test("Balanced finding-derived DNR rules protect matching requests after analysis without claiming first-load prevention", async () => {
+  const server = await startBlockingServer();
+  const { context, extensionId, userDataDir } = await launchExtensionContext();
+  try {
+    await setExtensionPolicy(context, extensionId, defaultPolicy({ mode: "balanced" }));
+
+    const page = await context.newPage();
+    await page.goto(`${server.appOrigin}/same-origin-poc.html`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+    const firstLoadLeakHits = server.leakHits();
+
+    const report = await context.newPage();
+    await report.goto(`chrome-extension://${extensionId}/report.html`);
+    await expect.poll(async () => {
+      await report.reload();
+      const body = await report.locator("body").innerText();
+      return /precise DNR rule installed after analysis|request blocked by an already-active network rule/i.test(body);
+    }, { timeout: 10_000, message: "expected Balanced mode to record same-origin POC network mitigation" }).toBe(true);
+
+    if (firstLoadLeakHits > 0) {
+      await expect(report.getByText(/precise DNR rule installed after analysis/i).first()).toBeVisible();
+    }
+    await report.close();
+
+    server.resetLeakHits();
+    await page.reload({ waitUntil: "networkidle" });
+    await page.waitForTimeout(500);
+    expect(server.leakHits()).toBe(0);
+  } finally {
+    await closeExtensionContext(context, userDataDir);
+    await server.close();
+  }
+});
 
 test("destination blocklist prevents first-load CSS-triggered requests", async () => {
   const server = await startBlockingServer();

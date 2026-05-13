@@ -169,12 +169,47 @@ function splitVarArguments(args: string): [string, string?] {
 	return [args];
 }
 
+const ATTR_FUNCTION_RE = /\battr\s*\(\s*([_a-zA-Z][_a-zA-Z0-9-]*)/gim;
+const CSS_IF_FUNCTION_RE = /\bif\s*\(/im;
+const STYLE_QUERY_RE = /\bstyle\s*\(/im;
+
+function declarationValueSignals(value: string, customProperties: Map<string, string> = new Map()): { usesAttributeSource: boolean; attributeSources: string[]; usesConditionalIf: boolean; usesStyleQuery: boolean } {
+	const searchable = cssUnescape(stripCssComments(value));
+	const attributes = new Set<string>();
+	for (const match of searchable.matchAll(ATTR_FUNCTION_RE)) {
+		const name = (match[1] ?? "").trim().toLowerCase();
+		if (name) attributes.add(name);
+	}
+	for (const propertyName of styleQueryCustomPropertyNames(searchable)) {
+		const propertyValue = customProperties.get(propertyName);
+		if (!propertyValue) continue;
+		for (const attr of declarationValueSignals(propertyValue).attributeSources) attributes.add(attr);
+	}
+	return {
+		usesAttributeSource: attributes.size > 0,
+		attributeSources: [...attributes],
+		usesConditionalIf: CSS_IF_FUNCTION_RE.test(searchable),
+		usesStyleQuery: STYLE_QUERY_RE.test(searchable),
+	};
+}
+
+function styleQueryCustomPropertyNames(value: string): string[] {
+	const names = new Set<string>();
+	for (const match of value.matchAll(/\bstyle\s*\(\s*(--[_a-zA-Z][_a-zA-Z0-9-]*)/gim)) {
+		const name = (match[1] ?? "").trim();
+		if (name) names.add(name);
+	}
+	return [...names];
+}
+
 export function analyzeDeclaration(
 	declaration: RawDeclaration,
 	baseUrl: string,
 	customProperties: Map<string, string>,
 ): DeclarationInfo {
 	const resolution = resolveCssVars(declaration.value, customProperties);
+	const originalSignals = declarationValueSignals(declaration.value, customProperties);
+	const resolvedSignals = declarationValueSignals(resolution.resolved, customProperties);
 	return {
 		property: declaration.property,
 		value: declaration.value,
@@ -183,5 +218,9 @@ export function analyzeDeclaration(
 		usesUnresolvedVar: resolution.unresolved.length > 0,
 		unresolvedVars: resolution.unresolved,
 		usesCustomPropertyUrl: resolution.usedCustomPropertyUrl,
+		usesAttributeSource: originalSignals.usesAttributeSource || resolvedSignals.usesAttributeSource,
+		attributeSources: [...new Set([...originalSignals.attributeSources, ...resolvedSignals.attributeSources])],
+		usesConditionalIf: originalSignals.usesConditionalIf || resolvedSignals.usesConditionalIf,
+		usesStyleQuery: originalSignals.usesStyleQuery || resolvedSignals.usesStyleQuery,
 	};
 }
