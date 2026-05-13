@@ -1,6 +1,6 @@
 # CSS Sentry — CVE_SPEC.md
 
-Last Updated: 2026/05/13 01:54:22 -03
+Last Updated: 2026/05/13 13:58:58 -03
 
 ## Purpose
 
@@ -31,6 +31,7 @@ The following external CVEs are not vulnerabilities in CSS Sentry, but they repr
 | CVE-2019-17016 | Firefox CSS sanitizer rewrite issue involving pasted `<style>` content and `@namespace`, leading to possible data exfiltration. | Include namespace/at-rule sanitizer-bypass fixtures. Do not rely on naive at-rule rewriting or token removal. |
 | CVE-2024-24510 | SOGo mail component XSS/import path with references to CSS injection research. | Treat webmail/rendered email as a first-class sensitive context. Strict mode should be easy to enable for webmail domains. |
 | CVE-2024-34697 | FreeScout stored HTML injection in incoming email rendering, with possible CSS-injection data exfiltration. | Rendered email/helpdesk content is in scope as a risk context. Include fixtures for attacker-controlled email HTML rendered in application origin. |
+| CVE-2026-40497 | FreeScout CSS injection bypass in rendered support mailbox content where `<style>` tags remained available after earlier filtering, enabling CSS attribute-selector exfiltration of CSRF-like token values. | Treat helpdesk/mailbox-rendered `<style>` as in-scope rendered content. Include fixture-backed selector/value probing with a remote sink and a benign signature-style fixture. Fixture-backed in `1.0.42`. |
 | CVE-2024-42010 | Roundcube `mod_css_styles` insufficient CSS token filtering in rendered email messages, allowing information disclosure. | Avoid regex/blocklist-only CSS filtering. Include fixtures with comments, whitespace, escapes, nested constructs, and token-boundary bypasses around `url()` / `@import`. |
 | CVE-2024-8760 | WordPress Stackable plugin CSS injection in comments, with possible nonce exfiltration. | Treat comment/rendered user-content CSS as in-scope. Include fixtures for nonce-like hidden fields and admin-token-like DOM state. |
 | CVE-2026-35046 | Tandoor stored CSS injection through recipe instructions / markdown-rendered content. | Treat markdown-to-HTML rendering and API-delivered rich text as in-scope content sources. Include fixtures for stored `<style>` in rendered markdown-like content. Fixture-backed in `1.0.34`. |
@@ -107,6 +108,22 @@ Acceptance criteria:
 - Stored rendered-content `<style>` blocks with selector/value probing and remote CSS request sinks remain actionable.
 - Benign recipe/rich-text presentation CSS remains non-actionable.
 - CSS Sentry remains scoped to browser-observable CSS behavior, not server-side Tandoor vulnerability detection.
+
+
+### 2.7 FreeScout CVE-2026-40497 fixture-backed coverage
+
+FreeScout CVE-2026-40497 is tracked as rendered helpdesk/mailbox CSS injection coverage. The in-scope browser-side behavior is not package-version detection; it is preserved `<style>` content that can probe token-like fields with CSS attribute selectors and trigger a remote CSS resource request.
+
+Tracked coverage:
+
+- Attack fixture: `tests/fixtures/attacks/cve-2026-40497-freescout-style-token-exfil.html` represents rendered mailbox content with a hidden CSRF-like token field, an attribute-prefix selector probe, and a remote `background` sink.
+- Benign fixture: `tests/fixtures/benign/benign-freescout-signature-style.html` represents presentation-only support-signature CSS with no sensitive selector probe and no remote request-producing sink.
+
+Acceptance criteria:
+
+- Helpdesk/mailbox-rendered `<style>` blocks with token-like selector probing and remote CSS request sinks remain actionable.
+- Presentation-only signature or mailbox styling remains non-actionable.
+- CSS Sentry remains scoped to browser-observable CSS behavior, not FreeScout server-version detection.
 
 ### 2.6 PostCSS CVE-2026-41305 adjacent classification
 

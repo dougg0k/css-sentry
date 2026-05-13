@@ -200,7 +200,6 @@ export interface AnalysisSummary {
 }
 
 export interface CompatibilitySettings {
-  neverFetchRemoteCssFromExtension: boolean;
   enableDnrMitigation: boolean;
   enableStrictThirdPartyBlocking: boolean;
   showPartialAnalysisFindings: boolean;
@@ -248,6 +247,8 @@ export interface DnrStatus {
   ruleCount: number;
   message: string;
   updatedAt: number;
+  skippedTargetCount?: number;
+  skippedTargetReasons?: Record<string, number>;
 }
 
 export interface ScanCompleteMessage {

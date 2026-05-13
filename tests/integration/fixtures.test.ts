@@ -6,6 +6,7 @@ import { createFinding } from "../../src/core/findings/createFinding";
 import { mergeSummaries } from "../../src/browser/scanner/summarize";
 import { scanHtmlResourceAttributes } from "../../src/browser/scanner/htmlResourceScan";
 import type { AnalysisSummary, Finding, ReasonCode, Severity, SourceKind } from "../../src/shared/types";
+import { isFindingDnrRuleCandidate } from "../../src/browser/dnr/findingDnrEligibility";
 
 const root = join(process.cwd(), "tests", "fixtures");
 const pageUrl = "https://app.example.test/page";
@@ -194,7 +195,7 @@ function assertExpectation(kind: "attacks" | "benign", name: string, summary: An
 }
 
 function isBlockCandidate(finding: Finding): boolean {
-  return Boolean(finding.destinationOrigin) && severityOrder[finding.severity] >= severityOrder.high;
+  return isFindingDnrRuleCandidate(finding, "balanced");
 }
 
 describe("fixture corpus", () => {

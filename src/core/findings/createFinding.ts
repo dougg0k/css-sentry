@@ -16,10 +16,11 @@ interface CreateFindingInput {
   state: AnalysisState;
   reasons: ReasonCode[];
   details: string;
+  timestamp?: number;
 }
 
 export function createFinding(input: CreateFindingInput): Finding {
-  const timestamp = Date.now();
+  const timestamp = input.timestamp ?? Date.now();
   const stablePayload = [input.pageUrl, input.frameUrl ?? "", input.sourceUrl ?? "", input.selector ?? "", input.property ?? "", input.destinationUrl ?? "", input.reasons.join(",")].join("|");
   const finding: Finding = {
     id: `finding-${stableHash(stablePayload)}-${timestamp}`,

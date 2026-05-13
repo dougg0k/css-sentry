@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/05/13 01:54:22 -03
+Last Updated: 2026/05/13 19:18:29 -03
 
 ## 1. Project Summary
 
@@ -9,6 +9,30 @@ Last Updated: 2026/05/13 01:54:22 -03
 The extension is designed for modern Chrome/Chromium and Firefox using a WXT + React + TypeScript architecture. It uses a shared browser-independent detection core, with browser-specific wrappers for content scripts, extension APIs, network blocking, permissions, and UI.
 
 CSS Sentry is a defense-in-depth tool. It does not claim to prevent every possible CSS side channel, browser leak, CSS injection attack, or future CSS exfiltration technique.
+
+The parser/analyzer boundary is intentionally split by authority. `src/core/css/parseCss.ts` is the stable public parser entrypoint; `src/core/css/parser/` owns parser budget checks, css-tree adaptation, fallback source parsing, import recovery, and parser constants. `src/core/analyzer/analyzeStylesheet.ts` remains the stylesheet-analysis entrypoint and delegates per-rule analysis, stylesheet risk context, finding priority, and finding detail construction to named analyzer modules. Oversized stylesheet handling must preserve recovered security-critical `@import` findings even when the final stylesheet state is a performance-budget partial result.
+
+UI entrypoints must remain thin render/wiring surfaces. Content-script lifecycle control belongs to `src/browser/scanner/documentScanController.ts`; Options policy loading, DNR status loading, policy persistence, and saved-state timing belong to `src/entrypoints/options/useOptionsState.ts`; Options policy transformations belong to `src/entrypoints/options/optionsPolicyActions.ts`; Popup tab/report/policy effects belong to `src/entrypoints/popup/usePopupState.ts`; Popup derived display state belongs to `src/entrypoints/popup/popupDerivedState.ts`; and popup finding-action classification belongs to `src/entrypoints/popup/popupFindingState.ts`. React UI roots must mount through `src/shared/mountReactRoot.tsx` so missing root elements fail through a checked boundary rather than unchecked non-null assertions.
+
+## 1.0.59 Analyzer Budget Structure Guard
+
+The analyzer budget-resilience helper is named `securityCriticalRulesFromBudgetedParse` to make the analyzer/parser responsibility boundary auditable by structure tests. The helper must not re-own parser budget checks. It may combine recovered import rules already present in the budgeted parse result with non-import security-critical source rules recovered by the parser entrypoint.
+
+This preserves the intended authority split: parser modules own parse-budget state and budget-aware source scanning; `analyzeStylesheet()` owns summary construction and the decision to perform budget-resilient analysis without enforcing the normal per-rule analysis budget a second time.
+
+## 1.0.58 Firefox Enhanced-Inspection Type Export Boundary
+
+Firefox enhanced stylesheet inspection owns the public inspection entrypoint and the test-double type import path for that entrypoint. Browser API optionality and response-filter shape detection remain owned by `src/browser/platform/firefoxWebRequestApi.ts`, but `src/browser/firefox/enhancedStylesheetInspection.ts` must re-export the Firefox response-filtering types needed by callers that exercise `inspectFirefoxStylesheetResponse()` directly. This preserves the refactor boundary without creating a source-compatible regression for tests and internal callers that previously imported those types from the enhanced-inspection module.
+
+## 1.0.57 Analyzer Budget Recovery, Reason Groups, Platform Optionality, and Clock Boundaries
+
+When stylesheet analysis reaches the configured performance budget, the analyzer must not discard security-relevant source evidence merely because the primary parse path stopped. Budget summaries must include actionable findings recovered from security-relevant source rules when such rules can be recovered without relying on the exhausted sequential parse path. This applies to nested selector probes with remote CSS sinks as well as recovered `@import` rules.
+
+Reason-code group semantics must be centralized. Components that decide DNR eligibility, content neutralization, finding priority, partial-analysis display filtering, or frame-partial report merging must call shared reason-group helpers rather than each maintaining a private interpretation of selector, sink, declaration-probe, font-side-channel, SVG-resource, frame-coverage, or partial-analysis reason groups. Individual reason strings remain the public diagnostic vocabulary; the grouping helper is the internal authority for repeated policy decisions.
+
+Browser optional API checks must remain behind platform boundaries. Runtime modules should not scatter structural casts for optional DNR, Firefox `webRequest`, `webNavigation`, or storage-change APIs. Platform modules must expose narrow capability readers and typed API accessors so feature-specific modules can depend on verified availability rather than local optional-shape probing.
+
+Behavior-bearing time decisions should accept a clock at the local boundary when deterministic validation is useful. The system clock remains the default runtime behavior, but analyzer budget timing, parser budget checks, finding timestamps, report timestamps, DNR diagnostic timestamps, report-retention timestamps, and partial-coverage summaries must support injected time in tests and deterministic workflows.
 
 ## 2. Core Goal
 
@@ -187,7 +211,7 @@ Opt-in per-site mode for sensitive domains.
 
 Behavior:
 
-- treat suspicious CSS as fail-closed;
+- treat suspicious CSS as blocked unless explicitly allowed;
 - block third-party stylesheet imports unless allowed;
 - block third-party CSS-triggered image/font/resource requests unless allowed;
 - warn on uninspectable cross-origin stylesheets;
@@ -486,16 +510,23 @@ Firefox should use the same baseline as Chrome. Optional enhanced response filte
 
 ## 13. Network and Fetch Policy
 
-CSS Sentry must not fetch remote CSS from the extension context by default.
+CSS Sentry must not fetch remote CSS from the extension context for normal analysis. This is a fixed privacy and compatibility invariant, not a user-toggleable compatibility option. The Options UI may explain the invariant, but it must not expose a checkbox that implies a current remote-fetch feature can be enabled or disabled when no such fetch path exists.
 
-Remote fetch analysis may only be added if all are true:
+The implemented analysis model is:
 
-- the user explicitly enables it;
+- inspect CSS already available through page content, stylesheet APIs, inline/rendered content, and supported browser APIs;
+- use Firefox response filtering only as a pass-through inspection boundary when the browser exposes the required API;
+- never introduce extension-origin stylesheet requests solely to improve analysis coverage.
+
+Remote fetch analysis may only be added as a separately designed opt-in feature if all are true:
+
+- the user explicitly enables a dedicated remote-fetch analysis mode;
 - UI explains that requests originate from the extension context;
 - browser permissions and extension CSP support it;
 - request logs clearly identify extension-origin fetches;
 - compatibility with uBlock Origin, uBO Lite, NoScript, JShelter, and browser tracking protection is tested;
-- failures degrade to transparent partial analysis.
+- failures degrade to transparent partial analysis;
+- the feature has source-level tests proving ordinary builds still contain no extension-context remote CSS fetch path when the mode is absent or disabled.
 
 ## 14. Privacy Model
 
@@ -810,18 +841,21 @@ stylesheet.failed_csp_or_platform
 
 The popup and report must show when protection is partial because a stylesheet was unavailable, cross-origin restricted, blocked by permissions, or still loading.
 
+The `Show partial-analysis findings` compatibility option controls display of stored partial-analysis finding rows only. It must not delete stored evidence, rewrite report summaries, or hide the high-level analysis state. When disabled, popup and report views may hide informational coverage rows, but they must continue to show analysis completeness, partial frame counts, and partial stylesheet counts. When enabled, the stored coverage finding rows must be visible with their explanatory reason codes.
+
 #### 21.3.5 Extension-context network requests are restricted
 
-CSS Sentry must not fetch remote CSS from the extension context by default.
+CSS Sentry must not fetch remote CSS from the extension context for normal analysis. The absence of extension-context CSS fetching is a hard architecture invariant, not a checkbox-backed compatibility preference. A user-facing option named like “never fetch remote CSS” is invalid unless a real, separately designed, opt-in remote-fetch feature exists and the option controls that feature through the actual fetch authority.
 
 Remote fetch analysis may only be added if all are true:
 
-- user explicitly enables it;
+- user explicitly enables a dedicated remote-fetch mode;
 - UI explains that requests originate from the extension context;
 - browser permissions and CSP support it;
 - request logs clearly identify extension-origin fetches;
 - compatibility with uBlock Origin, uBO Lite, NoScript, JShelter, and Firefox tracking protection is tested;
-- failures degrade to transparent partial analysis.
+- failures degrade to transparent partial analysis;
+- tests prove the default build still has no extension-context remote CSS fetch path.
 
 #### 21.3.6 Load-blocking mitigation must be bounded
 
@@ -1351,6 +1385,7 @@ The root repository must not contain `SECURITY.md`, `PRIVACY.md`, `PERMISSIONS.m
 
 - Stored reports must cap frame count and finding count.
 - Report retention must cap total report count.
+- Report retention must apply age pruning on startup, after report saves, and after retention-setting changes.
 - Older reports should be removed first when the cap is exceeded.
 
 ### Modern inline-style coverage
@@ -1618,6 +1653,32 @@ TEST 3.1 nested CSSMediaRule
 Modern URL sink coverage must include direct `url(...)`, custom-property-resolved URLs, fallback-variable URLs, nested grouping rules, string-form `image-set()` / `-webkit-image-set()`, and targeted remote unicode-range font request oracles when a remote font family is applied under a sensitive selector. Normal decorative `image-set()` usage and normal remote unicode-range webfonts without sensitive selector context remain non-actionable.
 
 
+## 1.0.42 Firefox, DNR, Performance, Advisory, and Artifact Hardening Requirement
+
+`1.0.42` hardens five implementation areas that affect release correctness, permission minimization, availability, and advisory traceability.
+
+### Firefox enhanced inspection permissions
+
+Firefox enhanced stylesheet response inspection is optional and off by default, but when the feature is available it depends on Firefox response filtering. Firefox-target manifests must include the response-filter permissions required by the generated manifest version. Chrome-target manifests must not include Firefox-only response-filter permissions. Generated manifest verification is the release authority because the packaged manifest, not source config alone, defines the shipped permission set.
+
+### Bounded response and analysis budgets
+
+Firefox enhanced inspection must pass response bytes through unchanged and retain only bounded analysis bytes. If the retention budget is exceeded, CSS Sentry must record partial coverage with `analysis.skipped.performance_budget`. Analyzer time-budget enforcement must produce the same state rather than relying on documentation-only constants. Mutation-observer batches that exceed the configured mutation budget must coalesce into a scheduled scan instead of unbounded per-mutation processing.
+
+### DNR rule ownership and target preparation
+
+DNR session-rule IDs must not be derived from modulo tab buckets. CSS Sentry must allocate tab-scoped rule IDs from live session-rule state, keep finding-derived and policy-rule ranges separated, and remove tab-scoped rules by inspecting actual session rules. Finding-derived DNR targets must use the effective request URL, strip fragments, reject unsupported or over-budget targets before rule creation, and salvage valid prepared rules when a mixed DNR update batch rejects one rule.
+
+Finding-derived DNR rules should use initiator-domain scoping when reliable frame/page/source origin data is available. When initiator data is unavailable, tab scoping remains the fallback authority. Destination allow/block conflict normalization must preserve blocklist precedence and avoid allowing the same origin to remain in both lists after import or UI edits.
+
+### FreeScout CVE-2026-40497 advisory traceability
+
+FreeScout CVE-2026-40497 is fixture-backed as browser-visible rendered helpdesk/mailbox CSS injection coverage. CSS Sentry must detect token-like selector probing plus a remote CSS request sink in rendered `<style>` content and must preserve benign support-signature styling as non-actionable.
+
+### Release artifact policy
+
+Release packages must not include sourcemaps, dependency folders, generated runtime state, test result folders, or Playwright reports. Release verification must inspect generated artifacts instead of relying only on source-level assumptions.
+
 ## 1.0.24 Balanced Mitigation and DNR Action Semantics
 
 Balanced mode is the default protection mode and must mitigate confirmed high-confidence CSS exfiltration shapes. A high-confidence finding is eligible for finding-derived DNR mitigation when it combines a sensitive selector or value-probing selector with a network-capable CSS sink, including same-origin destinations. Same-origin does not make a CSS exfiltration pattern safe because the destination may still observe path, query, or resource requests.
@@ -1735,3 +1796,156 @@ Required behavior:
 ### PostCSS stringifier breakout boundary
 
 PostCSS CVE-2026-41305 remains adjacent/out of scope for implementation because CSS Sentry does not stringify user CSS into HTML `<style>` tags. The project invariant is to avoid extension UI HTML injection and to scan resulting browser-visible CSS request behavior when it exists, not to patch build-time stringifier behavior.
+
+## 1.0.35 Settings Implementation and Privacy-Invariant Correction
+
+`1.0.35` corrects two settings-surface issues discovered after the `1.0.34` advisory coverage package.
+
+The `Show partial-analysis findings` option is implemented as a presentation control for popup and report views. Partial-analysis findings remain stored with the report so export, debugging, and future review preserve the evidence. The option only controls whether informational coverage rows appear in user-facing findings lists. Analysis state, partial stylesheet counts, and partial frame counts remain visible because hiding those completeness indicators would make the report overclaim inspection coverage.
+
+The previous `Never fetch remote CSS from the extension` checkbox is removed as a user option. CSS Sentry has no extension-context remote stylesheet fetch feature to toggle, and adding such a feature solely to make the checkbox functional would violate the privacy and compatibility model. The project retains the stronger requirement as a documented invariant: ordinary analysis must not issue extension-origin remote CSS requests. The Options UI may present that invariant as explanatory privacy text, and tests must continue to reject extension-context CSS fetch code.
+
+
+
+
+## 1.0.38 Browser Navigation Partial-Frame Coverage Fallback Requirement
+
+Cross-origin frame partial coverage must not depend only on the top-frame DOM scanner. The content script can miss frame insertion timing or fail to persist a parent-scan partial summary before the report page is opened. The background script therefore owns a fallback coverage path for browser-observed subframe navigations.
+
+The fallback must listen to subframe navigation events, including failed subframe navigations, and create a partial-frame report only when all of these conditions are true:
+
+1. the navigation is not the top frame;
+2. the tab has a current top-level URL;
+3. the effective mode for the top-level URL permits scanning;
+4. both top-level URL and frame URL are HTTP-like URLs;
+5. the frame origin differs from the top-level origin.
+
+The fallback must not convert same-origin iframes into partial coverage because same-origin iframe findings are handled by the normal content-script scanner. The fallback also must not fetch the frame or remote CSS from the extension context. It records only browser-provided navigation metadata and a local informational finding.
+
+Stored report aggregation must deduplicate partial-frame counts for the same frame URL when both the parent DOM scanner and the browser navigation fallback report the same cross-origin frame. The report may preserve the finding evidence, but the high-level partial-frame counter must describe logical frame coverage rather than the number of observation paths that reported it.
+
+## 1.0.37 Iframe Mutation Rescan Requirement
+
+The content script must treat inserted `iframe[src]` elements and iframe source-bearing attribute changes as scan triggers. Document-start scanning, DOMContentLoaded scanning, and load scanning are not sufficient by themselves because frame markup or frame `src` values can be inserted after the first scan. Cross-origin iframe partial coverage must therefore be discoverable through the mutation path as well as through document lifecycle scans.
+
+This requirement supports the partial-analysis display option: hiding detailed partial-analysis finding rows must not prevent the report from receiving the underlying partial-frame coverage summary. The report can hide `frame.cross_origin.uninspectable` rows while still showing partial-frame coverage metadata only if the stored report was created with the partial-frame summary intact.
+
+## 1.0.36 Partial-Analysis E2E and Fixture-Corpus Verification Requirement
+
+The `Show partial-analysis findings` setting must be reflected consistently in browser e2e expectations. When the option is disabled, reports must continue to show inspection completeness through analysis state, partial frame coverage, partial stylesheet coverage, frame metadata, and hidden-row notices, but detailed partial-analysis finding rows such as `frame.cross_origin.uninspectable` must not be required in the displayed finding list. When the option is enabled, the stored partial-analysis finding rows must be shown and their reason codes must be visible in the popup or report finding list.
+
+Fixture coverage is intentionally implemented as an expectation-driven dynamic corpus rather than as manually named tests for each individual fixture in the top-level reporter output. Every active `.css` and `.html` fixture under `tests/fixtures/attacks` and `tests/fixtures/benign` must have a matching `.expected.json` file. The integration fixture runner must reject missing and orphan expectations, execute every active fixture against its expectation, and assert the behavior-bearing fields declared by that expectation, including required or forbidden reason codes, destination origins, severity thresholds, block-candidate status, and partial-coverage counters.
+
+
+## 1.0.39 Release Hardening and Settings Semantics Requirement
+
+`1.0.39` closes the release-hardening gaps identified after the `1.0.38` test-clean line. Chrome-target manifests must not request the Firefox-only `webRequest` permission. Firefox-target manifests may request `webRequest` only for the optional enhanced stylesheet response-inspection path. `verify:full` must be a strict fail-fast release gate; diagnostic continue-after-failure behavior belongs in `verify:full:diagnose`. Dependency declarations must not use `latest`. Report retention settings must be normalized against the policy limits before Options state is updated or saved, and lowering retention must immediately prune stale local reports. Fixture block-candidate expectations must use the same DNR eligibility authority as runtime DNR mitigation instead of a fixture-local severity/origin approximation. Firefox enhanced response inspection must have behavior tests for disabled policy, unavailable response filtering, pass-through writes, filter close, finding persistence, filter error handling, and analyzer failure containment.
+
+
+
+## 1.0.40 DNR Eligibility Regression Correction Requirement
+
+The shared DNR finding eligibility authority must include every sink class that runtime mitigation and fixture expectations intentionally classify as a finding-derived future-block candidate. The extracted eligibility module must not narrow the previous runtime behavior by excluding direct SVG remote-resource sinks.
+
+Cross-origin findings with these SVG sink reasons must remain Balanced-mode DNR candidates when they also have an eligible severity and a concrete request or destination URL:
+
+1. `sink.svg_reference`,
+2. `sink.svg_paint_remote`,
+3. `sink.svg_resource_remote`,
+4. `sink.svg_feimage_remote`,
+5. `sink.svg_animate_remote`.
+
+The fixture corpus must continue to use the same pure DNR eligibility authority as runtime DNR mitigation. Fixture expectations must not use a local severity/origin approximation, and failing SVG advisory fixtures must be fixed by correcting the shared eligibility rule unless the source advisory contract itself is intentionally changed.
+
+Regression coverage must include a scanner-to-DNR test proving that cross-origin SVG resource findings install finding-derived future-block rules in Balanced mode.
+
+
+## 1.0.41 DNR Effective-Request URL Reporting Requirement
+
+Finding-derived DNR rule installation must report the effective request URL used by the DNR rule, not necessarily the raw CSS or SVG reference string. When a CSS/SVG resource reference contains a URL fragment, the fragment must be removed before exact DNR matching and before `ruleInstalledUrls` / policy-blocked finding-derived result URLs are reported, because browser network requests do not include URL fragments.
+
+This requirement does not weaken SVG advisory coverage. Fragment-bearing SVG paint, filter, animation, and `feImage` references remain eligible for finding-derived DNR mitigation when they satisfy the existing severity, cross-origin, and destination-policy rules. The normalization applies only to the DNR enforcement target and diagnostic result surface.
+
+## 1.0.43 DNR Nullable URL Guard Requirement
+
+DNR destination-policy origin preparation must not access `URL` properties after a nullable parse without an explicit type predicate. Malformed, empty, and non-HTTP destination-policy entries must be ignored before DNR rule construction, and valid HTTP(S) entries must continue to produce allow/block policy rules.
+
+
+## 1.0.44 Firefox Enhanced Inspection Timing Requirement
+
+Firefox enhanced stylesheet response inspection must not rely on ambient wall-clock reads after a deterministic clock dependency has been supplied to the inspection boundary. When the boundary saves an inspected stylesheet report, the merged summary fallback timestamps and report `updatedAt` value must come from the same completion timestamp. This prevents nondeterministic tests and avoids drift between report metadata and summary metadata.
+
+The summary merge helper may keep an ambient-time default for existing scanner callers, but boundary code with an injected clock must pass the explicit completion timestamp.
+
+
+## 1.0.45 Parser Budget, Firefox Stream Safety, DNR Diagnostics, and Verification-Lane Requirement
+
+`1.0.45` adds the following implementation requirements:
+
+1. CSS parser budget enforcement must use the analyzer's document analysis deadline during source scanning, recovered-import handling, top-level token search, and brace matching. If the parser reaches that budget, the returned analysis state must be `analysis.skipped.performance_budget`, not a silent empty report or a too-large skip.
+2. Firefox enhanced stylesheet response inspection must write response chunks through before retaining them for analysis. If `StreamFilter.write()` throws, CSS Sentry must disconnect the filter, suppress analysis for that response, and avoid throwing through the webRequest event path. If `close()` throws after successful pass-through, the failure must be contained and must not affect page execution.
+3. Finding-derived DNR target preparation must preserve skipped-target diagnostics. At minimum, unsupported URL, overlong effective request URL, overlong regex filter, non-ASCII effective target, and rule-update failure reasons must be available through DNR result/status data.
+4. The AI-readable Vitest JSON reporter lane must be protected by a verification script. `verify:full` must enforce the reporter configuration, while diagnostic verification may run the full `test:ai` command to produce `json-report.json`.
+5. User-facing Strict-mode copy must describe concrete behavior. It must not rely on vague unclear shortcut wording when the actual behavior is stronger blocking for sensitive contexts.
+
+
+## 1.0.46 Refactor Safety Harness Requirements
+
+`1.0.46` establishes pre-refactor safety harness requirements before larger DNR, storage, parser, analyzer, and UI authority splits. Timer-based behavior must be owned by named lifecycle boundaries instead of anonymous component or content-script timers. Content-script mutation rescans are controlled by `documentScanScheduler.ts`; UI saved-state timers are controlled by `useTransientValue`.
+
+DNR tests must use typed mock helpers at the test boundary instead of repeated direct casts to mock-private APIs inside behavior tests. DNR-focused behavior tests live separately from report-storage and scanner-coverage tests so production authority splits can be reviewed with lower regression risk.
+
+E2E synchronization must prefer observable conditions and `expect.poll` over fixed sleeps. Fixed waits may be used only when no browser-observable state exists and the reason is documented at the call site.
+
+Source CSS is source code and must remain reviewable. Runtime or build output may be minified by tooling, but committed source CSS must not collapse into one-line/minified-style files. `verify:source-css` enforces this as part of `verify:full`.
+
+
+## 1.0.50 Test Isolation Guard Correction Requirement
+
+Project-structure tests that protect test isolation must use declared source-reading helpers rather than relying on undeclared globals. The guard must verify the aliased browser mock reset path without breaking `tsc --noEmit`. Generated extension zip size is not a correctness invariant; release artifacts are validated by required contents, forbidden artifacts, manifest checks, and sourcemap exclusion policy.
+
+## 1.0.51 Test Setup Artifact and Alias-Reset Guard Requirement
+
+Project-structure tests that protect Vitest isolation must assert the currently intended aliased browser mock reset contract, not stale implementation strings from earlier setup files. The setup authority is `tests/setup/vitest.setup.ts`; it must import `browser` from `wxt/browser`, call a named aliased reset helper before each test, run React Testing Library `cleanup()` after each test, reset the aliased browser mock after cleanup, avoid relative `./browser-mock` imports in setup, and avoid generated JavaScript setup artifacts under `tests/setup/`.
+
+This requirement is test-support-only. It must not change extension runtime behavior, browser permissions, DNR rule semantics, policy semantics, report storage, detector behavior, or UI behavior.
+
+## 1.0.52 DNR Authority Split Requirement
+
+The DNR implementation must keep `src/browser/dnr/chromeDnr.ts` as the public orchestration surface while separating durable responsibilities into named modules:
+
+1. `dnrRuleAllocation.ts` owns session-rule ID allocation, tab-scoped rule discovery, range filtering, and typed sequential ID consumption.
+2. `dnrTargetPreparation.ts` owns URL parsing, HTTP/HTTPS validation, effective request URL normalization, fragment removal, regex escaping, ASCII and length rejection, policy-origin target normalization, and initiator-domain derivation.
+3. `dnrRuleBuilder.ts` owns DNR rule construction, resource type sets, global policy rule IDs, policy block/allow ordering, strict third-party policy rules, and SVG image-document policy rules.
+4. `dnrRuleUpdate.ts` owns browser `updateSessionRules` effects, remove-only updates, batch updates, failure classification, and per-rule salvage after batch failure.
+5. `dnrStatus.ts` owns DNR diagnostic status persistence and skipped-target reason summaries.
+
+The split must preserve existing public behavior: destination blocklist precedence over allowlist, finding-derived future-block rules, policy-installed block/allow rules, strict third-party rules, SVG image-document policy rules, fragment-free exact request regexes, initiator-domain scoping, skipped-target diagnostics, rule-update failure salvage, tab-scoped clearing, global clearing, and DNR status reporting.
+
+The refactor must not introduce classes, service objects, manager objects, broad public exports, generic utility dumping grounds, or speculative extension points. Direct unit tests must cover each new behavior-bearing DNR authority, and broad DNR browser-integration tests must remain in place.
+
+
+## 1.0.53 DNR Target Canonicalization and Tooltip Disclosure Requirement
+
+DNR target-preparation tests must distinguish raw input characters from browser URL canonicalization. When a valid HTTP or HTTPS URL contains an internationalized domain name, the canonical hostname produced by the platform URL parser is the ASCII rule target and initiator-domain value. Tests must therefore assert the canonical punycoded hostname and must not require valid IDN targets to be dropped merely because the original string contained non-ASCII characters. Unsupported or opaque origins, including `null`, `about:blank`, malformed URLs, and non-HTTP schemes, remain ignored for DNR initiator-domain scoping.
+
+Tooltip disclosure timing is a UI lifecycle authority. Delayed close behavior must be owned by a hook with cleanup on cancellation and unmount, while the tooltip component remains responsible for trigger, portal, accessibility attributes, outside-click/Escape handling, and viewport-clamped positioning. Tooltip opening must remain immediate on hover, focus, and click; only pointer-leave/blur close behavior uses the short grace delay.
+
+Large-stylesheet regression tests that are intended to verify scanning behavior rather than the performance-budget path must control the clock used by analysis budget checks. Performance-budget behavior remains tested separately by explicitly advancing or mocking time past the configured budget.
+
+## 1.0.54 Storage and Policy Authority Split Requirement
+
+The storage implementation must keep `src/browser/storage/reports.ts` as the stable public orchestration entrypoint for existing callers while separating durable report and policy responsibilities into named modules. The storage package must use these authorities:
+
+1. `reports.ts` owns public report/settings orchestration: saving frame and tab reports, listing reports, clearing reports, explicit pruning, saving site policy with retention enforcement, empty-report creation, and stable re-exports for existing policy normalization and settings import callers.
+2. `reportCapping.ts` owns frame, summary, and stored-report caps. It must clamp numeric counters and enforce `REPORT_LIMITS` before storage or export-facing listing.
+3. `reportMerging.ts` owns frame upsert ordering, merged summary construction, and partial-frame deduplication across parent DOM scans and browser navigation coverage.
+4. `reportRetention.ts` owns age-based and count-based report-removal selection and the browser-storage removal effect. Selection must sort by `updatedAt` before applying the count cap so callers do not need to pre-sort entries.
+5. `policyStore.ts` owns browser-storage persistence for the site policy and returns the normalized stored policy.
+6. `policyNormalization.ts` owns policy schema normalization, valid mode filtering, origin-list validation and sorting, per-origin mode caps, blocklist-over-allowlist precedence, retention bounds, and compatibility flag filtering.
+7. `settingsImport.ts` owns imported-settings byte limits, JSON parsing, object-shape validation, and delegation to policy normalization.
+
+This split must preserve existing public behavior and imports. Existing UI, background, content, report, and DNR-test callers may continue importing from `reports.ts`; the refactor is an internal authority split, not a public API change. The implementation must not introduce service objects, classes, manager abstractions, broad utility modules, or new public configuration fields.
+
+Required regression coverage includes direct behavior tests for report capping, report merging, retention selection, policy normalization, settings import validation, and browser-storage report persistence. Scanner-only navigation coverage belongs in scanner tests, not report-storage tests. Project-structure tests must guard against `reports.ts` accumulating normalization, capping, merging, retention, and import parsing responsibilities again.
+

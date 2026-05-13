@@ -1,0 +1,6 @@
+{
+  "description": "Benign FreeScout-like signature style fixture with presentation-only selectors and no remote CSS sink.",
+  "maxActionableFindings": 0,
+  "mustNotBeBlockCandidate": true,
+  "forbiddenDestinationOrigins": ["https://attacker.example"]
+}

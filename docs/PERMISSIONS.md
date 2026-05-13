@@ -1,6 +1,6 @@
 # Permissions Rationale
 
-Last Updated: 2026/04/29 11:55:00 -03
+Last Updated: 2026/05/13 14:58:56 -03
 
 CSS Sentry should request only permissions required for detection, local reporting, and optional mitigation, and optional Firefox-specific stylesheet response inspection.
 
@@ -35,7 +35,7 @@ DNR is required because Chrome Manifest V3 does not allow old-style blocking `we
 
 ## webRequest
 
-Used only for the advanced, off-by-default Firefox enhanced stylesheet response inspection path when Firefox exposes `webRequest.filterResponseData`. This path inspects stylesheet response bodies for local reporting while passing the original response through unchanged. It must not fetch remote CSS from the extension context and must degrade safely on browsers that do not expose the response-filter API.
+Requested only in Firefox-target manifests for the advanced, off-by-default Firefox enhanced stylesheet response inspection path when Firefox exposes `webRequest.filterResponseData`. Chrome-target manifests do not request `webRequest`. This path inspects stylesheet response bodies for local reporting while passing the original response through unchanged. It must not fetch remote CSS from the extension context and must degrade safely on browsers that do not expose the response-filter API.
 
 ## Web Navigation
 
@@ -43,7 +43,7 @@ Used for applying tab-scoped Strict-mode or destination-policy DNR rules early i
 
 ## Permissions Not Requested for v1
 
-CSS Sentry does not currently request `activeTab`, `scripting`, `webRequestBlocking`, or optional host permissions. The extension does not programmatically inject scripts; WXT declares static content scripts from the manifest.
+CSS Sentry does not request `activeTab`, `scripting`, or optional host permissions. Chrome-target builds also do not request `webRequest`. Firefox-target builds request `webRequest` and `webRequestBlocking` because the optional enhanced stylesheet response-inspection path depends on Firefox response filtering. Firefox MV3 builds must also request `webRequestFilterResponse` when that manifest version is used. The extension does not programmatically inject scripts; WXT declares static content scripts from the manifest.
 
 If future versions add programmatic injection or optional host permissions, `docs/PERMISSIONS.md`, `docs/STATUS.md`, and project-structure tests must be updated with a specific rationale.
 
@@ -63,3 +63,13 @@ The browser-store description should explain permissions in plain language:
 ## Permission Regression Rule
 
 Permission changes must be treated as security-relevant changes. Any future addition, removal, or semantic change to manifest permissions must update this file, `docs/STATUS.md`, and the permission-alignment project-structure test in the same change.
+
+
+## 1.0.42 permission and manifest hardening
+
+`1.0.42` keeps shared permissions limited to `storage`, `declarativeNetRequest`, and `webNavigation`. Chrome-target manifests must not include `webRequest`, `webRequestBlocking`, or `webRequestFilterResponse`. Firefox-target manifests include the permissions required by the optional enhanced stylesheet response-inspection path: `webRequest` and `webRequestBlocking` for Firefox MV2 output, and `webRequest`, `webRequestBlocking`, and `webRequestFilterResponse` if a Firefox MV3 target is generated later. Generated manifest verification is part of the release gate so source config and packaged manifests cannot drift silently.
+
+
+## 1.0.45 Verification-Lane Note
+
+The `verify:ai-report` script checks local Vitest JSON reporter configuration only. It does not require additional browser permissions and does not change extension runtime permissions.

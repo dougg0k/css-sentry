@@ -1,6 +1,6 @@
 # Privacy
 
-Last Updated: 2026/04/29 11:55:00 -03
+Last Updated: 2026/05/13 14:58:56 -03
 
 CSS Sentry is designed to be local-first and telemetry-free by default.
 
@@ -63,7 +63,9 @@ Report exports are user-triggered. Exported reports should be sanitized again as
 
 ## Remote Fetching
 
-CSS Sentry should not fetch remote CSS from the extension context by default. If remote stylesheet fetching is ever added, it must be opt-in, clearly explained, disabled by default, documented, and tested with common blocker expectations.
+CSS Sentry should not fetch remote CSS from the extension context for normal analysis. This is a fixed privacy and compatibility invariant, not a checkbox-backed preference. The Options UI may explain the invariant, but it must not expose a “never fetch remote CSS” switch unless a real, separately designed, opt-in remote-fetch feature exists and the switch controls that feature through the actual fetch authority.
+
+If remote stylesheet fetching is ever added, it must be opt-in, clearly explained, disabled by default, documented, and tested with common blocker expectations. Ordinary builds must continue to have a source-level regression test that rejects extension-context remote CSS fetch code.
 
 ## Telemetry
 
@@ -80,3 +82,22 @@ CSS Sentry stores the latest declarativeNetRequest operation status locally so t
 ## Documentation Regression Rule
 
 Privacy documentation must remain explicit about what is stored, what is redacted, what remains local, and how users clear or export reports. Do not replace this document with a shorter privacy summary unless the removed details are preserved elsewhere and linked.
+
+## Partial-Analysis Finding Display
+
+The `Show partial-analysis findings` option controls only whether informational partial-analysis finding rows are displayed in popup and report views. CSS Sentry keeps the underlying report evidence in local storage and exports it unchanged. The high-level analysis state, partial frame counts, and partial stylesheet counts remain visible even when those informational rows are hidden, because those counters communicate inspection completeness rather than optional diagnostic detail.
+
+
+## 1.0.39 retention and remote-fetch invariant update
+
+Report retention is enforced when reports are saved and when settings are saved, so lowering the retention window prunes older local reports immediately instead of waiting for a later startup pass. CSS Sentry still does not fetch remote stylesheets from the extension context for analysis; Firefox enhanced inspection observes browser-loaded stylesheet responses through the browser response-filter API where available.
+
+
+## 1.0.42 Bounded Inspection and Artifact Privacy Update
+
+Firefox enhanced stylesheet response inspection remains optional, Firefox-specific, and off by default. When enabled, it passes browser-loaded stylesheet response bytes through unchanged and retains only a bounded prefix of the stylesheet for local analysis. If the configured byte budget is reached or analysis fails, CSS Sentry records partial coverage instead of buffering unbounded response bodies. Release artifact verification rejects sourcemaps in packaged output so distributed extension packages do not unintentionally include source maps.
+
+
+## 1.0.45 Diagnostic Scope Update
+
+DNR skipped-target diagnostics are local-only and summarize why a finding-derived network rule was not installed. They use reason codes and counts for local troubleshooting and do not introduce telemetry or remote reporting.

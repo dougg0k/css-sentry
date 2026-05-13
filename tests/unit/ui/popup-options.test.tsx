@@ -4,7 +4,7 @@ import OptionsApp from "../../../src/entrypoints/options/OptionsApp";
 import PopupApp from "../../../src/entrypoints/popup/App";
 import ReportApp from "../../../src/entrypoints/report/ReportApp";
 import { browser } from "wxt/browser";
-import { STORAGE_KEYS, DEFAULT_SITE_POLICY, EMPTY_ANALYSIS_SUMMARY } from "../../../src/shared/constants";
+import { STORAGE_KEYS, DEFAULT_SITE_POLICY, EMPTY_ANALYSIS_SUMMARY, POLICY_LIMITS } from "../../../src/shared/constants";
 
 describe("React UI", () => {
   it("renders options with balanced default, standard controls, and advanced toggle in compatibility/privacy", async () => {
@@ -22,7 +22,7 @@ describe("React UI", () => {
     expect(screen.getByText(/Scans CSS and stores local findings, but avoids blocking or sanitizing/)).toBeInTheDocument();
     expect(screen.getAllByText(/Use when:/).length).toBeGreaterThan(0);
     expect(screen.getAllByText("Warn and mitigate high-confidence exfiltration attempts.").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Fail closed on sensitive sites.").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Use stronger blocking on sensitive sites.").length).toBeGreaterThan(0);
     expect(screen.getByText("Do not scan or mitigate this origin.")).toBeInTheDocument();
     expect(screen.getByText(/Marks the origin as trusted/)).toBeInTheDocument();
     expect(screen.getByText("Temporarily disable protection for this origin.")).toBeInTheDocument();
@@ -31,12 +31,13 @@ describe("React UI", () => {
     expect(screen.getByText("Completely disable CSS Sentry for this origin.")).toBeInTheDocument();
     expect(screen.queryByText("Allowed destination origins")).not.toBeInTheDocument();
     expect(screen.queryByText("Enable Firefox enhanced stylesheet response inspection")).not.toBeInTheDocument();
+    expect(screen.getByText(/does not fetch remote stylesheets from the extension context/i)).toBeInTheDocument();
       });
 
   it("reveals advanced origin and compatibility controls when advanced options are enabled", async () => {
     render(<OptionsApp />);
     await waitFor(() => expect(screen.getByText("Compatibility and privacy")).toBeInTheDocument());
-    expect(screen.getByText("Never fetch remote CSS from the extension")).toBeInTheDocument();
+    expect(screen.queryByText("Never fetch remote CSS from the extension")).not.toBeInTheDocument();
     expect(screen.getByText("Enable declarative network blocking")).toBeInTheDocument();
     expect(screen.getByText("Enable content-level CSS neutralization")).toBeInTheDocument();
     expect(screen.getByText("Enable strict third-party resource blocking")).toBeInTheDocument();
@@ -53,6 +54,24 @@ describe("React UI", () => {
     expect(screen.getByText("Exact per-origin mode overrides")).toBeInTheDocument();
     expect(screen.getByText("Report external SVG image documents as partial coverage")).toBeInTheDocument();
     expect(screen.getByText("Apply Strict SVG image-document network policy")).toBeInTheDocument();
+  });
+
+
+  it("normalizes report retention input to the real policy bounds before saving", async () => {
+    render(<OptionsApp />);
+    await waitFor(() => expect(screen.getByText("Local reports and settings")).toBeInTheDocument());
+    const retentionInput = screen.getByLabelText(/report retention days/i) as HTMLInputElement;
+    expect(retentionInput).toHaveAttribute("max", String(POLICY_LIMITS.maxLogRetentionDays));
+
+    fireEvent.change(retentionInput, { target: { value: "365" } });
+    await waitFor(() => expect(retentionInput.value).toBe(String(POLICY_LIMITS.maxLogRetentionDays)));
+    let stored = await browser.storage.local.get(STORAGE_KEYS.settings);
+    expect((stored[STORAGE_KEYS.settings] as typeof DEFAULT_SITE_POLICY).logRetentionDays).toBe(POLICY_LIMITS.maxLogRetentionDays);
+
+    fireEvent.change(retentionInput, { target: { value: "" } });
+    await waitFor(() => expect(retentionInput.value).toBe(String(POLICY_LIMITS.minLogRetentionDays)));
+    stored = await browser.storage.local.get(STORAGE_KEYS.settings);
+    expect((stored[STORAGE_KEYS.settings] as typeof DEFAULT_SITE_POLICY).logRetentionDays).toBe(POLICY_LIMITS.minLogRetentionDays);
   });
 
   it("sanitizes invalid origins such as null from stored policy before rendering", async () => {
@@ -135,6 +154,7 @@ describe("React UI", () => {
       finishedAt: 2,
     };
     await browser.storage.local.set({
+      [STORAGE_KEYS.settings]: { ...DEFAULT_SITE_POLICY, compatibility: { ...DEFAULT_SITE_POLICY.compatibility, showPartialAnalysisFindings: true } },
       [`${STORAGE_KEYS.reportsPrefix}1`]: {
         tabId: 1,
         url: "https://app.example.test/",
@@ -218,6 +238,7 @@ describe("React UI", () => {
       finishedAt: 2,
     };
     await browser.storage.local.set({
+      [STORAGE_KEYS.settings]: { ...DEFAULT_SITE_POLICY, compatibility: { ...DEFAULT_SITE_POLICY.compatibility, showPartialAnalysisFindings: true } },
       [`${STORAGE_KEYS.reportsPrefix}1`]: {
         tabId: 1,
         url: "https://app.example.test/",
@@ -233,6 +254,66 @@ describe("React UI", () => {
     expect(screen.getAllByText("Logged only").length).toBeGreaterThan(0);
     expect(screen.getByText("Coverage notice")).toBeInTheDocument();
     expect(screen.getByText(/no request was blocked/i)).toBeInTheDocument();
+  });
+
+  it("hides partial-analysis finding rows when the setting is off", async () => {
+    const now = Date.now();
+    const coverageFinding = {
+      id: "coverage-hidden-1",
+      severity: "info" as const,
+      confidence: 100,
+      pageUrl: "https://app.example.test/",
+      pageOrigin: "https://app.example.test",
+      frameUrl: "https://app.example.test/",
+      frameOrigin: "https://app.example.test",
+      sourceKind: "stylesheet" as const,
+      sourceUrl: "https://cdn.example.test/app.css",
+      sourceOrigin: "https://cdn.example.test",
+      selector: null,
+      property: null,
+      destinationOrigin: null,
+      destinationUrl: null,
+      action: "logged" as const,
+      state: "stylesheet.cross_origin_uninspectable" as const,
+      reasons: ["stylesheet.cross_origin.uninspectable"] as const,
+      timestamp: now,
+      details: "Stylesheet rules were not inspectable.",
+    };
+    const summary = {
+      ...EMPTY_ANALYSIS_SUMMARY,
+      state: "analysis.partial" as const,
+      findings: [coverageFinding],
+      analyzedFrames: 1,
+      analyzedStylesheets: 1,
+      partialStylesheets: 1,
+      startedAt: 1,
+      finishedAt: 2,
+    };
+    await browser.storage.local.set({
+      [`${STORAGE_KEYS.reportsPrefix}1`]: {
+        tabId: 1,
+        url: "https://app.example.test/",
+        origin: "https://app.example.test",
+        summary,
+        updatedAt: now,
+        frames: [{
+          frameId: 0,
+          parentFrameId: -1,
+          frameUrl: "https://app.example.test/",
+          frameOrigin: "https://app.example.test",
+          summary,
+          updatedAt: now,
+        }],
+      },
+    });
+
+    render(<PopupApp />);
+    await waitFor(() => expect(screen.getByText(/1 partial-analysis finding is hidden by the current Options setting/)).toBeInTheDocument());
+    expect(screen.queryByText("Coverage notice")).not.toBeInTheDocument();
+
+    render(<ReportApp />);
+    await waitFor(() => expect(screen.getAllByText(/1 partial-analysis finding is hidden by the current Options setting/).length).toBeGreaterThan(0));
+    expect(screen.queryByText("Stylesheet rules were not inspectable.")).not.toBeInTheDocument();
   });
 
 

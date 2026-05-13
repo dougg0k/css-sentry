@@ -1,6 +1,7 @@
-import type { Finding, MitigationAction } from "../../shared/types";
+import type { Finding } from "../../shared/types";
 import { SUMMARY_STAT_DEFINITIONS } from "../../shared/uiMetadata";
 import { InfoTooltip } from "../../shared/components/InfoTooltip";
+import { findingActions, isCoverageFinding, isInstalledBlockingRuleAction } from "./popupFindingState";
 
 export function Header({ state, title, subtitle, hasReport }: { state: string; title: string; subtitle: string; hasReport: boolean }) {
   const statusLabel = !hasReport ? "Waiting" : state === "analysis.complete" ? "Complete" : "Partial";
@@ -23,36 +24,7 @@ export function FindingItem({ finding }: { finding: Finding }) {
   </li>;
 }
 
-export function pickHighestSeverity(findings: Finding[]): string | null {
-  const order = ["info", "low", "medium", "high", "critical"];
-  return findings.reduce<string | null>((highest, finding) => highest === null || order.indexOf(finding.severity) > order.indexOf(highest) ? finding.severity : highest, null);
-}
-
-export function isCoverageFinding(finding: Finding): boolean {
-  return finding.reasons.some((reason) => reason.startsWith("stylesheet.") || reason.startsWith("frame.") || reason.startsWith("resource.svg_image_document") || reason.startsWith("analysis.skipped"));
-}
-
-export function findingActions(finding: Finding): MitigationAction[] {
-  return [...new Set([finding.action, ...(finding.additionalActions ?? [])])];
-}
-
-export function changesPage(actionOrFinding: MitigationAction | Finding): boolean {
-  const actions = typeof actionOrFinding === "string" ? [actionOrFinding] : findingActions(actionOrFinding);
-  return actions.some(isPageChangingAction);
-}
-
-export function hasInstalledBlockingRule(actionOrFinding: MitigationAction | Finding): boolean {
-  const actions = typeof actionOrFinding === "string" ? [actionOrFinding] : findingActions(actionOrFinding);
-  return actions.some(isInstalledBlockingRuleAction);
-}
-
-function isPageChangingAction(action: MitigationAction): boolean {
-  return action === "blocked_dnr" || action === "blocked_strict_third_party" || action === "neutralized" || action === "disabled_stylesheet" || action === "removed_style_node";
-}
-
-function isInstalledBlockingRuleAction(action: MitigationAction): boolean {
-  return action === "rule_installed_dnr" || action === "future_blocked_dnr";
-}
+export { changesPage, hasInstalledBlockingRule, isCoverageFinding, pickHighestSeverity } from "./popupFindingState";
 
 function actionDisplay(finding: Finding): { label: string; description: string; className: string } {
   const actions = findingActions(finding);

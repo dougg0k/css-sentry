@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react";
-import { clearAllReports, listReports } from "../../browser/storage/reports";
-import type { Finding, FrameReport, StoredTabReport } from "../../shared/types";
+import { clearAllReports, getSitePolicy, listReports } from "../../browser/storage/reports";
+import type { Finding, FrameReport, SitePolicy, StoredTabReport } from "../../shared/types";
 import { sanitizeStoredReportForExport } from "../../core/privacy/redaction";
+import { countHiddenPartialAnalysisFindings, filterFindingsForDisplay } from "../../shared/findingDisplay";
 
 export default function ReportApp() {
   const [reports, setReports] = useState<StoredTabReport[]>([]);
-  async function refresh() { setReports(await listReports()); }
+  const [policy, setPolicy] = useState<SitePolicy | null>(null);
+  async function refresh() {
+    const [nextReports, nextPolicy] = await Promise.all([listReports(), getSitePolicy()]);
+    setReports(nextReports);
+    setPolicy(nextPolicy);
+  }
   useEffect(() => { void refresh(); }, []);
   async function exportReports() {
     const blob = new Blob([JSON.stringify(reports.map(sanitizeStoredReportForExport), null, 2)], { type: "application/json" });
@@ -25,13 +31,13 @@ export default function ReportApp() {
         <p className="muted">Local reports only. Sensitive values are redacted by the analyzer before storage.</p>
         <div className="actions"><button onClick={() => void exportReports()}>Export JSON</button><button onClick={() => void clearAllReports().then(refresh)}>Clear reports</button></div>
       </header>
-      {reports.map((report) => <ReportCard key={report.tabId} report={report} />)}
+      {reports.map((report) => <ReportCard key={report.tabId} report={report} policy={policy} />)}
       {reports.length === 0 ? <section className="card"><p>No local reports stored.</p></section> : null}
     </main>
   );
 }
 
-function ReportCard({ report }: { report: StoredTabReport }) {
+function ReportCard({ report, policy }: { report: StoredTabReport; policy: SitePolicy | null }) {
   const totalFrames = report.summary.analyzedFrames + report.summary.partialFrames;
   return (
     <section className="card">
@@ -40,13 +46,15 @@ function ReportCard({ report }: { report: StoredTabReport }) {
         {report.summary.state} · {report.summary.findings.length} findings · {report.frames.length} frame reports · {report.summary.analyzedFrames}/{totalFrames} frames analyzed · updated {new Date(report.updatedAt).toLocaleString()}
       </p>
       {report.summary.partialFrames > 0 ? <p className="notice">Partial frame coverage: {report.summary.partialFrames} frame{report.summary.partialFrames === 1 ? "" : "s"} could not be fully inspected.</p> : null}
-      {report.frames.map((frame) => <FrameDetails key={frame.frameId} frame={frame} />)}
+      {report.frames.map((frame) => <FrameDetails key={frame.frameId} frame={frame} policy={policy} />)}
     </section>
   );
 }
 
-function FrameDetails({ frame }: { frame: FrameReport }) {
+function FrameDetails({ frame, policy }: { frame: FrameReport; policy: SitePolicy | null }) {
   const status = frame.summary.state === "analysis.complete" && frame.summary.partialFrames === 0 && frame.summary.partialStylesheets === 0 ? "Complete" : "Partial";
+  const visibleFindings = filterFindingsForDisplay(frame.summary.findings, policy);
+  const hiddenPartialAnalysisFindings = countHiddenPartialAnalysisFindings(frame.summary.findings, policy);
   return (
     <details className="frameDetails" open>
       <summary>Frame {frame.frameId}: {frame.frameOrigin ?? frame.frameUrl} — {status}</summary>
@@ -54,11 +62,16 @@ function FrameDetails({ frame }: { frame: FrameReport }) {
         <div><dt>Frame URL</dt><dd className="mono">{frame.frameUrl}</dd></div>
         <div><dt>Parent frame</dt><dd>{frame.parentFrameId}</dd></div>
         <div><dt>Status</dt><dd>{frame.summary.state}</dd></div>
-        <div><dt>Findings</dt><dd>{frame.summary.findings.length}</dd></div>
+        <div><dt>Findings</dt><dd>{visibleFindings.length}{hiddenPartialAnalysisFindings > 0 ? ` shown / ${hiddenPartialAnalysisFindings} partial hidden` : ""}</dd></div>
         <div><dt>Stylesheets</dt><dd>{frame.summary.analyzedStylesheets} analyzed / {frame.summary.partialStylesheets} partial</dd></div>
         <div><dt>Frames</dt><dd>{frame.summary.analyzedFrames} analyzed / {frame.summary.partialFrames} partial</dd></div>
       </dl>
-      {frame.summary.findings.length === 0 ? <p className="muted">No findings recorded for this frame.</p> : <ul>{frame.summary.findings.map((finding) => <FindingRow key={finding.id} finding={finding}/>)}</ul>}
+      {visibleFindings.length === 0
+        ? <p className="muted">{hiddenPartialAnalysisFindings > 0 ? `${hiddenPartialAnalysisFindings} partial-analysis finding${hiddenPartialAnalysisFindings === 1 ? " is" : "s are"} hidden by the current Options setting.` : "No findings recorded for this frame."}</p>
+        : <>
+          {hiddenPartialAnalysisFindings > 0 ? <p className="muted">{hiddenPartialAnalysisFindings} partial-analysis finding{hiddenPartialAnalysisFindings === 1 ? " is" : "s are"} hidden by the current Options setting.</p> : null}
+          <ul>{visibleFindings.map((finding) => <FindingRow key={finding.id} finding={finding}/>)}</ul>
+        </>}
     </details>
   );
 }

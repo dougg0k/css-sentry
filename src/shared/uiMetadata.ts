@@ -42,8 +42,8 @@ export const MODE_DEFINITIONS: ModeDefinition[] = [
     mode: "strict",
     label: "Strict",
     shortLabel: "Strict",
-    summary: "Fail closed on sensitive sites.",
-    details: "Includes Balanced high-confidence mitigation and adds stronger blocking for suspicious CSS and optional third-party CSS-triggered resources. This offers more protection but can break complex sites.",
+    summary: "Use stronger blocking on sensitive sites.",
+    details: "Includes Balanced high-confidence mitigation and adds stronger blocking for suspicious CSS and optional third-party CSS-triggered resources. This offers more protection for sensitive sites, but it can break complex pages.",
     recommendedUse: "Webmail, banking, admin panels, cloud consoles, identity providers, and other sensitive sites.",
     prominent: true
   },
@@ -154,14 +154,6 @@ export interface CompatibilityDefinition {
 
 export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
   {
-    key: "neverFetchRemoteCssFromExtension",
-    label: "Never fetch remote CSS from the extension",
-    summary: "Avoid behind-the-scenes extension-origin CSS requests.",
-    tooltip: "Recommended on. CSS Sentry should analyze CSS the browser already loaded instead of making its own remote requests, because extension-origin requests can bypass expectations from blockers or privacy tools.",
-    recommendedValue: true,
-    advanced: false
-  },
-  {
     key: "enableDnrMitigation",
     label: "Enable declarative network blocking",
     summary: "Allow browser network rules for high-confidence findings.",
@@ -189,8 +181,8 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
   {
     key: "showPartialAnalysisFindings",
     label: "Show partial-analysis findings",
-    summary: "Keep stylesheet and frame coverage notices visible in reports.",
-    tooltip: "Recommended off for normal browsing if you want fewer coverage notices. Coverage notices are informational and do not count as actionable security findings.",
+    summary: "Show stored stylesheet and frame coverage finding rows in popup and report views.",
+    tooltip: "Recommended off for normal browsing if you want fewer coverage rows. Analysis state, partial frame counts, and partial stylesheet counts remain visible even when these informational rows are hidden.",
     recommendedValue: false,
     advanced: false
   },

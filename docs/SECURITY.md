@@ -1,6 +1,6 @@
 # Security Policy
 
-Last Updated: 2026/04/29 11:55:00 -03
+Last Updated: 2026/05/13 13:58:58 -03
 
 CSS Sentry is a browser extension for detecting and reducing risk from known high-signal CSS-based data exfiltration patterns. Security reports are welcome, especially reports with minimized reproductions and clear expected/actual behavior.
 
@@ -10,9 +10,8 @@ Only the latest package line is supported for security fixes. Older development 
 
 | Version | Supported |
 |---|---:|
-| `1.0.4` | Yes, after local `pnpm run verify:full` passes |
-| `1.0.3` | Superseded by documentation patch `1.0.4` |
-| `1.0.0` through `1.0.2` | Superseded |
+| `1.0.42` | Yes, after local `pnpm run verify:full` passes |
+| `1.0.0` through `1.0.41` | Superseded |
 | `0.0.x` development snapshots | No |
 
 

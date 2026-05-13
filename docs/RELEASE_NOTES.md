@@ -1,6 +1,157 @@
 # Release Notes
 
-Last Updated: 2026/05/13 01:54:22 -03
+Last Updated: 2026/05/13 19:54:55 -03
+
+## 1.0.59
+
+- No user-facing extension behavior changed in this update.
+- Kept release validation aligned with the intended oversized stylesheet behavior.
+
+## 1.0.58
+
+- No user-facing extension behavior changed in this update.
+- Preserved Firefox enhanced stylesheet inspection compatibility after internal browser API cleanup, keeping the optional Firefox-only inspection path available for users who enable it.
+
+## 1.0.57
+
+- Improved detection reliability for very large stylesheets. CSS Sentry now keeps security-relevant findings from oversized CSS even when analysis reaches the performance budget.
+- Improved handling of nested CSS selector probes, recovered remote imports, conditional CSS values, and source-scanned rules near the end of large stylesheets.
+- Reduced the risk that browser-specific differences interfere with protection paths unexpectedly.
+- Made timestamps and retention-sensitive report behavior more consistent across analyzer, report, and browser-event paths.
+
+## 1.0.56
+
+- Improved startup reliability for the popup, options page, and report page.
+- Improved page scan reliability for initial scans, page-change rescans, CSS neutralization, and scan-complete reporting.
+- Improved popup and options state handling while preserving existing mode controls, mitigation counts, partial-finding visibility, and report actions.
+- Corrected an Options page structure issue that could affect the local reports and settings area.
+
+## 1.0.55
+
+- Fixed a large-stylesheet regression where a remote `@import` near the end of an oversized CSS file could be missed when analysis reached the performance budget.
+- Improved malformed and deeply nested CSS handling so security-relevant rules are retained without spending the full analysis budget on benign padding rules.
+- Preserved the existing analyzer behavior for normal stylesheets while improving fallback handling for oversized stylesheets.
+
+## 1.0.54
+
+- Improved report and settings reliability when reports are capped, retained, merged across frames, saved with site policy, or restored from imported settings.
+- Preserved existing report, popup, options, background, and content behavior.
+- Improved reliability for report cleanup, settings import validation, saved policy normalization, and frame-level report merging.
+
+## 1.0.53
+
+- Preserved protection for internationalized domains by keeping browser-canonical punycode hostnames instead of dropping valid non-ASCII origins.
+- Improved tooltip behavior so popup help content opens immediately, remains stable during hover, and still closes correctly on outside click or Escape.
+- Improved large-stylesheet handling stability so behavior is less dependent on machine timing.
+
+## 1.0.52
+
+- Improved reliability of browser request-blocking rules installed from CSS findings and site policies.
+- Preserved existing request-blocking behavior while improving fallback handling when browser rule updates only partially apply.
+- Improved reliability for destination targeting, policy rule behavior, and diagnostics when browser rule updates partially fail.
+
+## 1.0.51
+
+- No user-facing extension behavior changed in this update.
+- Improved release validation so future source packages are less likely to include stale generated setup artifacts.
+
+## 1.0.50
+
+- No user-facing extension behavior changed in this update.
+- Improved release validation and confirmed the generated extension output still follows the intended sourcemap policy.
+
+## 1.0.49
+
+- No user-facing extension behavior changed in this update.
+- Improved release validation isolation so future UI and browser-behavior changes are less likely to affect unrelated checks.
+
+## 1.0.47
+
+- No user-facing extension behavior changed in this update.
+- Improved request-blocking rule validation so generated rule data continues to be checked accurately.
+
+## 1.0.46
+
+- No user-facing extension behavior changed in this update.
+- Strengthened release validation around request-blocking behavior, page rescan timing, temporary saved-state UI messages, policy synchronization, and source CSS readability.
+- Improved maintainability of validation coverage before later protection-path improvements.
+
+
+## 1.0.45
+
+- Added parsing-phase performance-budget enforcement so the CSS parser can stop source walking and report `analysis.skipped.performance_budget` before rule analysis begins.
+- Hardened Firefox enhanced stylesheet response inspection against stream filter write and close failures. Response bytes are still passed through before retention, write failure disconnects the filter, and failed streams are not analyzed.
+- Added DNR skipped-target diagnostics for unsupported, overlong, regex-too-long, non-ASCII, and rule-update-failed targets. The Options network-rule status can now report skipped target counts and reason summaries.
+- Added `verify:ai-report` to enforce the Vitest JSON reporter lane and included it in `verify:full`; `verify:full:diagnose` now also runs `test:ai`.
+- Replaced the Strict-mode summary text with literal behavior wording: stronger blocking on sensitive sites.
+- Replaced arbitrary inline Firefox test-clock values with named deterministic test constants.
+
+## 1.0.42
+
+Firefox, DNR, performance-budget, advisory-traceability, and release-artifact hardening.
+
+- Added the Firefox response-filter permissions required for optional enhanced stylesheet inspection in Firefox-target manifests while keeping Chrome-target manifests free of Firefox-only permissions. Generated manifest verification now checks Chrome and Firefox outputs after build.
+- Bounded Firefox enhanced response-body retention. Response bytes are still passed through unchanged, but retained analysis bytes are capped and over-budget analysis records `analysis.skipped.performance_budget` partial coverage instead of buffering unbounded stylesheet responses.
+- Replaced deterministic modulo-style DNR tab rule ownership with allocation from live session-rule state, so tab-scoped finding/policy rules for different live tabs do not collide. Clearing a tab removes actual tab-scoped rules discovered in session rules.
+- Hardened DNR target preparation, fragment handling, initiator scoping, and batch-failure salvage so invalid or rejected rules do not prevent valid prepared rules from installing.
+- Normalized destination allow/block conflicts so blocklisted origins remain the authority and imported or edited allowlist entries cannot silently coexist with the same blocklisted origin.
+- Added FreeScout CVE-2026-40497 fixture-backed traceability with attack and benign fixtures.
+- Added generated-manifest and release-artifact verification scripts. Release packages must not contain sourcemaps, generated runtime state, test reports, or dependency folders.
+
+## 1.0.41
+
+DNR effective-request URL reporting correction.
+
+- Corrected finding-derived DNR result reporting so installed-rule URLs use the same effective request URL shape used by DNR matching. URL fragments are stripped before reporting installed rule targets because fragments are not sent in network requests and are removed from the DNR regex filter.
+- Preserved the `1.0.39` shared DNR eligibility authority and the `1.0.40` SVG sink eligibility expansion; fixture expectations remain tied to the runtime eligibility decision rather than a separate fixture-only approximation.
+- Added regression coverage that verifies SVG fragment references still install Balanced-mode finding-derived rules while the reported installed URLs and generated DNR regex filters do not retain `#fragment` values.
+
+## 1.0.40
+
+DNR eligibility correction for direct SVG remote-resource sinks.
+
+- Corrected the shared DNR finding eligibility authority so cross-origin SVG `feImage`, SVG animation URL, SVG paint/reference, and generic SVG resource-attribute findings remain Balanced-mode finding-derived DNR candidates.
+- Preserved the 1.0.39 shared-authority design: runtime DNR mitigation and fixture expectations still use the same pure eligibility module rather than separate approximations.
+- Added focused regression coverage for cross-origin SVG resource sinks installing finding-derived future-block rules.
+- Kept fixture expectations unchanged because the failing fixtures represented valid block-candidate requirements, not stale expectations.
+
+## 1.0.39
+
+Release hardening package.
+
+- Split manifest permissions by browser target so Chrome builds do not request Firefox-only `webRequest`; Firefox builds keep it for the optional enhanced stylesheet response-inspection path.
+- Enforced report retention after report saves and after settings saves, and normalized Options retention input against the real policy bounds before saving.
+- Moved DNR finding eligibility into a shared pure module used by runtime DNR mitigation and fixture integration tests.
+- Added behavioral coverage for Firefox enhanced response inspection pass-through, safe degradation, finding persistence, and failure containment.
+- Changed `verify:full` to a strict fail-fast gate and added `verify:full:diagnose` for intentional continue-after-failure diagnostics.
+- Pinned `@vitejs/plugin-react` to the lockfile-resolved version instead of `latest`.
+- Updated README and docs to reflect implemented optional Firefox enhanced inspection and the browser-specific permission model.
+
+## 1.0.38 — Browser Navigation Partial-Frame Coverage Correction
+
+Fixed the repeated cross-origin iframe e2e failure by moving the fallback evidence path to the browser navigation authority. Content-script lifecycle and mutation scans remain useful, but they are no longer the only source of partial-frame coverage for cross-origin subframes. The background script now records a partial-frame report when browser subframe navigation events identify a cross-origin HTTP-like frame, including failed navigations that may never produce an inspectable frame document.
+
+Added source coverage for the fallback report builder and report-summary deduplication. If the parent DOM scan and the browser navigation event both describe the same cross-origin frame, the stored report keeps one logical partial-frame count while preserving the underlying finding evidence. This prevents the report from missing `Partial frame coverage` in the failing e2e path without inflating counts in environments where both observation paths succeed.
+
+## 1.0.37 — Iframe Mutation Rescan Correction
+
+Corrected the content-script rescan trigger set so inserted or source-changed iframe elements schedule a follow-up scan. This protects cross-origin iframe partial-coverage reporting when a page's first document-start scan runs before iframe markup is present or before the iframe `src` is assigned. The correction preserves the `Show partial-analysis findings` display contract: partial-frame coverage metadata remains visible by default, and detailed partial-analysis reason rows remain visible only when the option is enabled.
+
+Added a regression check that keeps `iframe[src]`, `src`, and `data` in the content-script rescan trigger path so future UI/report tests do not rely only on document lifecycle events to discover late frame coverage limitations.
+
+## 1.0.36 — Partial-Analysis E2E Alignment and Fixture-Corpus Verification Clarification
+
+Corrected the cross-origin iframe e2e expectation after `Show partial-analysis findings` became a real off-by-default display option. The report must still expose partial frame coverage, frame URL metadata, and hidden-row notice by default, but the `frame.cross_origin.uninspectable` finding reason row is only expected after the partial-analysis display option is enabled. This keeps the browser e2e aligned with the implemented setting instead of treating a hidden optional diagnostic row as default output.
+
+Confirmed the fixture corpus test model in source: `tests/integration/fixtures.test.ts` dynamically creates one behavior test for every active `.css` and `.html` fixture under `tests/fixtures/attacks` and `tests/fixtures/benign`, plus a corpus integrity test that rejects missing or orphan `.expected.json` files. The default Vitest reporter summarizes this as the `fixtures.test.ts` file rather than listing every generated fixture test name.
+
+## 1.0.35 — Partial-Analysis Display Option and Remote-CSS Privacy Invariant
+
+Implemented the `Show partial-analysis findings` setting as real popup/report presentation behavior. Partial-analysis findings remain stored and exportable, but informational coverage rows are hidden by default and shown when the option is enabled. Analysis state, partial frame counts, and partial stylesheet counts remain visible even when the rows are hidden so the UI does not overclaim inspection coverage.
+
+Removed the `Never fetch remote CSS from the extension` checkbox from Options and policy normalization. CSS Sentry does not have an extension-context remote stylesheet fetch feature to toggle, so the previous checkbox was misleading. The underlying privacy behavior remains documented and enforced as a hard invariant: ordinary analysis does not fetch remote CSS from the extension context.
+
+Added UI and storage regression coverage for the corrected settings behavior, including backward-compatible import normalization for old exported settings that still contain the removed field.
 
 ## 1.0.34 — Hono Inline-Style and Tandoor Stored-Style Advisory Coverage
 
@@ -650,4 +801,17 @@ Release history must remain available in this file or in a clearly referenced su
 - references to corrective releases and why they were needed;
 - the relationship between release notes and coverage/status/specification documents.
 
+## 1.0.43 - DNR Nullable URL Guard Correction
 
+- Fixed the DNR destination-policy target preparation path so nullable URL parsing is narrowed through an explicit `isHttpUrl` type guard before URL property access.
+- Added regression coverage for malformed destination-policy origins so invalid, non-HTTP, and empty origins cannot reach DNR rule creation.
+- Added project-structure coverage preventing the nullable URL guard from regressing to a `Boolean(url)` check that TypeScript cannot narrow safely.
+
+
+## 1.0.44 - Firefox Enhanced Inspection Summary Timing Correction
+
+- Fixed the Firefox enhanced stylesheet response inspection unit expectation by removing hidden ambient-time behavior from the response-summary merge path.
+- `mergeSummaries()` now accepts an explicit completion timestamp, preserving existing default behavior for other callers while allowing testable boundary code to pass its injected clock.
+- Firefox enhanced inspection now uses one completion timestamp for the merged summary and saved report `updatedAt`, preventing timestamp drift and nondeterministic tests.
+- Performance-budget summaries created by the Firefox enhanced inspection boundary now use the same injected completion timestamp.
+- Kept the DNR nullable URL guard and SVG/DNR eligibility corrections from 1.0.41 through 1.0.43.

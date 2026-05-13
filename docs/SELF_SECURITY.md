@@ -1,6 +1,6 @@
 # Self-Security Hardening Traceability
 
-Last Updated: 2026/05/13 01:29:16 -03
+Last Updated: 2026/05/13 14:58:56 -03
 
 ## Purpose
 
@@ -21,12 +21,12 @@ The stable package still uses the normal local verification gate before publishi
 | ID | Requirement | Status | Implementation evidence | Test evidence | Notes |
 |---|---|---:|---|---|---|
 | SS-001 | Privileged runtime-message abuse prevention | Covered | `src/browser/runtime/messageSecurity.ts`; `src/entrypoints/background.ts` validates messages before dispatch. | `tests/unit/browser/runtime-message-security.test.ts` | Content scripts may send scan-complete only. Extension UI contexts are required for privileged policy/report messages. |
-| SS-002 | Settings import hardening | Covered | `parseImportedSitePolicy()` and `normalizePolicy()` in `src/browser/storage/reports.ts`; `POLICY_LIMITS` in `src/shared/constants.ts`. | `tests/unit/browser/storage-and-dnr.test.ts` | Import size, object shape, origin lists, per-origin modes, modes, retention days, and compatibility booleans are capped or normalized. |
-| SS-003 | DNR failure-state visibility | Covered | DNR status storage through `STORAGE_KEYS.dnrStatus`; Options UI status display in `src/entrypoints/options/OptionsApp.tsx`. | `tests/unit/browser/storage-and-dnr.test.ts` | DNR failures should not be silent. Status is local diagnostic state, not telemetry. |
+| SS-002 | Settings import hardening | Covered | `parseImportedSitePolicy()` and `normalizePolicy()` in `src/browser/storage/reports.ts`; `POLICY_LIMITS` in `src/shared/constants.ts`. | `tests/unit/browser/report-storage.test.ts`; `tests/unit/browser/dnr-rules.test.ts` | Import size, object shape, origin lists, per-origin modes, modes, retention days, and compatibility booleans are capped or normalized. |
+| SS-003 | DNR failure-state visibility | Covered | DNR status storage through `STORAGE_KEYS.dnrStatus`; Options UI status display in `src/entrypoints/options/OptionsApp.tsx`. | `tests/unit/browser/report-storage.test.ts`; `tests/unit/browser/dnr-rules.test.ts` | DNR failures should not be silent. Status is local diagnostic state, not telemetry. |
 | SS-004 | Permission minimization audit | Covered | `wxt.config.ts`; `docs/PERMISSIONS.md`. | `tests/integration/project-structure.test.ts` | Current v1 manifest permissions are `storage`, `declarativeNetRequest`, `webNavigation`, and host access. `activeTab`, `scripting`, and optional host permissions are intentionally not requested. |
 | SS-005 | Extension UI injection invariant | Covered | React UI avoids HTML injection and dynamic-code execution sinks. | `tests/integration/project-structure.test.ts` | This is not CSS-specific. It is included because extension UI renders attacker-influenced report data such as selectors, URLs, and frame metadata. |
 | SS-006 | Modern inline-style exfil fixture coverage | Covered by current corpus | Inline-style extraction in fixture tests and analyzer paths. | `tests/fixtures/attacks/inline-style-*.html`; `tests/integration/fixtures.test.ts`; `tests/integration/spec-acceptance.test.ts` | Current coverage includes inline `url()`, inline custom-property URL indirection, `image-set(url(...))`, and SVG `<style>` `url()` / `@import` fixtures for CVE-2026-40301. Future CSS functions can expand the corpus. |
-| SS-007 | Report retention and size caps | Covered | `REPORT_LIMITS` in `src/shared/constants.ts`; report capping in `src/browser/storage/reports.ts`; runtime summary capping in `messageSecurity.ts`. | `tests/unit/browser/storage-and-dnr.test.ts`; `tests/unit/browser/runtime-message-security.test.ts` | Caps limit retained reports, frames per report, findings per frame, findings per report, and oversized runtime summaries. |
+| SS-007 | Report retention and size caps | Covered | `REPORT_LIMITS` in `src/shared/constants.ts`; report capping in `src/browser/storage/reports.ts`; runtime summary capping in `messageSecurity.ts`. | `tests/unit/browser/report-storage.test.ts`; `tests/unit/browser/dnr-rules.test.ts`; `tests/unit/browser/runtime-message-security.test.ts` | Caps limit retained reports, frames per report, findings per frame, findings per report, and oversized runtime summaries. |
 
 ## Release Candidate Gate
 
@@ -121,7 +121,7 @@ The documentation self-security rule also applies to status labels and historica
 
 ## SS-012 — Advanced optional feature containment
 
-Advanced optional features must be off by default, documented, tested, and scoped narrowly. SVG image-document reporting must not claim full internal inspection. Firefox enhanced stylesheet response inspection must not fetch remote CSS from the extension context, must pass responses through unchanged, and must fail closed to no extra behavior when unsupported.
+Advanced optional features must be off by default, documented, tested, and scoped narrowly. SVG image-document reporting must not claim full internal inspection. Firefox enhanced stylesheet response inspection must not fetch remote CSS from the extension context, must pass responses through unchanged, and must leave browsing behavior unchanged when unsupported.
 
 
 ## 1.0.15 Install-Hygiene Note
@@ -198,3 +198,8 @@ Evidence:
 ## SS-015 — Advisory Intake and Optional-Path Regression Control
 
 CSS Sentry must not add advisory coverage as package-version scanning. Advisory-derived work is valid only when it produces browser-observable CSS request behavior, selector/value probing, rendered-content CSS injection, SVG resource loading, or a modeled CSS side channel. Optional implementation paths must preserve the same core security invariants as the baseline path. In particular, Firefox enhanced stylesheet response inspection must not silently skip large stylesheet bodies when the baseline stylesheet analyzer would inspect them with the large-source scanner. Popup and Options explanatory controls must remain usable through both hover/focus and click/touch interactions because security-state explanations are part of the user-facing trust boundary.
+
+
+## 1.0.45 Stream and Budget Safety Update
+
+Firefox enhanced stylesheet response inspection must preserve page behavior when stream filtering fails. Write failures disconnect the optional filter and suppress analysis for that response rather than throwing through the browser event path. Parser and analyzer budget enforcement must produce partial coverage instead of unbounded processing.

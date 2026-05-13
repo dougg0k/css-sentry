@@ -1,5 +1,21 @@
 import "@testing-library/jest-dom/vitest";
-import { afterEach } from "vitest";
-import { __resetBrowserMock } from "./browser-mock";
+import { cleanup } from "@testing-library/react";
+import { afterEach, beforeEach } from "vitest";
+import { browser } from "wxt/browser";
 
-afterEach(() => { __resetBrowserMock(); });
+type BrowserMockWithReset = typeof browser & {
+  __resetBrowserMock(): void;
+};
+
+function resetAliasedBrowserMock(): void {
+  (browser as BrowserMockWithReset).__resetBrowserMock();
+}
+
+beforeEach(() => {
+  resetAliasedBrowserMock();
+});
+
+afterEach(() => {
+  cleanup();
+  resetAliasedBrowserMock();
+});

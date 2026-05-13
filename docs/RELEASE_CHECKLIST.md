@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/13 01:54:22 -03
+Last Updated: 2026/05/13 19:18:29 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -27,6 +27,33 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm `pnpm-workspace.yaml` remains at the repository root when pnpm build-script approval is needed.
 - [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
 - [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
+
+
+## 1.0.59 Additional Analyzer Structure Check
+
+- [ ] Confirm `tests/integration/project-structure.test.ts` passes the analyzer/parser budget authority guard.
+- [ ] Confirm `src/core/analyzer/analyzeStylesheet.ts` contains `securityCriticalRulesFromBudgetedParse` and still checks `parseResult.budgetExceeded`.
+- [ ] Confirm oversized nested stylesheet analysis still reports selector substring-probe, nested-rule, and remote destination findings when budget limits are reached.
+
+## 1.0.58 Additional Type-Surface Check
+
+- [ ] Confirm `tests/unit/browser/firefox-enhanced-inspection.test.ts` can import `FilterResponseData`, `FirefoxWebRequest`, and `WebRequestDetails` from `src/browser/firefox/enhancedStylesheetInspection.ts`.
+- [ ] Confirm Firefox response-filter capability detection and structural browser API casts remain isolated in `src/browser/platform/firefoxWebRequestApi.ts`.
+
+## 1.0.56 Additional UI Lifecycle Refactor Checks
+
+- [ ] Confirm `src/entrypoints/content.ts` remains wiring-only and does not re-own `MutationObserver`, debounce scheduling, or scan lifecycle state.
+- [ ] Confirm `documentScanController` still sends the neutralized final summary, not the pre-neutralization scan summary.
+- [ ] Confirm popup quick-mode buttons still reflect the active derived mode before and after policy loading.
+- [ ] Confirm Options origin-list, compatibility, advanced-mode, import/export, retention, and per-origin override flows still save through normalized policy persistence.
+- [ ] Confirm popup, options, and report pages mount through the checked shared root boundary and do not use unchecked `document.getElementById("root")!` assertions.
+
+## 1.0.57 Additional Analyzer and Cross-Cutting Refactor Checks
+
+- [ ] Confirm oversized nested stylesheet analysis still reports selector substring-probe, nested-rule, and remote destination findings when the parser/analyzer reaches the performance budget.
+- [ ] Confirm `src/shared/reasonGroups.ts` remains the shared authority for repeated reason-group decisions in DNR, content neutralization, finding priority, display filtering, and report merging.
+- [ ] Confirm optional browser API checks remain isolated under `src/browser/platform/` and are not reintroduced as local structural casts in DNR, Firefox enhanced inspection, or background orchestration.
+- [ ] Confirm injected clocks remain available for analyzer timing, parser budgets, report timestamps, DNR status timestamps, retention checks, and partial-coverage summaries while default runtime behavior still uses the system clock.
 
 ## Required Verification
 
@@ -69,6 +96,7 @@ Chrome/Chromium:
 - [ ] Passive/Balanced/Strict mode buttons work;
 - [ ] advanced options show/hide correctly;
 - [ ] local reports can be cleared;
+- [ ] report retention still prunes stale reports after saving reports and after lowering the retention policy;
 - [ ] report export does not reveal known test secrets;
 - [ ] destination blocklist works on a local test page.
 
@@ -280,6 +308,36 @@ Before releasing a package containing the `1.0.27` hardening work, verify the fo
 - [ ] Confirm tooltip help opens immediately on hover/focus and remains viewport-clamped inside popup/options pages.
 
 
+
+## 1.0.38 Browser Navigation Partial-Frame Coverage Checks
+
+- [ ] Confirm the background script records cross-origin subframe partial coverage from browser `webNavigation` subframe events.
+- [ ] Confirm failed cross-origin subframe navigations can still produce a stored partial-frame report without relying on remote CSS or frame fetches from the extension context.
+- [ ] Confirm same-origin iframe analysis remains controlled by content-script scanning rather than the browser-navigation fallback.
+- [ ] Confirm report summary aggregation deduplicates parent-scan and navigation-event partial coverage for the same frame URL.
+- [ ] Confirm the cross-origin iframe e2e test shows `Partial frame coverage` by default and shows `frame.cross_origin.uninspectable` after enabling `Show partial-analysis findings`.
+
+## 1.0.37 Iframe Mutation Rescan Checks
+
+- [ ] Confirm the content script rescan trigger selector includes `iframe[src]`.
+- [ ] Confirm the content script mutation attribute filter includes `src` and `data`.
+- [ ] Confirm the cross-origin iframe e2e test passes with partial-analysis finding rows hidden by default and shown only after enabling the option.
+
+## 1.0.36 Partial-Analysis and Fixture-Corpus Checks
+
+- [ ] Confirm the cross-origin iframe e2e test asserts default partial-frame coverage visibility without requiring hidden detailed partial-analysis reason rows.
+- [ ] Confirm enabling `Show partial-analysis findings` makes the stored `frame.cross_origin.uninspectable` reason row visible in the report.
+- [ ] Confirm `tests/integration/fixtures.test.ts` still enumerates every active attack and benign `.css` / `.html` fixture and rejects missing or orphan expectation files.
+
+## 1.0.35 Settings Surface Checks
+
+- [ ] Confirm `Show partial-analysis findings` changes popup and report finding-row visibility without deleting stored report evidence.
+- [ ] Confirm partial frame counts, partial stylesheet counts, and analysis state remain visible when partial-analysis finding rows are hidden.
+- [ ] Confirm Options no longer exposes `Never fetch remote CSS from the extension` as a checkbox.
+- [ ] Confirm Options still states the no extension-context remote stylesheet fetch invariant as privacy/compatibility text.
+- [ ] Confirm imported legacy settings that contain `neverFetchRemoteCssFromExtension` are accepted but normalized without preserving the removed key.
+- [ ] Confirm source-level tests still reject extension-context remote CSS fetch code.
+
 ## 1.0.34 Hono and Tandoor Advisory Coverage Checks
 
 - [ ] Confirm `tests/fixtures/attacks/cve-2026-44458-hono-jsx-ssr-inline-style.html` and its expectation file remain present and executable through the fixture corpus.
@@ -288,3 +346,125 @@ Before releasing a package containing the `1.0.27` hardening work, verify the fo
 - [ ] Confirm `tests/fixtures/benign/benign-tandoor-recipe-presentation-style.html` remains present so benign recipe/rich-text presentation CSS stays non-actionable.
 - [ ] Confirm `docs/CVE_SPEC.md`, `docs/SPEC.md`, `docs/STATUS.md`, and `docs/RELEASE_NOTES.md` keep Hono and Tandoor as browser-visible CSS behavior coverage, not package-version scanning.
 - [ ] Confirm PostCSS CVE-2026-41305 remains adjacent/out of scope unless a future browser-visible CSS request fixture is intentionally added.
+
+
+## 1.0.39 Release Hardening Checks
+
+- [ ] Confirm Chrome generated manifest does not include `webRequest`.
+- [ ] Confirm Firefox generated manifest includes `webRequest` only for enhanced stylesheet response inspection.
+- [ ] Confirm Chrome generated manifests do not include `webRequest`, `webRequestBlocking`, or `webRequestFilterResponse`.
+- [ ] Confirm Firefox generated manifests include the response-filter permissions required for the generated manifest version.
+- [ ] Confirm `verify:full` uses fail-fast chaining and `verify:full:diagnose` is the only continue-after-failure full diagnostic script.
+- [ ] Confirm dependency declarations do not use `latest`.
+- [ ] Confirm report retention input is normalized to policy limits before save and stale reports are pruned after report/settings saves.
+- [ ] Confirm fixture DNR block-candidate assertions use runtime DNR eligibility logic.
+- [ ] Confirm Firefox enhanced response inspection behavior tests cover disabled policy, unsupported filter API, pass-through writes, close, saved findings, filter error handling, and analyzer failure containment.
+
+
+
+## 1.0.40 DNR Eligibility Regression Checks
+
+- [ ] Confirm fixture corpus tests pass for the Roundcube and justhtml SVG advisory fixtures that require `mustBeBlockCandidate`.
+- [ ] Confirm runtime DNR mitigation and fixture tests import the same DNR eligibility authority.
+- [ ] Confirm Balanced-mode DNR eligibility includes cross-origin direct SVG remote-resource sinks: `sink.svg_reference`, `sink.svg_paint_remote`, `sink.svg_resource_remote`, `sink.svg_feimage_remote`, and `sink.svg_animate_remote`.
+- [ ] Confirm a scanner-to-DNR regression test installs finding-derived future-block rules for cross-origin SVG resource findings.
+
+
+## 1.0.41 DNR Effective-Request URL Checks
+
+- [ ] Confirm SVG fragment-bearing remote-resource findings still install Balanced-mode finding-derived DNR rules.
+- [ ] Confirm `ruleInstalledUrls` reports fragmentless effective request URLs for installed DNR rules.
+- [ ] Confirm generated exact DNR regex filters do not include URL fragments.
+- [ ] Confirm fixture block-candidate expectations still use the shared runtime DNR eligibility authority.
+
+## 1.0.42 Firefox, DNR, Performance, Advisory, and Artifact Checks
+
+- [ ] Run `pnpm build`, `pnpm build:firefox`, `pnpm zip`, and `pnpm zip:firefox` before generated-manifest and release-artifact verification.
+- [ ] Run `pnpm verify:manifests` and confirm Chrome and Firefox generated manifests match the documented browser-target permission sets.
+- [ ] Run `pnpm verify:release-artifacts` and confirm packaged output does not include sourcemaps, dependency folders, generated runtime state, Playwright reports, or test-result folders.
+- [ ] Confirm Firefox enhanced response inspection passes response chunks through unchanged and records `analysis.skipped.performance_budget` when retained analysis bytes exceed the configured budget.
+- [ ] Confirm analyzer performance-budget tests produce partial coverage rather than silently skipping or hanging on over-budget analysis.
+- [ ] Confirm DNR tab-scoped rule IDs do not collide for tabs whose IDs would collide under modulo allocation.
+- [ ] Confirm clearing one tab's DNR rules does not clear another live tab's rules.
+- [ ] Confirm finding-derived DNR rules use initiator-domain scoping when source origin data is available.
+- [ ] Confirm mixed DNR update failures salvage valid prepared rules and report partial success/failure correctly.
+- [ ] Confirm imported and edited destination allow/block conflicts normalize to blocklist precedence.
+- [ ] Confirm FreeScout CVE-2026-40497 attack and benign fixtures are present and exercised by the fixture corpus.
+
+## 1.0.43 Additional Checks
+
+- Run `pnpm compile` or `tsc --noEmit` to verify DNR nullable URL guards compile under project TypeScript settings.
+- Run the browser storage/DNR unit suite to verify malformed destination-policy origins are ignored before DNR rule creation.
+- Run project-structure tests to verify the explicit `isHttpUrl` predicate remains the DNR URL narrowing authority.
+
+
+## 1.0.44 Additional Checks
+
+- Confirm Firefox enhanced stylesheet response inspection uses one injected completion timestamp for merged summary fallback timestamps and saved report `updatedAt`.
+- Confirm the finding-save unit test does not require ambient `Date.now()` output and asserts the explicit frame report fields.
+- Confirm DNR nullable URL guard coverage from 1.0.43 remains present.
+
+
+## 1.0.45 Additional Release Checks
+
+- Run `pnpm verify:ai-report` before release to ensure the AI/debug JSON reporter lane still writes `json-report.json`.
+- Confirm parser budget tests cover both post-parse analyzer deadlines and source-parser budget deadlines.
+- Confirm Firefox enhanced inspection tests cover pass-through, bounded retention, write failure, close failure, filter error, and analyzer failure.
+- Confirm DNR skipped-target diagnostics are covered for invalid prepared targets and rule-update failures.
+- Confirm Strict mode UI copy uses literal behavior wording and does not reintroduce unclear shortcut wording in user-facing summaries.
+
+
+## 1.0.47 Type-Safety Correction Checks
+
+- Run `tsc --noEmit` to confirm the DNR salvage regression test no longer passes `unknown` values into DNR rule helper functions.
+- Run the unit test suite to confirm the typed DNR mock helper still supports rule-update failure simulation.
+- Confirm this correction remains test/support-only and does not change extension runtime behavior.
+
+## 1.0.46 Refactor Safety Harness Checks
+
+Before release, run `pnpm verify:source-css` or `pnpm verify:full` to confirm source CSS remains reviewable. DNR-related tests should use the typed mock helper boundary in `tests/setup/dnr-test-helpers.ts`; avoid reintroducing direct mock-private casts in individual DNR behavior tests. E2E policy synchronization should use observable polling rather than fixed sleep loops.
+
+
+## 1.0.49 test isolation checklist
+
+- Confirm Vitest setup imports the browser mock through `wxt/browser`, not `./browser-mock`, so setup resets the same module instance used by source and tests.
+- Confirm Vitest setup resets browser mock state before and after each test.
+- Confirm React Testing Library cleanup runs after each test.
+
+
+## 1.0.50 Additional Check
+
+- Run `tsc --noEmit` after project-structure guard changes to ensure helper functions used by tests are declared and typed.
+- Treat extension zip byte size as informational unless a content or manifest verification check fails.
+
+## 1.0.51 Test Setup Isolation Checks
+
+- Confirm `tests/setup/vitest.setup.ts` imports the browser mock through `wxt/browser`, not `./browser-mock`.
+- Confirm browser mock reset runs before each test and after React Testing Library cleanup.
+- Confirm generated JavaScript setup artifacts are absent from `tests/setup/`.
+- Confirm the project-structure test no longer expects the stale direct `beforeEach(() => { __resetBrowserMock(); });` source string.
+
+## 1.0.52 DNR Refactor Package Checks
+
+- Confirm `src/browser/dnr/chromeDnr.ts` remains the public DNR orchestration surface and does not regain URL parsing, raw status persistence, rule ID allocation internals, or direct salvage-loop internals.
+- Confirm `dnrRuleAllocation.ts`, `dnrTargetPreparation.ts`, `dnrRuleBuilder.ts`, `dnrRuleUpdate.ts`, and `dnrStatus.ts` exist and each owns one durable DNR responsibility.
+- Run the DNR unit tests covering rule allocation, target preparation, rule building, update/salvage behavior, and broad DNR browser integration.
+- Confirm finding-derived exact request regexes still strip fragments, destination blocklists still override allowlists, invalid DNR targets still produce skipped-target diagnostics, and rejected batch updates still salvage valid rules.
+- Confirm the full verification chain after dependencies and WXT-generated TypeScript config are available.
+
+
+## 1.0.53 DNR Canonicalization and Timer-State Checks
+
+- [ ] Confirm DNR target-preparation tests assert browser-canonical ASCII hostnames for valid IDN request targets and initiator origins.
+- [ ] Confirm unsupported or opaque initiator origins remain ignored instead of creating invalid DNR initiator-domain conditions.
+- [ ] Confirm tooltip disclosure opens immediately and only delayed close uses the grace timer.
+- [ ] Confirm tooltip delayed-close timers are cleared on reopen and unmount.
+- [ ] Confirm oversized-stylesheet scanning tests control the analysis clock when they are not testing performance-budget behavior.
+
+
+## 1.0.55 Additional Release Checks
+
+- Run the parser/analyzer unit tests and fixture corpus to confirm oversized stylesheet import, nested-rule, and value-probe fixtures still produce expected findings under grouped Vitest execution.
+- Confirm `src/core/css/parseCss.ts` remains the public parser import surface while parser implementation details stay under `src/core/css/parser/`.
+- Confirm recovered `@import` rules are not gated by `isParseBudgetExceeded` and remain represented in performance-budget partial summaries.
+- Confirm `analyzeStylesheet.ts` remains orchestration-focused and per-rule finding construction, stylesheet risk context, finding priority, and finding detail text stay in separate analyzer modules.

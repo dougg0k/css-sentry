@@ -113,6 +113,8 @@ async function setExtensionPolicy(context: BrowserContext, extensionId: string, 
   const optionsPage = await context.newPage();
   try {
     await optionsPage.goto(`chrome-extension://${extensionId}/options.html`);
+    const expectedFilters = destinationPolicyRegexFilters(policy);
+
     await optionsPage.evaluate(async ([storedPolicy]) => {
       type ChromeCallbackApi = {
         runtime: {
@@ -124,68 +126,81 @@ async function setExtensionPolicy(context: BrowserContext, extensionId: string, 
             set: (items: Record<string, unknown>, callback?: () => void) => void;
           };
         };
-        declarativeNetRequest: {
-          getSessionRules: (callback?: (rules: Array<{ condition?: { requestDomains?: string[]; urlFilter?: string; regexFilter?: string } }>) => void) => void;
-        };
       };
 
       const extensionApi = (globalThis as unknown as { chrome: ChromeCallbackApi }).chrome;
       const lastErrorMessage = () => extensionApi.runtime.lastError?.message;
-      const setStorage = (items: Record<string, unknown>) => new Promise<void>((resolve, reject) => {
+      const setStorage = (items: Record<string, unknown>) => new Promise<void>((resolveSet, rejectSet) => {
         extensionApi.storage.local.set(items, () => {
           const message = lastErrorMessage();
-          if (message) reject(new Error(message));
-          else resolve();
+          if (message) rejectSet(new Error(message));
+          else resolveSet();
         });
       });
-      const sendRuntimeMessage = (message: Record<string, unknown>) => new Promise<void>((resolve, reject) => {
+      const sendRuntimeMessage = (message: Record<string, unknown>) => new Promise<void>((resolveSend, rejectSend) => {
         extensionApi.runtime.sendMessage(message, () => {
           const errorMessage = lastErrorMessage();
           // css-sentry:policy-updated is a notification-style message. Chromium may report that
           // the message port closed when no response payload is sent, even when the service worker
           // received the message and refreshed DNR state. Treat that specific condition as non-fatal
           // and rely on the following DNR rule polling as the actual synchronization gate.
-          if (errorMessage && !/message port closed before a response was received/i.test(errorMessage)) reject(new Error(errorMessage));
-          else resolve();
-        });
-      });
-      const getSessionRules = () => new Promise<Array<{ condition?: { requestDomains?: string[]; urlFilter?: string; regexFilter?: string } }>>((resolve, reject) => {
-        extensionApi.declarativeNetRequest.getSessionRules((rules) => {
-          const message = lastErrorMessage();
-          if (message) reject(new Error(message));
-          else resolve(rules);
+          if (errorMessage && !/message port closed before a response was received/i.test(errorMessage)) rejectSend(new Error(errorMessage));
+          else resolveSend();
         });
       });
 
       await setStorage({ "cssSentry:settings": storedPolicy });
       await sendRuntimeMessage({ type: "css-sentry:policy-updated" });
-      const expectedFilters = [...((storedPolicy as { blocklistedOrigins?: string[] }).blocklistedOrigins ?? []), ...((storedPolicy as { allowlistedOrigins?: string[] }).allowlistedOrigins ?? [])]
-        .map((origin) => {
-          try {
-            const escaped = new URL(origin).origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-            return `^${escaped}/`;
-          } catch {
-            return null;
-          }
-        })
-        .filter((filter): filter is string => Boolean(filter));
-
-      if (expectedFilters.length === 0) return;
-
-      for (let attempt = 0; attempt < 80; attempt += 1) {
-        const rules = await getSessionRules();
-        const filters = new Set(rules.map((rule) => rule.condition?.regexFilter ?? rule.condition?.urlFilter).filter((filter): filter is string => Boolean(filter)));
-        if (expectedFilters.every((filter) => filters.has(filter))) return;
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-
-      const rules = await getSessionRules();
-      const installedFilters = rules.map((rule) => rule.condition?.regexFilter ?? rule.condition?.urlFilter).filter(Boolean).join(", ");
-      throw new Error(`Timed out waiting for policy DNR rules: ${expectedFilters.join(", ")}. Installed filters: ${installedFilters}`);
     }, [policy]);
+
+    if (expectedFilters.length === 0) return;
+
+    await expect.poll(async () => {
+      const filters = await optionsPage.evaluate(async () => {
+        type ChromeCallbackApi = {
+          runtime: { lastError?: { message?: string } };
+          declarativeNetRequest: {
+            getSessionRules: (callback?: (rules: Array<{ condition?: { urlFilter?: string; regexFilter?: string } }>) => void) => void;
+          };
+        };
+        const extensionApi = (globalThis as unknown as { chrome: ChromeCallbackApi }).chrome;
+        return await new Promise<string[]>((resolveRules, rejectRules) => {
+          extensionApi.declarativeNetRequest.getSessionRules((rules) => {
+            const message = extensionApi.runtime.lastError?.message;
+            if (message) {
+              rejectRules(new Error(message));
+              return;
+            }
+            resolveRules(rules.map((rule) => rule.condition?.regexFilter ?? rule.condition?.urlFilter).filter((filter): filter is string => Boolean(filter)));
+          });
+        });
+      });
+      return expectedFilters.every((filter) => filters.includes(filter));
+    }, { timeout: 10_000, message: `Timed out waiting for policy DNR rules: ${expectedFilters.join(", ")}` }).toBe(true);
   } finally {
     await optionsPage.close();
   }
+}
+
+function destinationPolicyRegexFilters(policy: Record<string, unknown>): string[] {
+  const origins = [
+    ...arrayOfStrings(policy.blocklistedOrigins),
+    ...arrayOfStrings(policy.allowlistedOrigins),
+  ];
+  const filters: string[] = [];
+  for (const origin of origins) {
+    try {
+      const escaped = new URL(origin).origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filters.push(`^${escaped}/`);
+    } catch {
+      // Invalid test policy origins are ignored by the extension and by this synchronization helper.
+    }
+  }
+  return filters;
+}
+
+function arrayOfStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
 }
 
 
@@ -216,7 +231,6 @@ function defaultPolicy(overrides: Record<string, unknown> = {}): Record<string, 
     perOriginModes: {},
     logRetentionDays: 14,
     compatibility: {
-      neverFetchRemoteCssFromExtension: true,
       enableDnrMitigation: true,
       enableStrictThirdPartyBlocking: true,
       showPartialAnalysisFindings: true,
@@ -371,7 +385,7 @@ test("top-frame and same-origin iframe findings remain separate in the report", 
   }
 });
 
-test("cross-origin iframe partial coverage is explicit in the report", async () => {
+test("cross-origin iframe partial coverage respects the partial-analysis display option", async () => {
   const server = await startFixtureServer();
   const { context, extensionId, userDataDir } = await launchExtensionContext();
   try {
@@ -384,11 +398,19 @@ test("cross-origin iframe partial coverage is explicit in the report", async () 
 
     await expect.poll(async () => {
       await report.reload();
-      return await report.getByText("frame.cross_origin.uninspectable").count();
-    }, { timeout: 10_000, message: "expected report page to show cross-origin frame partial coverage" }).toBeGreaterThan(0);
+      const body = await report.locator("body").innerText();
+      return body.includes("Partial frame coverage")
+        && body.includes("https://third-party.example.test/mail")
+        && body.includes("partial-analysis finding is hidden by the current Options setting");
+    }, { timeout: 10_000, message: "expected report page to show partial frame coverage while hiding optional partial-analysis rows by default" }).toBe(true);
+    await expect(report.getByText("frame.cross_origin.uninspectable")).toHaveCount(0);
 
-    await expect(report.getByText(/Partial frame coverage/)).toBeVisible();
-    await expect(report.getByText("https://third-party.example.test/mail").first()).toBeVisible();
+    await setExtensionPolicy(context, extensionId, defaultPolicy());
+
+    await expect.poll(async () => {
+      await report.reload();
+      return await report.getByText("frame.cross_origin.uninspectable").count();
+    }, { timeout: 10_000, message: "expected report page to show cross-origin frame partial coverage when partial-analysis findings are enabled" }).toBeGreaterThan(0);
   } finally {
     await closeExtensionContext(context, userDataDir);
     await server.close();
@@ -528,7 +550,7 @@ test("Balanced finding-derived DNR rules protect matching requests after analysi
 
     const page = await context.newPage();
     await page.goto(`${server.appOrigin}/same-origin-poc.html`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(500);
+    await expect(page.locator("body")).toBeVisible();
     const firstLoadLeakHits = server.leakHits();
 
     const report = await context.newPage();
@@ -546,7 +568,7 @@ test("Balanced finding-derived DNR rules protect matching requests after analysi
 
     server.resetLeakHits();
     await page.reload({ waitUntil: "networkidle" });
-    await page.waitForTimeout(500);
+    await expect(page.locator("body")).toBeVisible();
     expect(server.leakHits()).toBe(0);
   } finally {
     await closeExtensionContext(context, userDataDir);
@@ -566,7 +588,7 @@ test("destination blocklist prevents first-load CSS-triggered requests", async (
 
     const page = await context.newPage();
     await page.goto(`${server.appOrigin}/strict-blocklist.html`, { waitUntil: "networkidle" });
-    await page.waitForTimeout(500);
+    await expect(page.locator("body")).toBeVisible();
     expect(server.leakHits()).toBe(0);
   } finally {
     await closeExtensionContext(context, userDataDir);

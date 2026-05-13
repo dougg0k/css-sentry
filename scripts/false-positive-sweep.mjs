@@ -19,13 +19,13 @@ const DEFAULT_POLICY = {
   perOriginModes: {},
   logRetentionDays: 14,
   compatibility: {
-    neverFetchRemoteCssFromExtension: true,
     enableDnrMitigation: true,
     enableStrictThirdPartyBlocking: true,
     showPartialAnalysisFindings: false,
     enableFirefoxEnhancedMode: false,
     reportExternalSvgImageDocuments: false,
-    enableSvgImageDnrPolicy: false
+    enableSvgImageDnrPolicy: false,
+    enableContentNeutralization: true
   }
 };
 
@@ -106,7 +106,7 @@ function parseArgs(argv) {
 }
 
 function printHelp() {
-  console.log(`CSS Sentry false-positive sweep\n\nUsage:\n  pnpm run build\n  pnpm run audit:false-positives -- --limit 250\n\nOptions:\n  --sites <file>        Newline-delimited URL/domain list. Defaults to scripts/false-positive-sites.txt.\n  --limit <n>           Limit number of sites visited. Defaults to every site in the list.\n  --out <dir>           Output directory. Default: test-results/false-positive-sweep\n  --extension <dir>     Built extension path. Default: .output/chrome-mv3\n  --timeout-ms <n>      Navigation timeout per site. Default: 20000\n  --settle-ms <n>       Time to wait after load for extension reports. Default: 4000\n  --save-reports <mode> Save full per-site report payloads: none, actionable, or all. Default: actionable\n  --headless            Try headless Chromium. Extension support may vary by browser version.\n  --fail-on-blocked     Exit non-zero if any site produces blocked_dnr findings.\n  --fail-on-high        Exit non-zero if any site produces high/critical actionable findings.\n`);
+  console.log(`CSS Sentry false-positive sweep\n\nUsage:\n  pnpm run build\n  pnpm run audit:false-positives -- --limit 250\n\nOptions:\n  --sites <file>        Newline-delimited URL/domain list. Defaults to scripts/false-positive-sites.txt.\n  --limit <n>           Limit number of sites visited. Defaults to every site in the list.\n  --out <dir>           Output directory. Default: test-results/false-positive-sweep\n  --extension <dir>     Built extension path. Default: .output/chrome-mv3\n  --timeout-ms <n>      Navigation timeout per site. Default: 20000\n  --settle-ms <n>       Time to wait after load for extension reports. Default: 4000\n  --save-reports <mode> Save full per-site report payloads: none, actionable, or all. Default: actionable\n  --headless            Try headless Chromium. Extension support may vary by browser version.\n  --fail-on-blocked     Exit non-zero if any site produces blocked_dnr or rule_installed_dnr findings.\n  --fail-on-high        Exit non-zero if any site produces high/critical actionable findings.\n`);
 }
 
 function which(binary) {
@@ -167,11 +167,12 @@ function summarizeReport(url, reports, error = null) {
   const values = Object.values(reports || {});
   const findings = values.flatMap((report) => report?.summary?.findings || []);
   const actionable = findings.filter((finding) => finding.severity !== "info");
-  const changed = findings.filter((finding) => changesPage(finding.action));
-  const blocked = findings.filter((finding) => finding.action === "blocked_dnr" || finding.action === "blocked_strict_third_party");
+  const changed = findings.filter(changesPage);
+  const blocked = findings.filter((finding) => findingActions(finding).some((action) => action === "blocked_dnr" || action === "blocked_strict_third_party"));
   const coverage = findings.filter(isCoverageFinding);
   const infoOnly = findings.filter((finding) => finding.severity === "info" && !isCoverageFinding(finding));
-  const loggedOnly = actionable.filter((finding) => !changesPage(finding.action));
+  const ruleInstalled = findings.filter(hasInstalledBlockingRule);
+  const loggedOnly = actionable.filter((finding) => !changesPage(finding) && !hasInstalledBlockingRule(finding));
   const high = actionable.filter((finding) => finding.severity === "high" || finding.severity === "critical");
   return {
     url,
@@ -181,6 +182,7 @@ function summarizeReport(url, reports, error = null) {
     findingCount: findings.length,
     actionableCount: actionable.length,
     loggedOnlyCount: loggedOnly.length,
+    ruleInstalledCount: ruleInstalled.length,
     infoOnlyCount: infoOnly.length,
     coverageCount: coverage.length,
     changedCount: changed.length,
@@ -190,10 +192,12 @@ function summarizeReport(url, reports, error = null) {
     topProperties: topCounts(countBy(findings.map((finding) => finding.property).filter(Boolean))),
     topDestinations: topCounts(countBy(findings.map((finding) => finding.destinationOrigin).filter(Boolean))),
     topSources: topCounts(countBy(findings.map((finding) => finding.sourceOrigin).filter(Boolean))),
-    sampleFindings: findings.slice(0, 12).map((finding) => ({ severity: finding.severity, action: finding.action, confidence: finding.confidence, property: finding.property, selector: finding.selector, destinationOrigin: finding.destinationOrigin, sourceOrigin: finding.sourceOrigin, reasons: finding.reasons, details: finding.details }))
+    sampleFindings: findings.slice(0, 12).map((finding) => ({ severity: finding.severity, action: finding.action, additionalActions: finding.additionalActions, confidence: finding.confidence, property: finding.property, selector: finding.selector, destinationOrigin: finding.destinationOrigin, sourceOrigin: finding.sourceOrigin, reasons: finding.reasons, details: finding.details }))
   };
 }
-function changesPage(action) { return action === "blocked_dnr" || action === "blocked_strict_third_party" || action === "neutralized" || action === "disabled_stylesheet" || action === "removed_style_node"; }
+function findingActions(finding) { return [...new Set([finding.action, ...(finding.additionalActions || [])])]; }
+function changesPage(finding) { return findingActions(finding).some((action) => action === "blocked_dnr" || action === "blocked_strict_third_party" || action === "neutralized" || action === "disabled_stylesheet" || action === "removed_style_node"); }
+function hasInstalledBlockingRule(finding) { return findingActions(finding).some((action) => action === "rule_installed_dnr" || action === "future_blocked_dnr"); }
 function isCoverageFinding(finding) { return (finding.reasons || []).some((reason) => reason.startsWith("stylesheet.") || reason.startsWith("frame.") || reason.startsWith("resource.svg_image_document") || reason.startsWith("analysis.skipped")); }
 function shouldSaveReports(mode, summary) { return mode === "all" || (mode === "actionable" && summary.actionableCount > 0); }
 function saveReports(outDir, index, url, summary, reports) {
@@ -236,7 +240,7 @@ async function main() {
       const summary = summarizeReport(url, reports, error);
       if (shouldSaveReports(args.saveReports, summary)) summary.reportPath = saveReports(args.outDir, index, url, summary, reports);
       results.push(summary);
-      console.log(`${index + 1}/${sites.length} ${url} actionable=${summary.actionableCount} loggedOnly=${summary.loggedOnlyCount} coverage=${summary.coverageCount} high=${summary.highOrCriticalCount} blocked=${summary.blockedCount}${summary.reportPath ? ` report=${summary.reportPath}` : ""}${error ? ` error=${error}` : ""}`);
+      console.log(`${index + 1}/${sites.length} ${url} actionable=${summary.actionableCount} ruleInstalled=${summary.ruleInstalledCount} loggedOnly=${summary.loggedOnlyCount} coverage=${summary.coverageCount} high=${summary.highOrCriticalCount} blocked=${summary.blockedCount}${summary.reportPath ? ` report=${summary.reportPath}` : ""}${error ? ` error=${error}` : ""}`);
     }
   } finally {
     await storagePage.close().catch(() => undefined);
@@ -248,10 +252,10 @@ async function main() {
   const jsonPath = join(args.outDir, `false-positive-sweep-${stamp}.json`);
   const csvPath = join(args.outDir, `false-positive-sweep-${stamp}.csv`);
   writeFileSync(jsonPath, JSON.stringify(run, null, 2));
-  writeFileSync(csvPath, [["url", "ok", "findingCount", "actionableCount", "loggedOnlyCount", "infoOnlyCount", "coverageCount", "changedCount", "highOrCriticalCount", "blockedCount", "topReasons", "reportPath", "error"].join(","), ...results.map((r) => [r.url, r.ok, r.findingCount, r.actionableCount, r.loggedOnlyCount, r.infoOnlyCount, r.coverageCount, r.changedCount, r.highOrCriticalCount, r.blockedCount, r.topReasons.map((i) => `${i.value}:${i.count}`).join(";"), r.reportPath || "", r.error || ""].map(csvEscape).join(","))].join("\n"));
+  writeFileSync(csvPath, [["url", "ok", "findingCount", "actionableCount", "loggedOnlyCount", "ruleInstalledCount", "infoOnlyCount", "coverageCount", "changedCount", "highOrCriticalCount", "blockedCount", "topReasons", "reportPath", "error"].join(","), ...results.map((r) => [r.url, r.ok, r.findingCount, r.actionableCount, r.loggedOnlyCount, r.ruleInstalledCount, r.infoOnlyCount, r.coverageCount, r.changedCount, r.highOrCriticalCount, r.blockedCount, r.topReasons.map((i) => `${i.value}:${i.count}`).join(";"), r.reportPath || "", r.error || ""].map(csvEscape).join(","))].join("\n"));
   console.log(`\nWrote ${jsonPath}`);
   console.log(`Wrote ${csvPath}`);
-  if (args.failOnBlocked && results.some((r) => r.blockedCount > 0)) process.exitCode = 2;
+  if (args.failOnBlocked && results.some((r) => r.blockedCount > 0 || r.ruleInstalledCount > 0)) process.exitCode = 2;
   if (args.failOnHigh && results.some((r) => r.highOrCriticalCount > 0)) process.exitCode = 3;
 }
 main().catch((error) => { console.error(error instanceof Error ? error.stack || error.message : error); process.exit(1); });

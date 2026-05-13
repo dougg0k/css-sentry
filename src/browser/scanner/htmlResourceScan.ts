@@ -1,4 +1,6 @@
 import type { AnalysisSummary, Finding, ReasonCode, SitePolicy, SourceKind } from "../../shared/types";
+import type { Now } from "../../shared/clock";
+import { systemNow } from "../../shared/clock";
 import { analyzeResourceUrl, extractUrls } from "../../core/css/normalizeUrl";
 import { createFinding } from "../../core/findings/createFinding";
 import { analyzeStylesheet } from "../../core/analyzer/analyzeStylesheet";
@@ -9,6 +11,7 @@ interface HtmlResourceInput {
   pageUrl: string;
   frameUrl: string;
   policy?: SitePolicy;
+  now?: Now;
 }
 
 interface AttributeFindingInput {
@@ -24,7 +27,8 @@ interface AttributeFindingInput {
 }
 
 export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSummary {
-  const now = Date.now();
+  const now = input.now ?? systemNow;
+  const startedAt = now();
   const summaries: AnalysisSummary[] = [];
   const findings: Finding[] = [];
   const push = (item: AttributeFindingInput) => {
@@ -50,6 +54,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
       state: "analysis.complete",
       reasons: [...reasons],
       details: item.details,
+      timestamp: now(),
     }));
   };
 
@@ -79,6 +84,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
           frameUrl: input.frameUrl,
           sourceKind: "stylesheet_link",
           sourceUrl: "data:text/css,[redacted]",
+          now,
         }),
         "source.data_stylesheet",
       ));
@@ -99,7 +105,7 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
   }
 
   if (input.policy?.compatibility.reportExternalSvgImageDocuments) {
-    findings.push(...scanExternalSvgImageDocuments(input));
+    findings.push(...scanExternalSvgImageDocuments(input, now));
   }
 
   for (const feImage of Array.from(input.documentRef.querySelectorAll("feImage"))) {
@@ -162,10 +168,10 @@ export function scanHtmlResourceAttributes(input: HtmlResourceInput): AnalysisSu
     partialStylesheets: findings.some((finding) => finding.state === "svg.image_document.uninspectable") ? 1 : 0,
     analyzedFrames: 0,
     partialFrames: 0,
-    startedAt: now,
-    finishedAt: Date.now(),
+    startedAt,
+    finishedAt: now(),
   });
-  return mergeSummaries(summaries);
+  return mergeSummaries(summaries, now());
 }
 
 function svgResourceAttributeReasons(attributeName: string): ReasonCode[] {
@@ -174,7 +180,7 @@ function svgResourceAttributeReasons(attributeName: string): ReasonCode[] {
     : ["sink.svg_resource_remote"];
 }
 
-function scanExternalSvgImageDocuments(input: HtmlResourceInput): Finding[] {
+function scanExternalSvgImageDocuments(input: HtmlResourceInput, now: Now): Finding[] {
   const candidates: Array<{ element: Element; rawValue: string; property: string }> = [];
   for (const element of Array.from(input.documentRef.querySelectorAll("img[src], image[href], image[xlink\\:href], object[data], embed[src]"))) {
     const rawValue = element.getAttribute("src") ?? element.getAttribute("href") ?? element.getAttribute("xlink:href") ?? element.getAttribute("data") ?? "";
@@ -201,6 +207,7 @@ function scanExternalSvgImageDocuments(input: HtmlResourceInput): Finding[] {
       state: "svg.image_document.uninspectable",
       reasons: [...reasons],
       details: "Externally loaded SVG image documents are treated as partial coverage because their internal CSS/DOM may not be inspectable from the page content script.",
+      timestamp: now(),
     });
   });
 }

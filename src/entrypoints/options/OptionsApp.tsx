@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { ChangeEvent } from "react";
-import { clearAllReports, getSitePolicy, parseImportedSitePolicy, saveSitePolicy } from "../../browser/storage/reports";
-import { getDnrStatus } from "../../browser/dnr/chromeDnr";
-import { setOriginMode } from "../../core/policy/mode";
-import type { CompatibilitySettings, DnrStatus, ExtensionMode, SitePolicy } from "../../shared/types";
-import { normalizeOriginInput } from "../../shared/url";
+import { clearAllReports, parseImportedSitePolicy } from "../../browser/storage/reports";
+import { POLICY_LIMITS } from "../../shared/constants";
+import type { CompatibilitySettings, ExtensionMode } from "../../shared/types";
 import { DefinitionRow, InfoTooltip, ModeOption, OriginListCard, SectionTitle, type OriginListKey } from "./components";
 import {
   ADVANCED_MODE_EXPLANATION,
@@ -17,62 +15,71 @@ import {
   ORIGIN_MODE_ORDER,
   getModeDefinition,
 } from "../../shared/uiMetadata";
+import {
+  policyWithAddedOrigin,
+  policyWithAdvancedMode,
+  policyWithCompatibilityFlag,
+  policyWithOriginModeOverride,
+  policyWithRemovedOrigin,
+  policyWithoutOriginModeOverride,
+  type OriginModeDraft,
+} from "./optionsPolicyActions";
+import { useOptionsState } from "./useOptionsState";
 import "./style.css";
 
+const DEFAULT_ORIGIN_MODE_DRAFT: OriginModeDraft = { origin: "", mode: "balanced" };
 
 export default function OptionsApp() {
-  const [policy, setPolicy] = useState<SitePolicy | null>(null);
-  const [saved, setSaved] = useState(false);
+  const { policy, saved, dnrStatus, updatePolicy } = useOptionsState();
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [originModeDraft, setOriginModeDraft] = useState({ origin: "", mode: "balanced" as ExtensionMode });
+  const [originModeDraft, setOriginModeDraft] = useState<OriginModeDraft>(DEFAULT_ORIGIN_MODE_DRAFT);
   const [importError, setImportError] = useState<string | null>(null);
-  const [dnrStatus, setDnrStatus] = useState<DnrStatus | null>(null);
 
-  useEffect(() => { void getSitePolicy().then(setPolicy); void getDnrStatus().then(setDnrStatus); }, []);
+  const visibleCompatibilityDefinitions = useMemo(() => {
+    if (!policy) return [];
+    return policy.advancedModeEnabled ? COMPATIBILITY_DEFINITIONS : COMPATIBILITY_DEFINITIONS.filter((definition) => !definition.advanced);
+  }, [policy]);
 
-  async function updatePolicy(nextPolicy: SitePolicy) {
-    setPolicy(nextPolicy);
-    await saveSitePolicy(nextPolicy);
-    setSaved(true);
-    window.setTimeout(() => setSaved(false), 1400);
-  }
+  const visibleOriginDefinitions = useMemo(() => {
+    if (!policy) return [];
+    return policy.advancedModeEnabled ? ORIGIN_LIST_DEFINITIONS : ORIGIN_LIST_DEFINITIONS.filter((definition) => definition.requiredForMostUsers);
+  }, [policy]);
 
   function addOrigin(list: OriginListKey) {
     if (!policy) return;
-    const origin = normalizeOriginInput(drafts[String(list)]);
-    if (!origin) return;
-    const values = new Set([...(policy[list] as string[]), origin]);
-    void updatePolicy({ ...policy, [list]: [...values].sort() });
+    const result = policyWithAddedOrigin(policy, list, drafts[String(list)]);
+    if (!result) return;
+    void updatePolicy(result.policy);
     setDrafts({ ...drafts, [String(list)]: "" });
   }
 
   function removeOrigin(list: OriginListKey, origin: string) {
     if (!policy) return;
-    void updatePolicy({ ...policy, [list]: (policy[list] as string[]).filter((item) => item !== origin) });
+    void updatePolicy(policyWithRemovedOrigin(policy, list, origin));
   }
 
   function updateCompatibility(event: ChangeEvent<HTMLInputElement>) {
     if (!policy) return;
     const key = event.currentTarget.name as keyof CompatibilitySettings;
-    void updatePolicy({ ...policy, compatibility: { ...policy.compatibility, [key]: event.currentTarget.checked } });
+    void updatePolicy(policyWithCompatibilityFlag(policy, key, event.currentTarget.checked));
   }
 
   function updateAdvancedMode(event: ChangeEvent<HTMLInputElement>) {
     if (!policy) return;
-    void updatePolicy({ ...policy, advancedModeEnabled: event.currentTarget.checked });
+    void updatePolicy(policyWithAdvancedMode(policy, event.currentTarget.checked));
   }
 
   function addOriginModeOverride() {
     if (!policy) return;
-    const origin = normalizeOriginInput(originModeDraft.origin);
-    if (!origin) return;
-    void updatePolicy(setOriginMode(policy, origin, originModeDraft.mode));
-    setOriginModeDraft({ origin: "", mode: "balanced" });
+    const result = policyWithOriginModeOverride(policy, originModeDraft);
+    if (!result) return;
+    void updatePolicy(result.policy);
+    setOriginModeDraft(DEFAULT_ORIGIN_MODE_DRAFT);
   }
 
   function removeOriginModeOverride(origin: string) {
     if (!policy) return;
-    void updatePolicy(setOriginMode(policy, origin, "default"));
+    void updatePolicy(policyWithoutOriginModeOverride(policy, origin));
   }
 
   async function exportSettings() {
@@ -91,8 +98,7 @@ export default function OptionsApp() {
     if (!file) return;
     try {
       setImportError(null);
-      const parsed = parseImportedSitePolicy(await file.text());
-      await updatePolicy(parsed);
+      await updatePolicy(parseImportedSitePolicy(await file.text()));
     } catch {
       setImportError("Could not import settings. The selected file is too large, malformed, or outside CSS Sentry policy limits.");
     } finally {
@@ -104,8 +110,6 @@ export default function OptionsApp() {
 
   const currentMode = getModeDefinition(policy.mode);
   const globalModeOrder = policy.advancedModeEnabled ? ADVANCED_SETTINGS_GLOBAL_MODE_ORDER : GLOBAL_MODE_ORDER;
-  const visibleCompatibilityDefinitions = policy.advancedModeEnabled ? COMPATIBILITY_DEFINITIONS : COMPATIBILITY_DEFINITIONS.filter((definition) => !definition.advanced);
-  const visibleOriginDefinitions = policy.advancedModeEnabled ? ORIGIN_LIST_DEFINITIONS : ORIGIN_LIST_DEFINITIONS.filter((definition) => definition.requiredForMostUsers);
 
   return <main className="page">
     <header className="top">
@@ -196,6 +200,7 @@ export default function OptionsApp() {
         </span>
       </label>
       <p className="muted">The defaults are recommended. Each option has fast help text explaining what it means and when to change it.</p>
+      <p className="muted smallText">Privacy invariant: CSS Sentry does not fetch remote stylesheets from the extension context for analysis. It analyzes CSS already exposed through the page, stylesheet APIs, rendered content, or supported browser response-inspection APIs.</p>
       <div className="settingsGrid">
         {visibleCompatibilityDefinitions.map((definition) => (
           <label className="checkCard" key={definition.key}>
@@ -213,7 +218,7 @@ export default function OptionsApp() {
     <section className="card" aria-labelledby="logs-heading">
       <SectionTitle id="logs-heading" title="Local reports and settings" tooltip={LOGS_EXPLANATION} />
       <p className="muted">{LOGS_EXPLANATION}</p>
-      <label className="fieldLabel">Report retention days <input type="number" min={1} max={365} value={policy.logRetentionDays} onChange={(event) => void updatePolicy({ ...policy, logRetentionDays: Number(event.currentTarget.value) })}/></label>
+      <label className="fieldLabel">Report retention days <input type="number" min={POLICY_LIMITS.minLogRetentionDays} max={POLICY_LIMITS.maxLogRetentionDays} value={policy.logRetentionDays} onChange={(event) => void updatePolicy({ ...policy, logRetentionDays: Number(event.currentTarget.value) })}/></label>
       <div className="actions">
         <button onClick={() => void clearAllReports()}>Clear local reports</button>
         <button onClick={() => void exportSettings()}>Export settings</button>
@@ -228,4 +233,3 @@ export default function OptionsApp() {
     </section>
   </main>;
 }
-

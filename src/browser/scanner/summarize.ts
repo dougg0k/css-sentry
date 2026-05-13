@@ -1,12 +1,12 @@
 import { EMPTY_ANALYSIS_SUMMARY } from "../../shared/constants";
+import { systemNow } from "../../shared/clock";
 import type { AnalysisState, AnalysisSummary, Finding, Severity } from "../../shared/types";
 
 const SEVERITY_ORDER: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
-export function mergeSummaries(summaries: AnalysisSummary[]): AnalysisSummary {
-  const now = Date.now();
+export function mergeSummaries(summaries: AnalysisSummary[], completedAt = systemNow()): AnalysisSummary {
   if (summaries.length === 0) {
-    return { ...EMPTY_ANALYSIS_SUMMARY, startedAt: now, finishedAt: now };
+    return { ...EMPTY_ANALYSIS_SUMMARY, startedAt: completedAt, finishedAt: completedAt };
   }
 
   const findings = dedupeFindings(summaries.flatMap((summary) => summary.findings));
@@ -20,8 +20,8 @@ export function mergeSummaries(summaries: AnalysisSummary[]): AnalysisSummary {
     partialStylesheets: summaries.reduce((total, summary) => total + summary.partialStylesheets, 0),
     analyzedFrames: summaries.reduce((total, summary) => total + summary.analyzedFrames, 0),
     partialFrames: summaries.reduce((total, summary) => total + summary.partialFrames, 0),
-    startedAt: startedAtValues.length > 0 ? Math.min(...startedAtValues) : now,
-    finishedAt: finishedAtValues.length > 0 ? Math.max(...finishedAtValues) : now,
+    startedAt: startedAtValues.length > 0 ? Math.min(...startedAtValues) : completedAt,
+    finishedAt: finishedAtValues.length > 0 ? Math.max(...finishedAtValues) : completedAt,
   };
 }
 

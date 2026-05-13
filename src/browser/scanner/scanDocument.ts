@@ -2,9 +2,9 @@ import { ANALYSIS_LIMITS } from "../../shared/constants";
 import type { AnalysisSummary, SitePolicy } from "../../shared/types";
 import { getOrigin } from "../../shared/url";
 import { analyzeStylesheet } from "../../core/analyzer/analyzeStylesheet";
-import { createFinding } from "../../core/findings/createFinding";
 import { mergeSummaries } from "./summarize";
 import { scanHtmlResourceAttributes } from "./htmlResourceScan";
+import { createPartialFrameSummary, createPartialStylesheetSummary } from "./coverageSummary";
 
 export function scanDocument(documentRef: Document = document, policy?: SitePolicy): AnalysisSummary {
   const pageUrl = documentRef.location.href;
@@ -44,7 +44,7 @@ export function scanDocument(documentRef: Document = document, policy?: SitePoli
         }),
       );
     } catch {
-      ownSummaries.push(partialStylesheetSummary(pageUrl, frameUrl, sheet.href));
+      ownSummaries.push(createPartialStylesheetSummary(pageUrl, frameUrl, sheet.href));
     }
   }
 
@@ -82,66 +82,14 @@ function inspectFrame(documentRef: Document, iframe: HTMLIFrameElement, pageUrl:
   const pageOrigin = getOrigin(pageUrl);
   const frameOrigin = getOrigin(frameUrl);
 
-  if (frameOrigin && pageOrigin && frameOrigin !== pageOrigin) return partialFrameSummary(pageUrl, frameUrl);
+  if (frameOrigin && pageOrigin && frameOrigin !== pageOrigin) return createPartialFrameSummary(pageUrl, frameUrl);
 
   try {
-    if (!iframe.contentDocument) return partialFrameSummary(pageUrl, frameUrl);
+    if (!iframe.contentDocument) return createPartialFrameSummary(pageUrl, frameUrl);
     return scanDocument(iframe.contentDocument, policy);
   } catch {
-    return partialFrameSummary(pageUrl, frameUrl);
+    return createPartialFrameSummary(pageUrl, frameUrl);
   }
-}
-
-function partialStylesheetSummary(pageUrl: string, frameUrl: string, sourceUrl: string | null): AnalysisSummary {
-  const now = Date.now();
-  return {
-    state: "analysis.partial",
-    findings: [
-      createFinding({
-        severity: "info",
-        confidence: 100,
-        pageUrl,
-        frameUrl,
-        sourceKind: "stylesheet",
-        sourceUrl,
-        state: "stylesheet.cross_origin_uninspectable",
-        reasons: ["stylesheet.cross_origin.uninspectable"],
-        details: "Stylesheet rules were not inspectable, usually because the browser restricted cross-origin stylesheet access.",
-      }),
-    ],
-    analyzedStylesheets: 0,
-    partialStylesheets: 1,
-    analyzedFrames: 0,
-    partialFrames: 0,
-    startedAt: now,
-    finishedAt: now,
-  };
-}
-
-function partialFrameSummary(pageUrl: string, frameUrl: string): AnalysisSummary {
-  const now = Date.now();
-  return {
-    state: "analysis.partial",
-    findings: [
-      createFinding({
-        severity: "info",
-        confidence: 100,
-        pageUrl,
-        frameUrl,
-        sourceKind: "frame",
-        sourceUrl: frameUrl,
-        state: "frame.cross_origin_uninspectable",
-        reasons: ["frame.cross_origin.uninspectable"],
-        details: "Frame content was not inspectable, usually because the browser restricted cross-origin frame access.",
-      }),
-    ],
-    analyzedStylesheets: 0,
-    partialStylesheets: 0,
-    analyzedFrames: 0,
-    partialFrames: 1,
-    startedAt: now,
-    finishedAt: now,
-  };
 }
 
 function stableElementSelector(element: HTMLElement): string {

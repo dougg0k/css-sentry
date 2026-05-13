@@ -1,5 +1,6 @@
 import type { AnalysisSummary, ExtensionMode, Finding, SitePolicy } from "../../shared/types";
 import { shouldSanitize } from "../../core/policy/mode";
+import { hasDeclarationDataProbeReason, hasFontSideChannelReason, hasSensitiveSelectorReason, hasSinkReason } from "../../shared/reasonGroups";
 
 const STYLE_ELEMENT_ID = "css-sentry-neutralization-rules";
 const CONTENT_NEUTRALIZATION_PROPERTIES = new Set([
@@ -94,23 +95,11 @@ function isContentNeutralizationCandidate(finding: Finding): boolean {
   if (!finding.selector || !finding.property) return false;
   const property = finding.property.toLowerCase();
   if (!CONTENT_NEUTRALIZATION_PROPERTIES.has(property)) return false;
-  if (!finding.reasons.some((reason) => reason.startsWith("sink."))) return false;
+  if (!hasSinkReason(finding)) return false;
 
-  const hasDataProbe = finding.reasons.some((reason) =>
-    reason.startsWith("selector.attribute")
-    || reason === "selector.hidden_input"
-    || reason === "selector.form_control"
-    || reason === "css.value.attr_source"
-    || reason === "css.value.conditional_if"
-    || reason === "css.value.style_query"
-    || reason === "sink.font_metric_side_channel"
-    || reason === "css.font_generated_content_probe"
-    || reason === "css.font_ligature_feature"
-    || reason === "css.font_animation_chain"
-    || reason === "css.font_import_chain"
-  );
-
-  return hasDataProbe;
+  return hasSensitiveSelectorReason(finding)
+    || hasDeclarationDataProbeReason(finding)
+    || hasFontSideChannelReason(finding);
 }
 
 function neutralValueForProperty(property: string): string | null {

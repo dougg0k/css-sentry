@@ -1,9 +1,12 @@
-import { useCallback, useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import type { FocusEvent, MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
+import { useTooltipDisclosure } from "../hooks/useTooltipDisclosure";
 
 const VIEWPORT_PADDING = 8;
 const GAP = 8;
 const FALLBACK_WIDTH = 280;
+const TOOLTIP_POINTER_LEAVE_GRACE_MS = 80;
 
 interface TooltipPosition {
   left: number;
@@ -16,35 +19,8 @@ export function InfoTooltip({ text }: { text: string }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const bubbleRef = useRef<HTMLDivElement | null>(null);
-  const closeTimerRef = useRef<number | null>(null);
-  const [open, setOpen] = useState(false);
+  const { open, openTooltip, closeTooltip, scheduleClose: schedulePointerClose } = useTooltipDisclosure({ closeDelayMs: TOOLTIP_POINTER_LEAVE_GRACE_MS });
   const [position, setPosition] = useState<TooltipPosition>(() => ({ left: VIEWPORT_PADDING, top: VIEWPORT_PADDING, maxWidth: FALLBACK_WIDTH, maxHeight: 160 }));
-
-  const clearCloseTimer = useCallback(() => {
-    if (closeTimerRef.current === null) return;
-    window.clearTimeout(closeTimerRef.current);
-    closeTimerRef.current = null;
-  }, []);
-
-  const openTooltip = useCallback(() => {
-    clearCloseTimer();
-    setOpen(true);
-  }, [clearCloseTimer]);
-
-  const closeTooltip = useCallback(() => {
-    clearCloseTimer();
-    setOpen(false);
-  }, [clearCloseTimer]);
-
-  const schedulePointerClose = useCallback(() => {
-    clearCloseTimer();
-    closeTimerRef.current = window.setTimeout(() => {
-      closeTimerRef.current = null;
-      setOpen(false);
-    }, 80);
-  }, [clearCloseTimer]);
-
-  useLayoutEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -83,7 +59,7 @@ export function InfoTooltip({ text }: { text: string }) {
       const target = event.target as Node | null;
       if (!target) return;
       if (triggerRef.current?.contains(target) || bubbleRef.current?.contains(target)) return;
-      setOpen(false);
+      closeTooltip();
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeTooltip();
@@ -108,9 +84,9 @@ export function InfoTooltip({ text }: { text: string }) {
       onPointerLeave={schedulePointerClose}
       onMouseEnter={openTooltip}
       onMouseLeave={schedulePointerClose}
-      onClick={(event) => { event.preventDefault(); openTooltip(); }}
+      onClick={(event: ReactMouseEvent<HTMLButtonElement>) => { event.preventDefault(); openTooltip(); }}
       onFocus={openTooltip}
-      onBlur={(event) => {
+      onBlur={(event: FocusEvent<HTMLButtonElement>) => {
         const relatedTarget = event.relatedTarget as Node | null;
         if (relatedTarget && bubbleRef.current?.contains(relatedTarget)) return;
         schedulePointerClose();

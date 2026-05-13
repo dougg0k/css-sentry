@@ -33,7 +33,6 @@ export const DEFAULT_SITE_POLICY: SitePolicy = {
   perOriginModes: {},
   logRetentionDays: 14,
   compatibility: {
-    neverFetchRemoteCssFromExtension: true,
     enableDnrMitigation: true,
     enableStrictThirdPartyBlocking: true,
     showPartialAnalysisFindings: false,
