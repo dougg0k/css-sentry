@@ -1,0 +1,59 @@
+name: Deploy CSS Sentry Website to Cloudflare Workers
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "website/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "_.github/workflows/website-cloudflare.yml"
+  pull_request:
+    paths:
+      - "website/**"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - "_.github/workflows/website-cloudflare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - run: npm install --global pnpm@11.1.1
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm verify:website-source
+      - run: pnpm --filter css-sentry-website build
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - run: npm install --global pnpm@11.1.1
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm verify:website-source
+      - run: pnpm --filter css-sentry-website build
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: website
+          command: deploy

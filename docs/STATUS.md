@@ -1,12 +1,53 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/13 19:18:29 -03
+Last Updated: 2026/05/14 18:19:34 -03
 
-**Status document version:** 1.0.59
-**Package audited:** `css_sentry_1.0.59`
+**Status document version:** 1.0.67
+**Package audited:** `css_sentry_1.0.67`
 **Audit timestamp:** 2026/05/13 19:18:29 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
+
+
+## 1.0.67 Website Test Lab Guided Runner Completion
+
+`1.0.67` completes the Test Lab website overhaul that was not downloadable in the previous chat. The website now uses a guided `/tests/` runner as the primary user surface. Individual `/tests/:caseId/` URLs redirect into the runner with that case selected, preserving deep links while preventing duplicated report instructions, endpoint interpretation, mode controls, and troubleshooting copy.
+
+The runner renders selected controlled CSS in the initial document, supports one check, category checks, and all-check execution, polls endpoint results per selected check, records manual popup/report confirmation per check, and stores local run history that can rerun the same case selection.
+
+The extension diagnostic path now separates scanner completion from background report-save acknowledgement through local Test Lab events. This lets the website distinguish these states: no extension signal, scanned with zero findings, scanned with findings, report saved, report not acknowledged, endpoint received, endpoint not received, and manual popup/report not yet checked.
+
+The website coverage model is documented as controlled coverage completion, not as a page named matrix. The implemented public checks cover setup smoke behavior, exact/prefix/suffix/substring selector probes, repeated selector probes, `:has()` representation, background/mask/image-set sinks, `@import`, `@supports`, `@media`, nested CSS, `@layer`, large stylesheet late selector, large import recovery representation, custom property URL indirection, `var()` fallback chains, attr/if representation, remote font signals, and font measurement indicators.
+
+Remaining release validation for the website is dependency-backed and deployment-backed: install dependencies with an updated lockfile, run the Astro build, run the website source verifier, exercise the runner in a browser with CSS Sentry installed, and validate the Cloudflare Worker deployment and WAF/rate-limit configuration before treating the public website as deployment-complete.
+
+## 1.0.66 Release Validation Script Correction
+
+`1.0.66` corrects the root release-validation command after the website work added `verify:website-source` to `verify:full`. The project-structure test intentionally keeps `verify:full` focused on extension release gates: build, Firefox build, zip creation, Firefox zip creation, manifest verification, release artifact verification, AI report verification, source CSS verification, compile, unit/integration tests, and e2e tests.
+
+Website source verification remains available through `pnpm verify:website-source` and is still used by the disabled website deployment workflow. It is not part of the strict extension `verify:full` command because that command is guarded as the extension release contract.
+
+No extension runtime behavior changes are introduced by `1.0.66`. The localhost Test Lab diagnostic behavior remains the behavior added in `1.0.65`; users must run or install a build containing that diagnostic path to see the Test Lab extension signal. General content-script scanning already targets `<all_urls>` through the existing content-script match and host-permission model.
+
+## 1.0.62 Website Runtime and Readability Correction
+
+`1.0.62` fixes the website session endpoint and Test Lab layout issues found during local visual testing. The session endpoint no longer reads the removed `Astro.locals.runtime` API and now imports Worker environment bindings from `cloudflare:workers`, which is the current Astro Cloudflare adapter path for environment variables and secrets. This prevents the live session API from rendering an Astro runtime error page when the user starts selected checks.
+
+The Test Lab UI now uses readable full-width test-case cards, compact summaries, expandable mode-specific interpretation sections, and a horizontally bounded result table. This replaces the cramped per-card mode tables that made endpoint/report/meaning content unreadable at normal browser widths.
+
+The live CSS injection path now keeps `@import` rules before normal CSS rules, preserving the imported-probe test when multiple cases are selected. The remote-font representation now uses a dedicated `.woff2` hit endpoint, and selected cases move from `pending` to `not received` after polling completes. A website source verification script was added to guard these invariants. The disabled website workflow now runs the verifier before build and uses a non-frozen install until a regenerated website lockfile importer is committed.
+
+## 1.0.61 Website Workspace and Test-Lab Interpretation Correction
+
+`1.0.61` fixes the website package installation path for pnpm users. The repository already had a root `pnpm-workspace.yaml`, but the website package was not listed under `packages`, so pnpm treated only the root extension package as part of the workspace. In that state, running `pnpm install` from `website/` could report that the workspace was already up to date while no website `node_modules` directory or `astro` binary existed. The workspace now explicitly includes the root package and `website`, and the root package exposes `website:dev`, `website:build`, `website:preview`, and `website:astro` scripts using `pnpm --filter css-sentry-website`.
+
+The website content also now includes per-case report expectations and a Passive/Balanced/Strict/Trusted/Paused interpretation table. This reduces ambiguity in the live Test Lab: a received endpoint hit is not interpreted as one universal failure, and a missing endpoint hit is not interpreted as a complete security proof. The disabled Cloudflare workflow under `_.github` was updated to install and build through pnpm workspace commands after activation.
+
+## 1.0.60 Website Test Lab Foundation
+
+`1.0.60` adds a separate Astro website foundation under `website/` for a CSS Sentry Test Lab. The website uses fake sentinel values and controlled same-origin endpoints to let users compare live endpoint results with CSS Sentry popup and report behavior in the selected protection mode. The website is explicitly not a complete security guarantee and is documented as a behavior verification surface rather than a vulnerable/not-vulnerable badge.
+
+The implementation includes an Astro server-output configuration for Cloudflare Workers, a Worker-oriented `wrangler.jsonc`, optional server-side Turnstile validation for test-session creation, controlled hit/result/reset endpoints, and a disabled Cloudflare Workers deployment workflow under `_.github/workflows/` so it cannot run until intentionally renamed to `.github`. Website coverage and remaining requirements are tracked in `docs/STATUS_WEBSITE.md`.
 
 ## 1.0.59 Analyzer Budget Structure Guard Correction
 
@@ -924,3 +965,14 @@ These additions keep the default behavior conservative. They are designed for us
 ## 1.0.49 test isolation correction
 
 - Vitest setup resets the aliased `wxt/browser` browser mock instance before and after each test. This prevents storage, DNR session rule, navigation-listener, and tab-listener state from leaking through the module instance that source and tests actually import. React Testing Library cleanup is run after each test to prevent mounted UI state from leaking between UI tests.
+
+## 1.0.64 Status Update
+
+- Website Test Lab usability overhaul implemented. Historical per-test walkthrough pages are superseded by the 1.0.67 guided runner, while endpoint results remain separated from user-confirmed CSS Sentry results.
+- `docs/website/TEST_LAB_OVERHAUL_PLAN.md` now records the complete public diagnostic-site model and remaining website coverage requirements.
+
+
+## 1.0.65 Website diagnostic update
+
+- The earlier individual guided check pages are superseded by the 1.0.67 guided `/tests/` runner; local history, troubleshooting, and localhost-scoped diagnostics remain supporting behavior.
+- The known detector smoke check is now the first validation step for diagnosing why nothing appears in CSS Sentry.

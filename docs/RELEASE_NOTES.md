@@ -1,6 +1,57 @@
 # Release Notes
 
-Last Updated: 2026/05/13 19:54:55 -03
+Last Updated: 2026/05/14 18:19:34 -03
+
+## 1.0.67
+
+- Rebuilt the Test Lab around one guided `/tests/` runner so users can run one check, a behavior category, or all live checks without repeating the same instructions across separate pages.
+- Added automatic CSS Sentry mode detection from the local Test Lab diagnostic signal, with manual mode selection kept as an explicit fallback.
+- Added separate scanner and report-save diagnostics so the website can distinguish extension access problems, zero-finding scans, detected findings, and report persistence problems.
+- Expanded the public fake-data checks to cover selector probes, remote CSS request sinks, stylesheet delivery, modern CSS wrappers, large stylesheet resilience, declaration indirection, and side-channel indicators.
+- Improved Test Lab result interpretation, local history, troubleshooting, and coverage documentation so endpoint hits are compared with CSS Sentry findings instead of being treated as a standalone safe/unsafe verdict.
+- Preserved the diagnostic safety boundary: automatic extension scan/report events remain local-origin scoped by default, while public deployments rely on endpoint results plus manual CSS Sentry report confirmation unless an official Test Lab origin is explicitly allowlisted later.
+
+## 1.0.66
+
+- Kept the extension release-validation script focused on extension release checks. Website source validation remains available as a separate website/deployment check instead of being inserted into `verify:full`.
+- No extension runtime behavior changed in this update.
+
+## 1.0.65
+
+- Reworked the CSS Sentry Test Lab into separate overview, individual check, local history, and troubleshooting pages.
+- Added a known detector smoke check so users can confirm whether CSS Sentry can scan the Test Lab origin before running advanced checks.
+- Added a localhost-only Test Lab diagnostic signal from the extension content script to distinguish extension access problems from detector coverage problems.
+- Updated Test Lab checks to show fake data, CSS snippets, endpoint state, extension signal, report confirmation, and mode-aware interpretation.
+
+
+## 1.0.63
+
+- Fixed the Test Lab start flow so starting selected checks creates a session, reloads the page with the selected controlled CSS rendered in the initial document, and then polls live endpoint results. This gives CSS Sentry a normal page-scan path instead of relying on a late update to an existing empty style element.
+- Clarified what users should expect after a live session starts: the page reloads, the selected fake-data checks run, endpoint results update, and CSS Sentry's popup/report should be used to confirm detection and mode-specific behavior.
+- Fixed the large-stylesheet live check so its controlled endpoint request uses a property that can load on the fake fixture element.
+- Added the Cloudflare local build dependency approval for `workerd` in the pnpm workspace.
+- Added source verification for the Test Lab run flow, Cloudflare build-script approval, initial-document CSS rendering, and polling-script syntax regression.
+
+## 1.0.62
+
+- Fixed the Test Lab live session startup error on the Astro Cloudflare runtime. Starting selected checks should no longer open an Astro runtime error page.
+- Improved the Test Lab layout so test cases are readable at normal browser widths. Mode-specific interpretation now opens from each test case instead of being compressed into cramped tables.
+- Improved live-check correctness by keeping `@import` tests valid when multiple checks are selected, using a font-specific endpoint for the remote-font representation, and marking unresolved live checks as `not received` after polling finishes.
+- Added a website source verifier and wired the disabled deployment workflow to run it before the website build.
+
+## 1.0.61
+
+- Fixed website dependency installation for pnpm users by adding the website package to the root pnpm workspace.
+- Added root website commands so the Test Lab can be built from the repository root with the same package manager used by the extension project.
+- Added mode-specific expectation tables and report-expectation guidance to the Test Lab so users can interpret endpoint hits according to Passive, Balanced, Strict, Trusted, and Paused behavior.
+- Updated the disabled Cloudflare Workers workflow to use pnpm workspace commands after activation.
+
+## 1.0.60
+
+- Added the first CSS Sentry Test Lab website foundation for controlled, fake-data checks of CSS exfiltration-style behavior.
+- Added live same-origin test endpoints so users can compare controlled endpoint hits with CSS Sentry popup/report behavior in their selected protection mode.
+- Added Cloudflare Workers deployment preparation for the website, including optional server-side Turnstile validation for test-session creation and a disabled deployment workflow that remains inactive until intentionally enabled.
+- Added website coverage tracking so future work can distinguish implemented live checks, remaining cross-origin/frame/report-correlation coverage, privacy requirements, and anti-abuse requirements.
 
 ## 1.0.59
 
@@ -815,3 +866,10 @@ Release history must remain available in this file or in a clearly referenced su
 - Firefox enhanced inspection now uses one completion timestamp for the merged summary and saved report `updatedAt`, preventing timestamp drift and nondeterministic tests.
 - Performance-budget summaries created by the Firefox enhanced inspection boundary now use the same injected completion timestamp.
 - Kept the DNR nullable URL guard and SVG/DNR eligibility corrections from 1.0.41 through 1.0.43.
+
+## 1.0.64 - Website guided verification overhaul
+
+- Reworked the CSS Sentry Test Lab from compact endpoint status cards into guided per-check walkthroughs.
+- Added a CSS Sentry mode selector so Passive, Balanced, Strict, Trusted, and Paused results are interpreted differently instead of being reduced to one pass/fail outcome.
+- Added visible fake data, controlled CSS snippets, endpoint paths, expected report terms, manual extension-result controls, and troubleshooting guidance for the case where CSS Sentry shows no finding.
+- Added a dedicated website overhaul plan under `docs/website/` and updated website coverage tracking.

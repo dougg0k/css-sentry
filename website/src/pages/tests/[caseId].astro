@@ -1,0 +1,12 @@
+---
+import { parseRequestedCaseId } from "../../lib/testProtocol";
+
+const caseId = parseRequestedCaseId(Astro.params.caseId);
+const target = new URL("/tests/", Astro.url);
+if (caseId) target.searchParams.set("cases", caseId);
+const session = Astro.url.searchParams.get("session");
+const mode = Astro.url.searchParams.get("mode");
+if (session) target.searchParams.set("session", session);
+if (mode) target.searchParams.set("mode", mode);
+return Astro.redirect(target.pathname + target.search);
+---

@@ -1,0 +1,72 @@
+---
+import "../../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="css-sentry-test-lab" content="v1" />
+    <title>Troubleshooting · CSS Sentry Test Lab</title>
+  </head>
+  <body>
+    <main class="site-shell">
+      <nav class="top-nav" aria-label="Test lab navigation">
+        <a href="/">Overview</a>
+        <a href="/tests/">Run checks</a>
+        <a href="/history/">History</a>
+      </nav>
+      <section class="hero compact-hero">
+        <div class="hero-content">
+          <p class="eyebrow">Troubleshooting</p>
+          <h1>Separate endpoint behavior from extension behavior.</h1>
+          <p class="lede">Use this page when the endpoint receives requests, the website shows no extension signal, or CSS Sentry shows no report for a selected check.</p>
+        </div>
+      </section>
+      <section class="section panel split-panel">
+        <div>
+          <p class="eyebrow">First check</p>
+          <h2>Run the known detector check first</h2>
+          <p>The known detector check uses the simplest selector-plus-image shape. If this check is not visible in CSS Sentry, do not interpret advanced checks yet.</p>
+          <a class="button small" href="/tests/?cases=known-detector-smoke">Open known detector check</a>
+        </div>
+        <div>
+          <p class="eyebrow">Likely causes</p>
+          <h2>What no extension result usually means</h2>
+          <ul class="check-list">
+            <li>The extension does not have site access for the current localhost or preview origin.</li>
+            <li>CSS Sentry is Paused, the current origin is Trusted, or another per-site policy disables scanning.</li>
+            <li>The page was loaded before the extension was enabled or before permissions were granted.</li>
+            <li>The website check is using a pattern that does not currently match a detector.</li>
+            <li>Another extension, browser policy, cache, or network setting changed whether the endpoint request appears.</li>
+          </ul>
+        </div>
+      </section>
+      <section class="section panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Decision model</p>
+            <h2>How to classify the result</h2>
+          </div>
+        </div>
+        <div class="card-list">
+          <article><strong>Endpoint received + no CSS Sentry scan signal</strong><p>The browser made the test request, but the extension did not publish the local Test Lab diagnostic signal. Check extension site access, localhost origin, policy mode, and installed build.</p></article>
+          <article><strong>Endpoint received + scan signal connected with zero findings</strong><p>The extension scanned the page but did not find this case. Treat this as a test-definition or detector-coverage issue.</p></article>
+          <article><strong>Scan signal has findings + report save failed</strong><p>The analyzer found issues, but the background did not acknowledge report storage. Treat this as report pipeline behavior, not scanner coverage.</p></article>
+          <article><strong>Endpoint received + report shown in Passive mode</strong><p>Expected for report-oriented behavior.</p></article>
+          <article><strong>Endpoint received + no report in Balanced or Strict</strong><p>Unexpected after site access and policy are confirmed.</p></article>
+          <article><strong>Endpoint not received + no report</strong><p>Inconclusive. Another blocker, cache, browser behavior, or non-matching selector may explain the result.</p></article>
+        </div>
+      </section>
+      <section class="section panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Diagnostic signal boundary</p>
+            <h2>Localhost-only page signal</h2>
+          </div>
+          <p>The diagnostic events are intentionally limited to marked Test Lab pages on localhost-style origins. Public deployment can still use endpoint results and manual report checks, but the local diagnostic signal is not exposed to arbitrary sites.</p>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/13 19:18:29 -03
+Last Updated: 2026/05/14 18:19:34 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -28,6 +28,32 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
 - [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
 
+
+## 1.0.67 Additional Website Guided Runner Checks
+
+- [ ] Confirm `/tests/` is the primary Test Lab runner and individual `/tests/:caseId/` URLs redirect into `/tests/?cases=<caseId>`.
+- [ ] Confirm the runner can start one selected check, a category selection, and all checks.
+- [ ] Confirm selected controlled CSS is rendered in the initial document through `initial-test-style` after session reload.
+- [ ] Confirm the runner receives `css-sentry:test-lab-scan` and `css-sentry:test-lab-report` separately when the extension is installed and scanning is enabled.
+- [ ] Confirm detected extension mode is preferred and manual mode override remains a fallback, not the primary path.
+- [ ] Confirm each selected check shows endpoint state, scanner/report diagnostic state, manual popup/report confirmation, and mode-specific interpretation.
+- [ ] Confirm local history records selected cases, endpoint states, scan diagnostics, report acknowledgement, manual confirmation, and rerun links.
+- [ ] Confirm `docs/website/TEST_LAB_COVERAGE_CONTROL.md` keeps coverage as controlled behavior completion and does not introduce a `/matrix/` route.
+- [ ] Confirm `pnpm verify:website-source` and `pnpm website:build` pass after the website dependency graph is installed.
+
+## 1.0.66 Additional Release Script Check
+
+- [ ] Confirm `pnpm verify:full` matches the extension release-validation contract guarded by `tests/integration/project-structure.test.ts`.
+- [ ] Run `pnpm verify:website-source` separately for website changes or website deployment preparation.
+
+## 1.0.63 Additional Website Run-Flow Checks
+
+- [ ] Confirm `pnpm-workspace.yaml` allows the `workerd` build dependency required by Cloudflare local build tooling.
+- [ ] Confirm starting selected Test Lab checks creates a session and reloads the page with `session` and `cases` query parameters.
+- [ ] Confirm the active Test Lab page renders the selected controlled CSS in the initial document through `initial-test-style`.
+- [ ] Confirm CSS Sentry reports the selected Test Lab cases after page load in an enabled scanning mode.
+- [ ] Confirm endpoint results are interpreted against CSS Sentry's popup/report output rather than treated as a standalone safe/unsafe verdict.
+- [ ] Confirm `pnpm verify:website-source` passes before website build or deployment.
 
 ## 1.0.59 Additional Analyzer Structure Check
 
@@ -62,6 +88,7 @@ pnpm install --frozen-lockfile
 pnpm run compile
 pnpm run test
 pnpm run build
+pnpm run verify:website-source
 pnpm run test:e2e
 pnpm run build:firefox
 ```
@@ -468,3 +495,21 @@ Before release, run `pnpm verify:source-css` or `pnpm verify:full` to confirm so
 - Confirm `src/core/css/parseCss.ts` remains the public parser import surface while parser implementation details stay under `src/core/css/parser/`.
 - Confirm recovered `@import` rules are not gated by `isParseBudgetExceeded` and remain represented in performance-budget partial summaries.
 - Confirm `analyzeStylesheet.ts` remains orchestration-focused and per-rule finding construction, stylesheet risk context, finding priority, and finding detail text stay in separate analyzer modules.
+
+## Website test-lab validation
+
+- [ ] Run `pnpm verify:website-source` before publishing website changes.
+- [ ] Confirm the session endpoint does not use `Astro.locals.runtime`.
+- [ ] Confirm selected live checks render in readable cards at desktop and narrow widths.
+
+## 1.0.64 Website Release Check
+
+- Verify `pnpm verify:website-source`.
+- Run `pnpm website:build` after the website lockfile/dependencies are installed.
+- Manually validate at least one guided check with CSS Sentry active and confirm that endpoint state and extension-result interpretation remain distinct.
+
+
+## 1.0.65 Website diagnostic update
+
+- The earlier individual guided check pages are superseded by the 1.0.67 guided `/tests/` runner; local history and troubleshooting remain supporting pages.
+- The known detector smoke check remains the first validation step inside the guided runner for diagnosing why nothing appears in CSS Sentry.

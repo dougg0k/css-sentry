@@ -1,4 +1,9 @@
+packages:
+  - .
+  - website
+
 allowBuilds:
   esbuild: true
   sharp: true
   spawn-sync: true
+  workerd: true

@@ -1,0 +1,124 @@
+---
+import "../styles/global.css";
+import { MODE_DEFINITIONS, TEST_CASES, TEST_CASE_CATEGORIES } from "../data/testCases";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="CSS Sentry Test Lab: controlled checks for CSS data-probe behavior." />
+    <meta name="css-sentry-test-lab" content="v1" />
+    <title>CSS Sentry Test Lab</title>
+  </head>
+  <body>
+    <main class="site-shell">
+      <section class="hero home-hero">
+        <div class="hero-content">
+          <p class="eyebrow">CSS Sentry Test Lab</p>
+          <h1>Verify CSS Sentry with controlled fake-data checks.</h1>
+          <p class="lede">The lab demonstrates CSS-exfiltration-style mechanisms with harmless sentinel values, then separates endpoint requests, extension scan signals, report-save acknowledgement, and manual report confirmation.</p>
+        </div>
+        <nav class="hero-links" aria-label="Main test lab pages">
+          <a class="button" href="/tests/?cases=known-detector-smoke">Run the known detector check</a>
+          <a class="button secondary" href="/tests/">Open the guided test runner</a>
+          <a class="button secondary" href="/history/">View local history</a>
+          <a class="button secondary" href="/troubleshooting/">Troubleshooting</a>
+        </nav>
+      </section>
+
+      <section class="section overview-grid" aria-label="How this lab works">
+        <article class="card">
+          <h2>What it proves</h2>
+          <p>It proves how this browser, this page, and the installed CSS Sentry build behave for selected controlled cases.</p>
+        </article>
+        <article class="card warning">
+          <h2>What it does not prove</h2>
+          <p>It does not certify that every possible CSS-based data leak is impossible. Endpoint state must be interpreted with mode, scan, and report signals.</p>
+        </article>
+        <article class="card">
+          <h2>What changed</h2>
+          <p>The primary experience is now a guided runner. Individual `/tests/:caseId/` links redirect into the runner with that check selected.</p>
+        </article>
+      </section>
+
+      <section class="section panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Recommended flow</p>
+            <h2>Run a baseline, then expand coverage</h2>
+          </div>
+          <p>Start with the known detector. Use category filters or run all checks only after the baseline proves the extension is connected and saving reports.</p>
+        </div>
+        <ol class="flow-list strong-flow">
+          <li>Open the guided runner with the known detector selected.</li>
+          <li>Start the check and wait for endpoint, scan, and report-save states.</li>
+          <li>Open CSS Sentry and confirm the expected report terms.</li>
+          <li>Run a category or all checks after the basic path works.</li>
+          <li>Use local history to compare endpoint, scan, report, and manual states across runs.</li>
+        </ol>
+      </section>
+
+      <section class="section panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Coverage groups</p>
+            <h2>Behavior classes represented by the runner</h2>
+          </div>
+          <p>Coverage is tracked as behavior completion, not as a separate page named matrix.</p>
+        </div>
+        <div class="mode-reference-grid">
+          {TEST_CASE_CATEGORIES.map((category) => (
+            <article>
+              <strong>{category}</strong>
+              <p>{TEST_CASES.filter((testCase) => testCase.category === category).length} check(s) represented.</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="section panel">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Checks</p>
+            <h2>Open a specific check in the runner</h2>
+          </div>
+          <p>Each link selects one check. The runner can then expand to a category or all checks.</p>
+        </div>
+        <div class="test-index-list">
+          {TEST_CASES.map((testCase) => (
+            <article class={`test-index-card ${testCase.defaultEnabled ? "" : "optional"}`}>
+              <div>
+                <p class="eyebrow">{testCase.category}</p>
+                <h3>{testCase.title}</h3>
+                <p>{testCase.userGoal}</p>
+              </div>
+              <div class="expected-terms">
+                <span>Expected finding terms</span>
+                <code>{testCase.expectedCssSentryFindings.slice(0, 3).join(" · ")}</code>
+              </div>
+              <a class="button small" href={`/tests/?cases=${testCase.id}`}>Select check</a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="section panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Mode reference</p>
+            <h2>Detected mode is authoritative when available</h2>
+          </div>
+        </div>
+        <div class="mode-reference-grid">
+          {MODE_DEFINITIONS.filter((mode) => mode.id !== "not-sure").map((mode) => (
+            <article>
+              <strong>{mode.label}</strong>
+              <p>{mode.userMeaning}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

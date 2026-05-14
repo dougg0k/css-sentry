@@ -257,6 +257,17 @@ export interface ScanCompleteMessage {
   summary: AnalysisSummary;
 }
 
+
+export interface ScanCompleteResponse {
+  ok: true;
+  reportSaved: boolean;
+  state: AnalysisState;
+  findingCount: number;
+  actionableFindingCount: number;
+  reasons: ReasonCode[];
+  actions: MitigationAction[];
+}
+
 export interface PolicyUpdateMessage {
   type: "css-sentry:set-origin-mode";
   origin: string;

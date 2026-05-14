@@ -1,0 +1,67 @@
+---
+import "../../styles/global.css";
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="css-sentry-test-lab" content="v1" />
+    <title>Local history · CSS Sentry Test Lab</title>
+  </head>
+  <body>
+    <main class="site-shell">
+      <nav class="top-nav" aria-label="Test lab navigation">
+        <a href="/">Overview</a>
+        <a href="/tests/">Run checks</a>
+        <a href="/troubleshooting/">Troubleshooting</a>
+      </nav>
+      <section class="hero compact-hero">
+        <div class="hero-content">
+          <p class="eyebrow">Local history</p>
+          <h1>Recent Test Lab evidence stored in this browser.</h1>
+          <p class="lede">This page reads local browser storage only. It records endpoint, scan, report-save, manual confirmation, and mode states from the guided runner.</p>
+        </div>
+        <button id="clear-history" class="button secondary" type="button">Clear local history</button>
+      </section>
+      <section class="section panel">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Runs</p>
+            <h2>Recorded events</h2>
+          </div>
+          <p>History is not a security verdict. It records the visible diagnostic state from this website.</p>
+        </div>
+        <div id="history-list" class="history-list">No local history has been recorded yet.</div>
+      </section>
+      <script is:inline>
+        const historyKey = "css-sentry-test-lab-history";
+        const list = document.querySelector("#history-list");
+        const clear = document.querySelector("#clear-history");
+        renderHistory();
+        clear?.addEventListener("click", () => {
+          localStorage.removeItem(historyKey);
+          renderHistory();
+        });
+        function renderHistory() {
+          const items = JSON.parse(localStorage.getItem(historyKey) ?? "[]");
+          if (!Array.isArray(items) || items.length === 0) {
+            if (list) list.textContent = "No local history has been recorded yet.";
+            return;
+          }
+          if (!list) return;
+          list.innerHTML = items.map(renderHistoryItem).join("");
+        }
+        function renderHistoryItem(item) {
+          const cases = Array.isArray(item.cases) ? item.cases.join(", ") : item.caseId ?? "unknown check";
+          const endpoints = item.endpoints && typeof item.endpoints === "object" ? Object.entries(item.endpoints).map(([caseId, value]) => `${caseId}: ${value}`).join("; ") : item.endpoint ?? "unknown";
+          const manual = item.manual && typeof item.manual === "object" ? Object.entries(item.manual).map(([caseId, value]) => `${caseId}: ${value}`).join("; ") : item.manual ?? "unknown";
+          return `<article class="history-item"><strong>${escapeHtml(cases)}</strong><span>${escapeHtml(item.event ?? "event")} · ${escapeHtml(item.at ?? "unknown time")}</span><dl><div><dt>Endpoint</dt><dd>${escapeHtml(endpoints)}</dd></div><div><dt>Scan signal</dt><dd>${escapeHtml(item.scan ?? item.signal ?? "unknown")}</dd></div><div><dt>Report save</dt><dd>${escapeHtml(item.report ?? "unknown")}</dd></div><div><dt>Manual result</dt><dd>${escapeHtml(manual)}</dd></div><div><dt>Mode</dt><dd>${escapeHtml(item.mode ?? "unknown")}</dd></div></dl><a class="button small" href="/tests/?cases=${encodeURIComponent(Array.isArray(item.cases) ? item.cases.join(",") : item.caseId ?? "")}">Rerun selection</a></article>`;
+        }
+        function escapeHtml(value) {
+          return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
+        }
+      </script>
+    </main>
+  </body>
+</html>

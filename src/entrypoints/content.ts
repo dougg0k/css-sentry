@@ -5,6 +5,7 @@ import { getSitePolicy } from "../browser/storage/reports";
 import { scanDocument } from "../browser/scanner/scanDocument";
 import { applyContentNeutralization } from "../browser/scanner/contentNeutralization";
 import { createDocumentScanController } from "../browser/scanner/documentScanController";
+import { publishTestLabReportDiagnostic, publishTestLabScanDiagnostic } from "../browser/scanner/testLabDiagnostics";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -22,12 +23,18 @@ export default defineContentScript({
       mode,
       scanDocument,
       applyContentNeutralization,
-      sendScanComplete(summary) {
-        return browser.runtime.sendMessage({
-          type: "css-sentry:scan-complete",
-          url: location.href,
-          summary,
-        });
+      async sendScanComplete(summary) {
+        publishTestLabScanDiagnostic(document, summary, mode);
+        try {
+          const response = await browser.runtime.sendMessage({
+            type: "css-sentry:scan-complete",
+            url: location.href,
+            summary,
+          });
+          publishTestLabReportDiagnostic(document, response);
+        } catch {
+          publishTestLabReportDiagnostic(document, null);
+        }
       },
     }).start();
   },

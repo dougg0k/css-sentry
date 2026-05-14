@@ -1,7 +1,7 @@
 import { defineBackground } from "wxt/utils/define-background";
 import { browser } from "wxt/browser";
 import { DEFAULT_SITE_POLICY, STORAGE_KEYS } from "../shared/constants";
-import type { AnalysisSummary, ExtensionMode, MitigationAction, SitePolicy, Finding } from "../shared/types";
+import type { AnalysisSummary, ExtensionMode, MitigationAction, SitePolicy, Finding, ScanCompleteResponse } from "../shared/types";
 import { applyGlobalPolicyDnrRules, applyTabPolicyDnrRules, blockHighConfidenceFindingUrls, clearTabDnrRules } from "../browser/dnr/chromeDnr";
 import { clearTabReport, getSitePolicy, pruneOldReports, saveFrameReport, saveSitePolicy } from "../browser/storage/reports";
 import { effectiveModeForUrl, setOriginMode, shouldMitigate, shouldScan, shouldStrictBlockThirdParty } from "../core/policy/mode";
@@ -63,8 +63,7 @@ export default defineBackground(() => {
       const frameId = typeof sender.frameId === "number" ? sender.frameId : null;
       if (tabId === null || frameId === null) return;
       const topLevelUrl = typeof sender.tab?.url === "string" ? sender.tab.url : message.url;
-      void handleScanComplete(tabId, topLevelUrl, frameId, getParentFrameId(sender), message.url, message.summary);
-      return;
+      return handleScanComplete(tabId, topLevelUrl, frameId, getParentFrameId(sender), message.url, message.summary);
     }
 
     if (message.type === "css-sentry:set-origin-mode") return handleSetOriginMode(message.origin, message.mode);
@@ -155,7 +154,7 @@ async function refreshOpenTabPolicies(policy: SitePolicy): Promise<void> {
   }));
 }
 
-async function handleScanComplete(tabId: number, topLevelUrl: string, frameId: number, parentFrameId: number, frameUrl: string, summary: AnalysisSummary): Promise<void> {
+async function handleScanComplete(tabId: number, topLevelUrl: string, frameId: number, parentFrameId: number, frameUrl: string, summary: AnalysisSummary): Promise<ScanCompleteResponse> {
   const policy = await getSitePolicy();
   const mode = effectiveModeForUrl(topLevelUrl, policy);
   let finalSummary = summary;
@@ -178,6 +177,29 @@ async function handleScanComplete(tabId: number, topLevelUrl: string, frameId: n
 
   const report = await saveFrameReport(tabId, topLevelUrl, { frameId, parentFrameId, frameUrl, frameOrigin: getOrigin(frameUrl), summary: finalSummary, updatedAt: systemNow() });
   await updateBadge(tabId, report.summary);
+  return scanCompleteResponse(report.summary);
+}
+
+
+function scanCompleteResponse(summary: AnalysisSummary): ScanCompleteResponse {
+  const reasons = new Set<ScanCompleteResponse["reasons"][number]>();
+  const actions = new Set<ScanCompleteResponse["actions"][number]>();
+
+  for (const finding of summary.findings) {
+    finding.reasons.forEach((reason) => reasons.add(reason));
+    actions.add(finding.action);
+    finding.additionalActions?.forEach((action) => actions.add(action));
+  }
+
+  return {
+    ok: true,
+    reportSaved: true,
+    state: summary.state,
+    findingCount: summary.findings.length,
+    actionableFindingCount: summary.findings.filter((finding) => finding.severity !== "info").length,
+    reasons: [...reasons].sort(),
+    actions: [...actions].sort(),
+  };
 }
 
 function withMitigationAction(finding: Finding, action: MitigationAction): Finding {
