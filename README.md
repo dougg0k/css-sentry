@@ -10,10 +10,10 @@ CSS Sentry is not a fork of [CSS Exfil Protection](https://github.com/mlgualtier
 [![Chrome Extension](docs/chrome-extension-logo.png)](https://chromewebstore.google.com/detail/css-sentry/hkpecdfaeplhonkjjofllbihpjmhngnk)
 
 > [!NOTE]
-> This project were built entirely with AI. Built within a day.
+> This project was built entirely with AI. Built within a day.
 
 > [!IMPORTANT]
-> Moving forwarded, the project will only do bugfixes (if needed) or handle recently discovered CVE (if reported).
+> Moving forward, the project will only do bugfixes (if needed) or handle recently discovered CVEs (if reported).
 
 ## What CSS Sentry Does
 
@@ -46,7 +46,7 @@ It does not claim to prevent:
 
 - every CSS exfiltration technique;
 - every CSS injection attack;
-- every browser side channel;
+- every browser-side channel;
 - every XS-Leak;
 - every future CSS feature abuse;
 - malicious JavaScript running in the page;
@@ -74,7 +74,7 @@ This matters especially when:
 - JavaScript is blocked, but CSS is still allowed;
 - sensitive values are reflected into DOM attributes.
 
-Older CSS-exfil extensions demonstrated that browser-side mitigation is possible, but the browser-extension platform has changed significantly. Chrome now requires a Manifest V3-first approach, and a new implementation needs to be explicit about what extensions can and cannot do.
+Older CSS-exfil extensions demonstrated that browser-side mitigation is possible, but the browser extension platform has changed significantly. Chrome now requires a Manifest V3-first approach, and a new implementation needs to be explicit about what extensions can and cannot do.
 
 ## Extension self-security hardening
 
