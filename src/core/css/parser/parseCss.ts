@@ -38,7 +38,12 @@ function parseCssInternal(input: ParseInput, options: ParseOptions = {}, budget?
 	const normalizedCss = stripCssComments(input.cssText);
 	const parsed = options.largeSourceScan ? parseCompleteSourceRules(normalizedCss, baseContext, budget, { retainOnlyPotentiallyRelevantRules: true }) : parseWithCssTree(normalizedCss, baseContext, budget);
 	const parserUsed: CssParserUsed = options.largeSourceScan || parsed === null ? "source" : "css-tree";
-	const parsedRules = parsed ?? parseCompleteSourceRules(normalizedCss, baseContext, budget);
+	const parsedRules = supplementMissingNestedSecurityRules(
+		parsed ?? parseCompleteSourceRules(normalizedCss, baseContext, budget),
+		options,
+		normalizedCss,
+		baseContext,
+	);
 	const recovered = addRecoveredImportRules(input.cssText, baseContext, parsedRules);
 	return {
 		rules: recovered.rules,
@@ -46,4 +51,41 @@ function parseCssInternal(input: ParseInput, options: ParseOptions = {}, budget?
 		parserUsed,
 		recoveredImports: recovered.recoveredImports,
 	};
+}
+
+function supplementMissingNestedSecurityRules(rules: ParsedCssRule[], options: ParseOptions, normalizedCss: string, baseContext: ReturnType<typeof createBaseRuleContext>): ParsedCssRule[] {
+	if (options.largeSourceScan || hasNestedStyleRuleContext(rules)) return rules;
+	const nestedSecurityRules = parseCompleteSourceRules(normalizedCss, baseContext, undefined, { retainOnlyPotentiallyRelevantRules: true })
+		.filter((rule) => rule.context.atRuleStack.includes("nested-style-rule"));
+	if (nestedSecurityRules.length === 0) return rules;
+	return appendMissingRules(rules, nestedSecurityRules);
+}
+
+function appendMissingRules(baseRules: ParsedCssRule[], candidateRules: ParsedCssRule[]): ParsedCssRule[] {
+	const ruleKeys = new Set(baseRules.map(ruleIdentityKey));
+	const missingRules = candidateRules.filter((rule) => {
+		const key = ruleIdentityKey(rule);
+		if (ruleKeys.has(key)) return false;
+		ruleKeys.add(key);
+		return true;
+	});
+	return missingRules.length === 0 ? baseRules : [...baseRules, ...missingRules];
+}
+
+function hasNestedStyleRuleContext(rules: ParsedCssRule[]): boolean {
+	return rules.some((rule) => rule.context.atRuleStack.includes("nested-style-rule"));
+}
+
+function ruleIdentityKey(rule: ParsedCssRule): string {
+	return JSON.stringify([
+		rule.type,
+		rule.selector,
+		rule.declarationsText,
+		rule.importValue ?? null,
+		rule.context.sourceKind,
+		rule.context.sourceUrl,
+		rule.context.pageUrl,
+		rule.context.frameUrl,
+		rule.context.atRuleStack,
+	]);
 }

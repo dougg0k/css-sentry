@@ -11,6 +11,7 @@ import { validateRuntimeMessage } from "../browser/runtime/messageSecurity";
 import { refreshFirefoxEnhancedPolicy, setupFirefoxEnhancedStylesheetInspection } from "../browser/firefox/enhancedStylesheetInspection";
 import { createCrossOriginSubframePartialReport } from "../browser/scanner/navigationFrameCoverage";
 import { getOptionalBrowserEvents, type NavigationDetails } from "../browser/platform/browserEvents";
+import { getBadgeActionApi } from "../browser/platform/actionApi";
 
 const topLevelUrlsByTabId = new Map<number, string>();
 
@@ -60,8 +61,8 @@ export default defineBackground(() => {
 
     if (message.type === "css-sentry:scan-complete") {
       const tabId = typeof sender.tab?.id === "number" ? sender.tab.id : null;
-      const frameId = typeof sender.frameId === "number" ? sender.frameId : null;
-      if (tabId === null || frameId === null) return;
+      if (tabId === null) return;
+      const frameId = typeof sender.frameId === "number" ? sender.frameId : 0;
       const topLevelUrl = typeof sender.tab?.url === "string" ? sender.tab.url : message.url;
       return handleScanComplete(tabId, topLevelUrl, frameId, getParentFrameId(sender), message.url, message.summary);
     }
@@ -214,7 +215,14 @@ function withMitigationAction(finding: Finding, action: MitigationAction): Findi
 }
 
 async function updateBadge(tabId: number, summary: AnalysisSummary): Promise<void> {
+  const actionApi = getBadgeActionApi();
+  if (!actionApi) return;
+
   const actionable = summary.findings.filter((finding) => finding.severity !== "info").length;
-  await browser.action.setBadgeText({ tabId, text: actionable > 0 ? String(Math.min(actionable, 99)) : "" });
-  await browser.action.setBadgeBackgroundColor({ tabId, color: summary.state === "analysis.complete" ? "#2563eb" : "#f59e0b" });
+  try {
+    await actionApi.setBadgeText({ tabId, text: actionable > 0 ? String(Math.min(actionable, 99)) : "" });
+    await actionApi.setBadgeBackgroundColor({ tabId, color: summary.state === "analysis.complete" ? "#2563eb" : "#f59e0b" });
+  } catch {
+    // Badge updates are a non-critical UI effect. Report persistence must still acknowledge saved findings.
+  }
 }

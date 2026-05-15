@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/14 18:19:34 -03
+Last Updated: 2026/05/15 11:50:38 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -28,6 +28,19 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
 - [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
 
+
+## 1.0.71 Additional Firefox Runtime Report Acknowledgement Checks
+
+- [ ] Confirm `tests/e2e/firefox-extension-runtime.spec.ts` publishes both `css-sentry:test-lab-scan` and a positive `css-sentry:test-lab-report` acknowledgement in Firefox.
+- [ ] Confirm `src/browser/platform/actionApi.ts` falls back from MV3 `action` to Firefox MV2 `browserAction` without exposing badge API optionality outside the platform boundary.
+- [ ] Confirm a badge API failure does not prevent `handleScanComplete()` from returning `reportSaved: true` after report persistence succeeds.
+- [ ] Confirm runtime message validation accepts tab-bound Firefox content-script scan messages without `sender.frameId` and still rejects privileged policy messages from tab-bound senders.
+
+## 1.0.70 Additional Nested CSS Parser Recovery Checks
+
+- [ ] Confirm `tests/unit/core/analyzer.test.ts` reports selector substring-probe, nested-rule, and remote destination findings for late nested CSS rules in large-but-below-threshold stylesheets.
+- [ ] Confirm `tests/unit/core/css-parser.test.ts` reports source-scanned nested security rules when the primary parser omits nested-style-rule context.
+- [ ] Confirm `tests/integration/project-structure.test.ts` guards the parser-boundary supplemental nested-rule recovery helper.
 
 ## 1.0.67 Additional Website Guided Runner Checks
 
@@ -81,6 +94,12 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm optional browser API checks remain isolated under `src/browser/platform/` and are not reintroduced as local structural casts in DNR, Firefox enhanced inspection, or background orchestration.
 - [ ] Confirm injected clocks remain available for analyzer timing, parser budgets, report timestamps, DNR status timestamps, retention checks, and partial-coverage summaries while default runtime behavior still uses the system clock.
 
+## 1.0.69 Additional Firefox Runtime E2E Gate Checks
+
+- [ ] Run `pnpm verify:full` and confirm the full release gate builds Firefox output, installs Playwright Chromium/Firefox, and executes the complete e2e suite.
+- [ ] Confirm the Firefox runtime e2e test publishes both scan and report-save diagnostics for the local Test Lab fixture as part of the full e2e suite.
+- [ ] Confirm `tests/integration/project-structure.test.ts` still passes the Playwright-only Firefox runtime e2e guard and does not detect Selenium/WebDriver dependencies.
+
 ## Required Verification
 
 ```bash
@@ -89,8 +108,9 @@ pnpm run compile
 pnpm run test
 pnpm run build
 pnpm run verify:website-source
-pnpm run test:e2e
 pnpm run build:firefox
+pnpm run setup:e2e:browser
+pnpm run test:e2e
 ```
 
 Full manual gate:

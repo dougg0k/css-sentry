@@ -59,7 +59,7 @@ export function validateRuntimeMessage(message: unknown, sender: SenderLike): Ru
 }
 
 export function isContentScriptSender(sender: SenderLike): boolean {
-  return Number.isInteger(sender.tab?.id) && Number.isInteger(sender.frameId);
+  return Number.isInteger(sender.tab?.id) && (sender.frameId === undefined || Number.isInteger(sender.frameId));
 }
 
 export function isExtensionPageSender(sender: SenderLike): boolean {

@@ -1,13 +1,39 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/14 18:19:34 -03
+Last Updated: 2026/05/15 11:50:38 -03
 
-**Status document version:** 1.0.67
-**Package audited:** `css_sentry_1.0.67`
+**Status document version:** 1.0.71
+**Package audited:** `css_sentry_1.0.71`
 **Audit timestamp:** 2026/05/13 19:18:29 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
+
+## 1.0.71 Firefox Runtime Report Acknowledgement Correction
+
+`1.0.71` fixes the Firefox runtime e2e failure where the content script published an actionable Test Lab scan diagnostic but did not receive a successful report-save acknowledgement from the background path. The correction keeps the Firefox runtime test assertion meaningful: the background path must still persist the report and return a positive `css-sentry:test-lab-report` acknowledgement for actionable findings.
+
+The implementation isolates badge API compatibility behind `src/browser/platform/actionApi.ts`. Chromium-compatible MV3 runtimes can continue using `browser.action`, while Firefox MV2 runtimes can use `browser.browserAction`. Badge updates are now treated as a non-critical UI side effect, so a missing or rejected badge update cannot convert an already-saved report into a failed report acknowledgement. Runtime message validation also accepts Firefox tab-bound content-script messages that omit `sender.frameId`, defaulting the saved frame to the top frame while preserving the rule that privileged policy messages cannot come from tab-bound content scripts.
+
+## 1.0.70 Parser-Boundary Nested CSS Recovery Correction
+
+`1.0.70` fixes a core analyzer regression where a late nested CSS selector probe could be missed when the stylesheet was large enough to stress the primary parser path but still below the configured large-stylesheet byte threshold. The correction is applied at the parser boundary: when the primary parser output has no nested-style-rule context, the parser supplements missing security-relevant nested source rules from the source scanner before import recovery and analyzer scoring.
+
+This preserves the existing performance-budget recovery branch for genuinely budget-exceeded parsing while covering the separate normal-parser omission path. Focused parser coverage now asserts that source-scanned nested security rules are present, and analyzer coverage continues to assert substring selector, nested-rule, and remote destination findings for the reported regression case.
+
+## 1.0.69 Firefox Runtime E2E Verification Gate Correction
+
+`1.0.69` corrects the Firefox runtime e2e package after local TypeScript validation exposed a socket data type mismatch in `tests/e2e/firefox-extension-runtime.spec.ts`. The Firefox remote-debugging client now normalizes socket data before packet parsing, preserving the binary packet parser while satisfying Node's typed socket data event contract.
+
+The normal extension release gate now includes the Playwright browser installation step before running the e2e suite. `pnpm verify:full` remains the single strict release-validation command and now covers both Chromium extension e2e behavior and the Firefox runtime e2e path added in `1.0.68`, instead of requiring a separate targeted Firefox e2e command after the full gate.
+
+## 1.0.68 Firefox Runtime E2E Coverage
+
+`1.0.68` closes the Firefox runtime e2e coverage gap for the extension without introducing Selenium or a browser-driver stack outside Playwright. The new `tests/e2e/firefox-extension-runtime.spec.ts` launches a Playwright-controlled Firefox persistent context, installs the built `.output/firefox-mv2` extension as a temporary add-on through Firefox's remote debugging add-on actor, and verifies runtime behavior through the extension's local Test Lab diagnostic events.
+
+The test does not require discovering the temporary `moz-extension://` UUID. Instead, it uses a localhost fixture marked with the CSS Sentry Test Lab metadata, installs a fake token selector probe, and asserts that Firefox receives both `css-sentry:test-lab-scan` and `css-sentry:test-lab-report` diagnostics with actionable findings and expected reason codes. This proves that the Firefox build loads into a real Firefox runtime, that the content script scans a browser page, and that the background report-save path acknowledges the scan.
+
+The e2e setup command installs both Chromium and Firefox for Playwright-backed browser validation. Starting with `1.0.69`, `verify:full` runs that setup before the e2e suite so the Firefox runtime e2e path is part of the normal full release gate. The project-structure guard checks that the Firefox runtime e2e file remains tied to `.output/firefox-mv2`, uses Playwright's Firefox launcher, exercises both diagnostic events, and does not introduce Selenium/WebDriver dependencies.
 
 ## 1.0.67 Website Test Lab Guided Runner Completion
 

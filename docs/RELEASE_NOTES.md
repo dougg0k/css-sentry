@@ -1,6 +1,30 @@
 # Release Notes
 
-Last Updated: 2026/05/14 18:19:34 -03
+Last Updated: 2026/05/15 11:50:38 -03
+
+## 1.0.71
+
+- Fixed the Firefox runtime e2e report acknowledgement path so saved Test Lab reports are not reported as failed when Firefox exposes the MV2 badge API as `browserAction` instead of the MV3 `action` API.
+- Made badge updates a non-critical background side effect so report persistence can still acknowledge saved findings even if a browser does not expose a badge API or rejects a badge update.
+- Accepted Firefox tab-bound scan-complete messages that omit `sender.frameId`, defaulting them to the top frame, while still rejecting privileged extension UI messages from tab-bound content scripts.
+
+## 1.0.70
+
+- Fixed a detector regression where a security-relevant nested CSS rule near the end of a large-but-below-threshold stylesheet could be missed when the primary parser did not retain the nested rule.
+- Added parser coverage for source-scanned nested security rules so selector probes with remote sinks remain detectable even when the primary parser omits the nested-rule shape.
+- Kept the existing large-stylesheet performance-budget recovery path unchanged while extending recovery to the normal parser boundary that exposed this regression.
+
+## 1.0.69
+
+- Fixed the Firefox runtime e2e TypeScript compile error by normalizing Firefox remote-debugging socket data before packet parsing.
+- Updated `verify:full` so the normal release gate installs both Playwright browser engines before running the complete e2e suite, including the Firefox runtime e2e test.
+- Updated the diagnostic full-verification script and install-backed e2e command to use the same e2e script path, keeping Firefox coverage inside the standard release-validation surface.
+
+## 1.0.68
+
+- Added Firefox runtime browser e2e coverage for the extension using Playwright-controlled Firefox. The new test loads the built Firefox extension, opens a local Test Lab fixture, and verifies that Firefox publishes both scan diagnostics and report-save acknowledgement for an actionable CSS selector probe.
+- Updated browser e2e setup so Playwright installs both Chromium and Firefox when the install-backed e2e command is used.
+- Added a structure guard to keep the Firefox runtime e2e path Playwright-only and tied to the built Firefox extension output.
 
 ## 1.0.67
 

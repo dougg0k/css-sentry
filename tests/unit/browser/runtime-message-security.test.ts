@@ -6,6 +6,8 @@ describe("runtime message security", () => {
   it("accepts scan-complete only from a tab-bound content script sender", () => {
     const message = { type: "css-sentry:scan-complete", url: "https://app.example/", summary: EMPTY_ANALYSIS_SUMMARY };
     expect(validateRuntimeMessage(message, { tab: { id: 1, url: "https://app.example/" }, frameId: 0 }).ok).toBe(true);
+    expect(validateRuntimeMessage(message, { tab: { id: 1, url: "https://app.example/" } }).ok).toBe(true);
+    expect(validateRuntimeMessage(message, { tab: { id: 1, url: "https://app.example/" }, frameId: "0" }).ok).toBe(false);
     expect(validateRuntimeMessage(message, { url: "chrome-extension://id/popup.html" }).ok).toBe(false);
   });
 

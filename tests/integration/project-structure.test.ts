@@ -237,6 +237,7 @@ describe("project structure", () => {
     expect(parserEntrypointText).toContain('from "./parser/parseCss"');
     expect(parserText).toContain("parseCssWithBudget");
     expect(parserText).toContain("parseLargeStylesheetCssWithBudget");
+    expect(parserText).toContain("supplementMissingNestedSecurityRules");
     expect(budgetText).toContain("isParseBudgetExceeded");
     expect(sourceParserText).toContain("findMatchingBrace(input: string, openIndex: number, budget?: ParseBudgetState)");
     expect(importRecoveryText).toContain("addRecoveredImportRules");
@@ -395,10 +396,39 @@ describe("project structure", () => {
     expect(chromeText).not.toContain("Math.abs(tabId) %");
   });
 
+  it("keeps badge action API compatibility isolated", () => {
+    const path = join(process.cwd(), "src", "browser", "platform", "actionApi.ts");
+    expect(existsSync(path)).toBe(true);
+    const text = readFileSync(path, "utf8");
+
+    expect(text).toContain("browserAction");
+    expect(text).toContain("selectBadgeActionApi");
+    expect(text).toContain("getBadgeActionApi");
+
+    const backgroundText = readFileSync(join(process.cwd(), "src", "entrypoints", "background.ts"), "utf8");
+    expect(backgroundText).toContain("getBadgeActionApi");
+    expect(backgroundText).not.toContain("browser.action.setBadgeText");
+  });
+
+  it("keeps Firefox runtime e2e coverage Playwright-only", () => {
+    const path = join(process.cwd(), "tests", "e2e", "firefox-extension-runtime.spec.ts");
+    expect(existsSync(path)).toBe(true);
+    const text = readFileSync(path, "utf8");
+
+    expect(text).toContain('firefox.launchPersistentContext');
+    expect(text).toContain('.output/firefox-mv2');
+    expect(text).toContain('installTemporaryAddon');
+    expect(text).toContain('css-sentry:test-lab-scan');
+    expect(text).toContain('css-sentry:test-lab-report');
+    expect(text).not.toMatch(/selenium|webdriver/i);
+  });
+
   it("keeps verify:full strict and dependency versions pinned", () => {
     const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf8")) as { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
-    expect(packageJson.scripts?.["verify:full"]).toBe("pnpm build && pnpm build:firefox && pnpm zip && pnpm zip:firefox && pnpm verify:manifests && pnpm verify:release-artifacts && pnpm verify:ai-report && pnpm verify:source-css && pnpm compile && pnpm test && pnpm test:e2e");
-    expect(packageJson.scripts?.["verify:full:diagnose"]).toBe("pnpm build; pnpm build:firefox; pnpm zip; pnpm zip:firefox; pnpm verify:manifests; pnpm verify:release-artifacts; pnpm verify:ai-report; pnpm verify:source-css; pnpm compile; pnpm test; pnpm test:ai; pnpm test:e2e");
+    expect(packageJson.scripts?.["verify:full"]).toBe("pnpm build && pnpm build:firefox && pnpm zip && pnpm zip:firefox && pnpm verify:manifests && pnpm verify:release-artifacts && pnpm verify:ai-report && pnpm verify:source-css && pnpm compile && pnpm test && pnpm setup:e2e:browser && pnpm test:e2e");
+    expect(packageJson.scripts?.["verify:full:diagnose"]).toBe("pnpm build; pnpm build:firefox; pnpm zip; pnpm zip:firefox; pnpm verify:manifests; pnpm verify:release-artifacts; pnpm verify:ai-report; pnpm verify:source-css; pnpm compile; pnpm test; pnpm test:ai; pnpm setup:e2e:browser; pnpm test:e2e");
+    expect(packageJson.scripts?.["setup:e2e:browser"]).toBe("pnpm exec playwright install chromium firefox");
+    expect(packageJson.scripts?.["test:e2e:with-install"]).toBe("pnpm build && pnpm build:firefox && pnpm setup:e2e:browser && pnpm test:e2e");
     expect(packageJson.scripts?.["verify:manifests"]).toBe("node scripts/verify-generated-manifests.mjs");
     expect(packageJson.scripts?.["verify:release-artifacts"]).toBe("node scripts/verify-release-artifacts.mjs");
     expect(packageJson.scripts?.["verify:ai-report"]).toBe("node scripts/verify-ai-report-config.mjs");
