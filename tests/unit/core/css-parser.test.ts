@@ -43,4 +43,9 @@ describe("CSS parser", () => {
 		expect(Array.isArray(rules)).toBe(true);
 		expect(rules.some((rule) => rule.type === "style" || rule.type === "import")).toBe(true);
 	});
+	it("preserves @page declarations as print-context style rules", () => {
+		const rules = parseCss(parserInput('@page{background-image:url("https://observer.example.test/page.svg")}'));
+		expect(rules.some((rule) => rule.selector === "@page" && rule.context.atRuleStack.some((entry) => /^@page\b/i.test(entry)))).toBe(true);
+	});
+
 });

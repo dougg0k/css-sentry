@@ -42,5 +42,9 @@ describe("options policy actions", () => {
     const compatibility = policyWithCompatibilityFlag(DEFAULT_SITE_POLICY, "enableContentNeutralization", false);
     expect(compatibility.compatibility.enableContentNeutralization).toBe(false);
     expect(compatibility.compatibility.enableDnrMitigation).toBe(DEFAULT_SITE_POLICY.compatibility.enableDnrMitigation);
+
+    const fingerprintingGuard = policyWithCompatibilityFlag(DEFAULT_SITE_POLICY, "enableCssFingerprintingGuard", true);
+    expect(fingerprintingGuard.compatibility.enableCssFingerprintingGuard).toBe(true);
+    expect(fingerprintingGuard.compatibility.enableContentNeutralization).toBe(DEFAULT_SITE_POLICY.compatibility.enableContentNeutralization);
   });
 });

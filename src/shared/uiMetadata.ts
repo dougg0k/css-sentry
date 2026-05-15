@@ -209,6 +209,14 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
     tooltip: "Recommended off unless you want stricter protection on sensitive sites. This can block third-party SVG icons, diagrams, sprites, or logos. Destination allowlists and blocklists still apply; full internal inspection of SVG image documents is not claimed.",
     recommendedValue: false,
     advanced: true
+  },
+  {
+    key: "enableCssFingerprintingGuard",
+    label: "Enable experimental CSS fingerprinting indicators",
+    summary: "Report selected CSS-only fingerprinting signals such as print, feature-query, and container-query remote resources.",
+    tooltip: "Recommended off. This advanced option reports conditional CSS-triggered remote resources that may reveal browser, rendering, print, or environment state. It is separate from CSS exfiltration findings and may produce compatibility noise on complex pages.",
+    recommendedValue: false,
+    advanced: true
   }
 ];
 

@@ -14,6 +14,7 @@ export interface AnalyzeStylesheetInput {
 	frameUrl?: string | null;
 	maxFindings?: number;
 	now?: Now;
+	enableCssFingerprintingGuard?: boolean;
 }
 
 export { analyzeParsedRules } from "./stylesheetRuleAnalysis";
@@ -28,15 +29,15 @@ export function analyzeStylesheet(input: AnalyzeStylesheetInput): AnalysisSummar
 		: parseCssWithBudget(input, { startedAt, maxMs: ANALYSIS_LIMITS.maxAnalysisMsPerDocument, now });
 
 	if (parseResult.budgetExceeded) {
-		const budgetResilientFindings = analyzeParsedRules(securityCriticalRulesFromBudgetedParse(input, parseResult), maxFindings, startedAt, { enforceBudget: false, now });
+		const budgetResilientFindings = analyzeParsedRules(securityCriticalRulesFromBudgetedParse(input, parseResult), maxFindings, startedAt, { enforceBudget: false, now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
 		return createPerformanceBudgetAnalysisSummary(input, startedAt, budgetResilientFindings, now);
 	}
 
 	if (analysisBudgetExceeded(startedAt, now)) {
-		const budgetResilientFindings = analyzeParsedRules(securityCriticalRulesFromBudgetedParse(input, parseResult), maxFindings, startedAt, { enforceBudget: false, now });
+		const budgetResilientFindings = analyzeParsedRules(securityCriticalRulesFromBudgetedParse(input, parseResult), maxFindings, startedAt, { enforceBudget: false, now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
 		return createPerformanceBudgetAnalysisSummary(input, startedAt, budgetResilientFindings, now);
 	}
-	const findings = analyzeParsedRules(parseResult.rules, maxFindings, startedAt, { now });
+	const findings = analyzeParsedRules(parseResult.rules, maxFindings, startedAt, { now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
 	if (analysisBudgetExceeded(startedAt, now)) return createPerformanceBudgetAnalysisSummary(input, startedAt, findings, now);
 	return {
 		state: findings.some((finding) => finding.state !== "analysis.complete") ? "analysis.partial" : "analysis.complete",

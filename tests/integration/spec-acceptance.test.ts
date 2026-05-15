@@ -62,13 +62,14 @@ describe("SPEC and CVE_SPEC acceptance criteria", () => {
       perOriginModes: {},
       logRetentionDays: 14,
       compatibility: {
-          enableDnrMitigation: true,
+        enableDnrMitigation: true,
         enableStrictThirdPartyBlocking: true,
         showPartialAnalysisFindings: true,
         enableFirefoxEnhancedMode: false,
         reportExternalSvgImageDocuments: true,
         enableSvgImageDnrPolicy: false,
-        enableContentNeutralization: true
+        enableContentNeutralization: true,
+        enableCssFingerprintingGuard: false
       }
     });
     expect(summary.findings.some((finding) => finding.reasons.includes("resource.svg_image_document.uninspectable"))).toBe(true);

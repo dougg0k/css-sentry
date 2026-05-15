@@ -1,0 +1,17 @@
+{
+  "description": "When the experimental CSS fingerprinting guard is enabled, a print-only CSS remote resource is reported as a conditional CSS-triggered state signal, not as ordinary token exfiltration.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "low",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.media_query_signal",
+    "privacy.css_fingerprinting.print_signal",
+    "sink.remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": [
+    "https://observer.example.test"
+  ],
+  "mustNotBeBlockCandidate": true
+}

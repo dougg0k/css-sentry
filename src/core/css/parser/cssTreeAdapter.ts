@@ -69,6 +69,11 @@ function walkCssTreeAtRule(node: Record<string, unknown>, context: RuleContext, 
 		output.push({ type: "font-face", selector: "@font-face", declarationsText: declarationsTextFromBlock(node.block), context });
 		return;
 	}
+	if (name === "page") {
+		const declarationsText = declarationsTextFromBlock(node.block);
+		if (declarationsText) output.push({ type: "style", selector: atRuleText, declarationsText, context: { ...context, atRuleStack: [...context.atRuleStack, atRuleText] } });
+		return;
+	}
 	if (node.block && GROUPING_AT_RULES.has(atName)) {
 		walkCssTreeChildren(getChildren(node.block), { ...context, atRuleStack: [...context.atRuleStack, atRuleText] }, output, selectorStack, budget);
 	}

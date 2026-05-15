@@ -1,6 +1,6 @@
 # CSS Sentry — CVE_SPEC.md
 
-Last Updated: 2026/05/13 13:58:58 -03
+Last Updated: 2026/05/15 14:18:44 -03
 
 ## Purpose
 
@@ -569,6 +569,24 @@ The issue concerns local GNU Emacs processing of specially crafted SVG/CSS data 
 Disposition: In-scope implementation and fixture coverage.
 
 Inline-style exfiltration using `attr()`, `if(style(...))`, custom properties, and `image-set()` is in scope because it can trigger CSS-controlled network requests from active page styles without JavaScript and without selector-based attribute probes. CSS Sentry must analyze declaration-level data-probe signals and must not require a sensitive selector when the declaration value itself contains the data source and branch condition.
+
+### Cascading Spy Sheets and CSS-only fingerprinting
+
+Disposition: Adjacent tracked research with optional bounded coverage.
+
+Cascading Spy Sheets-style techniques are related because they use CSS features and conditional resource loading to infer browser, rendering, environment, extension, print, or client state without JavaScript. They are broader than CSS Sentry's core CSS exfiltration model. CSS Sentry must not claim universal CSS fingerprinting prevention.
+
+`1.0.72` adds the first experimental coverage boundary: when the advanced `enableCssFingerprintingGuard` setting is enabled, CSS Sentry reports selected conditional CSS-triggered remote resources through `privacy.css_fingerprinting.*` reason codes. Initial executable coverage includes `@media print` and `@page` remote-resource fixtures. The findings are privacy indicators and remain separate from selector/value exfiltration findings.
+
+Future Cascading Spy Sheets-derived fixtures should be added only when the technique produces a browser-visible CSS remote-resource signal or another observable CSS behavior that CSS Sentry can inspect without claiming broad anti-fingerprinting protection. Pure environment inference without an observable request path, visual deception, phishing page cloning, and browser-engine behavior outside extension control remain out of scope unless a specific browser-visible CSS request path is identified.
+
+### Defensive CSS honeytokens and cloned-site canary callbacks
+
+Disposition: Benign compatibility coverage and Strict-mode guidance.
+
+Defensive CSS honeytokens can intentionally load a defender-controlled URL from CSS to detect cloned sites or adversary-in-the-middle pages. This is a CSS-triggered remote request, but without a sensitive selector probe, declaration-level data source, modeled side-channel evidence, or hostile destination policy it is not CSS exfiltration.
+
+`1.0.72` adds a benign defensive canary fixture to keep this pattern non-actionable by default. Strict-mode compatibility guidance must treat defender-controlled canary origins as allowlist candidates when an origin intentionally depends on them. CSS Sentry should not attempt to detect, preserve, or validate a canary service; it should avoid misclassifying the canary callback as attacker exfiltration in the default detector model.
 
 ### Fontleak-style crafted-font side channels
 

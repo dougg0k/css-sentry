@@ -1,6 +1,13 @@
 # Release Notes
 
-Last Updated: 2026/05/15 11:50:38 -03
+Last Updated: 2026/05/15 14:18:44 -03
+
+## 1.0.72
+
+- Added an off-by-default experimental CSS fingerprinting guard that reports selected conditional CSS-triggered remote resources, including print media, `@page`, feature-query, and container-query signals. These findings are reported separately from CSS exfiltration and do not claim universal anti-fingerprinting protection.
+- Added fixture coverage for defensive CSS cloned-site canary callbacks so remote CSS honeytoken resources without sensitive selector probes remain non-actionable by default.
+- Added print-triggered CSS request fixtures for `@media print` and `@page` remote resources when the experimental guard is enabled.
+- Added Cascading Spy Sheets as adjacent tracked research with bounded claim language: CSS Sentry tracks browser-visible conditional CSS resource signals but does not claim to block all CSS-only fingerprinting.
 
 ## 1.0.71
 

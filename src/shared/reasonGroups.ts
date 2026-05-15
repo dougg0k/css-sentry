@@ -26,6 +26,16 @@ const SVG_REMOTE_RESOURCE_SINK_REASONS = new Set<ReasonCode>([
   "sink.svg_animate_remote",
 ]);
 
+
+const CSS_FINGERPRINTING_REASONS = new Set<ReasonCode>([
+  "privacy.css_fingerprinting.conditional_resource",
+  "privacy.css_fingerprinting.media_query_signal",
+  "privacy.css_fingerprinting.print_signal",
+  "privacy.css_fingerprinting.page_rule_signal",
+  "privacy.css_fingerprinting.supports_query_signal",
+  "privacy.css_fingerprinting.container_query_signal",
+]);
+
 const ATTRIBUTE_PROBE_REASONS = new Set<ReasonCode>([
   "selector.attribute.prefix_match",
   "selector.attribute.substring_match",
@@ -77,6 +87,10 @@ export function hasFontSideChannelReason(finding: Finding): boolean {
 
 export function hasSvgRemoteResourceSinkReason(finding: Finding): boolean {
   return hasAnyReason(finding, SVG_REMOTE_RESOURCE_SINK_REASONS);
+}
+
+export function hasCssFingerprintingReason(finding: Finding): boolean {
+  return hasAnyReason(finding, CSS_FINGERPRINTING_REASONS);
 }
 
 function hasAnyReason(finding: Finding, reasons: ReadonlySet<ReasonCode>): boolean {

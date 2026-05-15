@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/05/13 19:18:29 -03
+Last Updated: 2026/05/15 14:18:44 -03
 
 ## 1. Project Summary
 
@@ -1717,6 +1717,29 @@ Font side-channel modeling is intentionally narrower than universal font attack 
 `1.0.28` refines that model into explicit evidence requirements. A Fontleak-style finding is actionable only when a network-capable sink is combined with modeled side-channel evidence, such as remote-font measurement setup, generated-content probing, ligature feature activation, animation-driven font-family chaining, remote import-chain participation, or a size-based `@container` query. This prevents normal remote webfonts and ordinary component container queries from becoming actionable while preserving coverage for observable request-producing Fontleak shapes.
 
 CVE-2026-39315 must be tracked as a CSS-relevant conditional advisory when a browser-decoded leading-zero numeric entity produces a `data:text/css` stylesheet link that then reaches CSS Sentry's data stylesheet scanner. CVE-2026-6861 must remain out of scope because it is a local GNU Emacs SVG/CSS memory-corruption issue, not a browser-rendered CSS exfiltration pattern that this extension can enforce.
+
+## 1.0.72 Experimental CSS Fingerprinting Guard and Defensive Canary Compatibility
+
+CSS Sentry may optionally report selected CSS-only fingerprinting indicators, but this must remain separate from CSS exfiltration enforcement and must not become a universal anti-fingerprinting claim. The advanced compatibility flag `enableCssFingerprintingGuard` is off by default. When enabled, CSS Sentry reports browser-visible conditional remote-resource signals that are close enough to the existing CSS-triggered request model to inspect safely, including:
+
+- `@media print` rules that load remote resources and can reveal print-dialog or print-use state;
+- `@page` rules with remote resources that can operate in print-related rendering contexts;
+- `@supports` rules with remote resources that can reveal feature-support state;
+- `@container` rules with remote resources that can reveal layout/container state.
+
+These findings use `privacy.css_fingerprinting.*` reason codes. They are privacy indicators, not proof of secret-value extraction. The analyzer must not classify these findings as selector/value exfiltration unless the CSS also contains sensitive selectors, declaration-level data probes, modeled font side-channel evidence, local-network targets, SVG remote-resource evidence, or another existing exfiltration signal.
+
+Defensive CSS honeytokens and cloned-site canary callbacks are compatibility-sensitive benign patterns. A CSS canary that only loads a defender-controlled URL without probing a DOM value must remain non-actionable by default. If Strict mode or destination blocklists interfere with a site that intentionally depends on CSS canary callbacks, the compatible remediation is a destination allowlist entry for the defender-controlled canary origin, not weakening the detector or classifying the canary as exfiltration.
+
+Cascading Spy Sheets-style CSS fingerprinting research is tracked as adjacent research and partial optional coverage. CSS Sentry observes page CSS, selectors, declarations, URLs, and extension-enforceable request paths. It does not claim to detect every CSS-only fingerprinting method, every environment probe, every email-client behavior, every extension-presence signal, every rendered-state leak, or every non-network visual side channel. Future coverage must add fixtures only when the mechanism produces a browser-visible conditional CSS remote resource or another signal CSS Sentry can observe without broad blocking.
+
+Release acceptance criteria for this area:
+
+- `enableCssFingerprintingGuard` defaults to `false` and is exposed only in advanced options.
+- Defensive CSS canary fixtures remain non-actionable in default analysis.
+- Print-related fingerprinting fixtures require the experimental guard and use `privacy.css_fingerprinting.*` reason codes.
+- CSS fingerprinting findings remain distinct from CSS exfiltration findings in documentation, reason groups, release notes, and report interpretation.
+- Normal responsive CSS, normal remote fonts, normal feature queries, normal container queries, and normal media-query styling must not become actionable merely because the experimental guard exists.
 
 ### 1.0.29 Fontleak Ligature Evidence Parsing Correction
 

@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { hasDeclarationDataProbeReason, hasFontSideChannelReason, hasFrameCoverageReason, hasPartialAnalysisReason, hasSensitiveSelectorReason, hasSinkReason, hasSvgRemoteResourceSinkReason } from "../../../src/shared/reasonGroups";
+import {
+  hasCssFingerprintingReason,
+  hasDeclarationDataProbeReason,
+  hasFontSideChannelReason,
+  hasFrameCoverageReason,
+  hasPartialAnalysisReason,
+  hasSensitiveSelectorReason,
+  hasSinkReason,
+  hasSvgRemoteResourceSinkReason,
+} from "../../../src/shared/reasonGroups";
 import type { Finding, ReasonCode } from "../../../src/shared/types";
 
 function findingWithReasons(reasons: ReasonCode[]): Finding {
@@ -45,5 +54,12 @@ describe("reason groups", () => {
     expect(hasSvgRemoteResourceSinkReason(finding)).toBe(true);
     expect(hasFrameCoverageReason(finding)).toBe(true);
     expect(hasPartialAnalysisReason(finding)).toBe(true);
+    expect(hasCssFingerprintingReason(finding)).toBe(false);
+  });
+
+  it("classifies experimental CSS fingerprinting reasons separately", () => {
+    const finding = findingWithReasons(["privacy.css_fingerprinting.print_signal"]);
+    expect(hasCssFingerprintingReason(finding)).toBe(true);
+    expect(hasPartialAnalysisReason(finding)).toBe(false);
   });
 });

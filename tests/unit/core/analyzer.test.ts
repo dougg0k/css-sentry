@@ -245,4 +245,39 @@ describe("core analyzer", () => {
     expect(summary.findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
   });
 
+  it("keeps defensive CSS canary callbacks non-actionable by default", () => {
+    const summary = analyze('html::before{content:"";background-image:url("https://canary.example.test/token.svg")}');
+    expect(summary.findings.filter((finding) => finding.severity !== "info")).toHaveLength(0);
+  });
+
+  it("reports experimental CSS fingerprinting indicators only when the guard is enabled", () => {
+    const cssText = '@media print{body{background-image:url("https://observer.example.test/printed.svg")}}';
+    const defaultSummary = analyze(cssText);
+    expect(defaultSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.print_signal"))).toBe(false);
+
+    const guardedSummary = analyzeStylesheet({
+      cssText,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      enableCssFingerprintingGuard: true,
+    });
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.conditional_resource"))).toBe(true);
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.print_signal"))).toBe(true);
+    expect(guardedSummary.findings.some((finding) => finding.destinationOrigin === "https://observer.example.test")).toBe(true);
+  });
+
+  it("parses @page remote resources as experimental print fingerprinting indicators", () => {
+    const summary = analyzeStylesheet({
+      cssText: '@page{background-image:url("https://observer.example.test/page.svg")}',
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      enableCssFingerprintingGuard: true,
+    });
+    expect(summary.findings.some((finding) => finding.selector === "@page")).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.page_rule_signal"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.print_signal"))).toBe(true);
+  });
+
 });

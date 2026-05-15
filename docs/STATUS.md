@@ -1,13 +1,23 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/15 11:50:38 -03
+Last Updated: 2026/05/15 14:18:44 -03
 
-**Status document version:** 1.0.71
-**Package audited:** `css_sentry_1.0.71`
+**Status document version:** 1.0.72
+**Package audited:** `css_sentry_1.0.72`
 **Audit timestamp:** 2026/05/13 19:18:29 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
+
+## 1.0.72 CSS Fingerprinting Guard and Defensive Canary Compatibility
+
+`1.0.72` adds the first bounded implementation of the experimental CSS fingerprinting guard. The guard is off by default and is exposed only as an advanced compatibility/privacy setting. When enabled, the analyzer reports selected browser-visible conditional CSS remote-resource signals such as `@media print`, `@page`, `@supports`, and `@container` remote resources. These findings use `privacy.css_fingerprinting.*` reason codes so they remain separate from selector/value exfiltration findings.
+
+The implementation deliberately avoids claiming universal CSS fingerprinting protection. The guard reports conditional CSS-triggered resource signals that CSS Sentry can observe from page CSS. It does not attempt to identify all environment probes, all visual deception, all browser fingerprinting, all email-client fingerprinting, or all extension-presence detection techniques.
+
+This release also adds defensive CSS honeytoken compatibility coverage. A cloned-site/canary CSS callback that performs a remote `url(...)` request without a sensitive selector probe remains non-actionable by default. Strict mode compatibility guidance now treats defensive canary endpoints as allowlist candidates when a site intentionally depends on those callbacks.
+
+Executable coverage added in this release includes benign defensive CSS canary fixtures, `@media print` CSS fingerprinting fixtures, `@page` CSS fingerprinting fixtures, parser coverage for `@page` declarations, policy normalization for the new advanced flag, reason-group coverage for fingerprinting reasons, and analyzer coverage proving the guard is disabled by default.
 
 ## 1.0.71 Firefox Runtime Report Acknowledgement Correction
 

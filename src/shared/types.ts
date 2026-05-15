@@ -99,7 +99,13 @@ export type ReasonCode =
   | "policy.strict.third_party_stylesheet"
   | "policy.strict.svg_image_document"
   | "analysis.skipped.too_large"
-  | "analysis.skipped.performance_budget";
+  | "analysis.skipped.performance_budget"
+  | "privacy.css_fingerprinting.conditional_resource"
+  | "privacy.css_fingerprinting.media_query_signal"
+  | "privacy.css_fingerprinting.print_signal"
+  | "privacy.css_fingerprinting.page_rule_signal"
+  | "privacy.css_fingerprinting.supports_query_signal"
+  | "privacy.css_fingerprinting.container_query_signal";
 
 export interface CssUrlAnalysis {
   raw: string;
@@ -207,6 +213,7 @@ export interface CompatibilitySettings {
   reportExternalSvgImageDocuments: boolean;
   enableSvgImageDnrPolicy: boolean;
   enableContentNeutralization: boolean;
+  enableCssFingerprintingGuard: boolean;
 }
 
 export interface SitePolicy {

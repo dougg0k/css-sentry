@@ -23,6 +23,7 @@ export function scanDocument(documentRef: Document = document, policy?: SitePoli
         sourceKind: "style_element",
         sourceUrl: pageUrl,
         frameUrl,
+        enableCssFingerprintingGuard: policy?.compatibility.enableCssFingerprintingGuard ?? false,
       }),
     );
   }
@@ -41,6 +42,7 @@ export function scanDocument(documentRef: Document = document, policy?: SitePoli
           sourceKind: "stylesheet",
           sourceUrl: sheet.href,
           frameUrl,
+          enableCssFingerprintingGuard: policy?.compatibility.enableCssFingerprintingGuard ?? false,
         }),
       );
     } catch {
@@ -60,6 +62,7 @@ export function scanDocument(documentRef: Document = document, policy?: SitePoli
         sourceKind: "inline_style",
         sourceUrl: pageUrl,
         frameUrl,
+        enableCssFingerprintingGuard: policy?.compatibility.enableCssFingerprintingGuard ?? false,
       }),
     );
   }

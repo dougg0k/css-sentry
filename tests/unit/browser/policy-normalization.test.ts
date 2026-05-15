@@ -26,6 +26,7 @@ describe("policy normalization", () => {
         reportExternalSvgImageDocuments: true,
         enableSvgImageDnrPolicy: true,
         enableContentNeutralization: false,
+        enableCssFingerprintingGuard: true,
         unsupportedFlag: true,
       },
     });
@@ -47,6 +48,7 @@ describe("policy normalization", () => {
       reportExternalSvgImageDocuments: true,
       enableSvgImageDnrPolicy: true,
       enableContentNeutralization: false,
+      enableCssFingerprintingGuard: true,
     });
     expect("unsupportedFlag" in normalized.compatibility).toBe(false);
   });

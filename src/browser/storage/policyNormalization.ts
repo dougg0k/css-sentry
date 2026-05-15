@@ -49,6 +49,7 @@ export function normalizePolicy(policy?: Partial<SitePolicy> | Record<string, un
       reportExternalSvgImageDocuments: booleanOrDefault(compatibility.reportExternalSvgImageDocuments, DEFAULT_SITE_POLICY.compatibility.reportExternalSvgImageDocuments),
       enableSvgImageDnrPolicy: booleanOrDefault(compatibility.enableSvgImageDnrPolicy, DEFAULT_SITE_POLICY.compatibility.enableSvgImageDnrPolicy),
       enableContentNeutralization: booleanOrDefault(compatibility.enableContentNeutralization, DEFAULT_SITE_POLICY.compatibility.enableContentNeutralization),
+      enableCssFingerprintingGuard: booleanOrDefault(compatibility.enableCssFingerprintingGuard, DEFAULT_SITE_POLICY.compatibility.enableCssFingerprintingGuard),
     },
   };
 }

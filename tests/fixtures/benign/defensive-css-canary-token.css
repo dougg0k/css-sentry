@@ -1,0 +1,10 @@
+/* Defensive CSS honeytoken / cloned-site canary callback.
+   This intentionally performs a remote CSS resource request without probing a DOM value. */
+html::before {
+  content: "";
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  background-image: url("https://canary.example.test/css-cloned-site-token.svg");
+}

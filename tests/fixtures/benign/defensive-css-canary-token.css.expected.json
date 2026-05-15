@@ -1,0 +1,12 @@
+{
+  "description": "A defensive CSS cloned-site canary callback uses a remote CSS resource without a sensitive selector probe. It should not be treated as actionable CSS exfiltration by default.",
+  "maxActionableFindings": 0,
+  "forbiddenReasons": [
+    "selector.attribute.substring_match",
+    "privacy.css_fingerprinting.conditional_resource"
+  ],
+  "forbiddenDestinationOrigins": [
+    "https://canary.example.test"
+  ],
+  "mustNotBeBlockCandidate": true
+}

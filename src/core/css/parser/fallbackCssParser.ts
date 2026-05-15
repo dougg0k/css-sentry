@@ -50,6 +50,10 @@ export function parseCompleteSourceRules(cssText: string, context: RuleContext, 
 						atRuleStack: [...context.atRuleStack, prelude],
 					}, budget, options),
 				);
+			} else if (atName === "@page") {
+				if (!options.retainOnlyPotentiallyRelevantRules || isPotentiallyRelevantSourceRule(prelude, body)) {
+					rules.push({ type: "style", selector: prelude, declarationsText: body, context: { ...context, atRuleStack: [...context.atRuleStack, prelude] } });
+				}
 			} else if (atName === "@font-face") {
 				rules.push({ type: "font-face", selector: "@font-face", declarationsText: body, context });
 			}

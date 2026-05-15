@@ -396,6 +396,30 @@ describe("project structure", () => {
     expect(chromeText).not.toContain("Math.abs(tabId) %");
   });
 
+
+  it("keeps experimental CSS fingerprinting coverage opt-in and reason-separated", () => {
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "benign", "defensive-css-canary-token.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "css-fingerprinting-media-print-url.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "css-fingerprinting-page-url.css"))).toBe(true);
+
+    const constants = readProjectFile("src/shared/constants.ts");
+    const types = readProjectFile("src/shared/types.ts");
+    const analyzer = readProjectFile("src/core/analyzer/stylesheetRuleAnalysis.ts");
+    const scanDocument = readProjectFile("src/browser/scanner/scanDocument.ts");
+    const uiMetadata = readProjectFile("src/shared/uiMetadata.ts");
+    const spec = readProjectFile("docs/SPEC.md");
+    const cveSpec = readProjectFile("docs/CVE_SPEC.md");
+
+    expect(constants).toContain("enableCssFingerprintingGuard: false");
+    expect(types).toContain("privacy.css_fingerprinting.conditional_resource");
+    expect(analyzer).toContain("enableCssFingerprintingGuard");
+    expect(analyzer).toContain("cssFingerprintingRiskForRule");
+    expect(scanDocument).toContain("policy?.compatibility.enableCssFingerprintingGuard ?? false");
+    expect(uiMetadata).toContain("Enable experimental CSS fingerprinting indicators");
+    expect(spec).toContain("Cascading Spy Sheets-style CSS fingerprinting research is tracked as adjacent research");
+    expect(cveSpec).toContain("Defensive CSS honeytokens and cloned-site canary callbacks");
+  });
+
   it("keeps badge action API compatibility isolated", () => {
     const path = join(process.cwd(), "src", "browser", "platform", "actionApi.ts");
     expect(existsSync(path)).toBe(true);

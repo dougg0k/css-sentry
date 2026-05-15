@@ -14,6 +14,7 @@ const severityOrder: Record<Severity, number> = { info: 0, low: 1, medium: 2, hi
 
 interface FixtureExpectation {
   description: string;
+  enableCssFingerprintingGuard?: boolean;
   minActionableFindings?: number;
   maxActionableFindings?: number;
   minInfoFindings?: number;
@@ -44,24 +45,24 @@ function readExpectation(kind: "attacks" | "benign", name: string): FixtureExpec
   return parsed;
 }
 
-function analyzeFixture(kind: "attacks" | "benign", name: string): AnalysisSummary {
+function analyzeFixture(kind: "attacks" | "benign", name: string, expectation?: FixtureExpectation): AnalysisSummary {
   const path = join(root, kind, name);
   const text = readFileSync(path, "utf8");
-  if (name.endsWith(".html")) return analyzeHtmlFixture(text, path, pageUrl);
-  return analyzeStylesheet({ cssText: text, pageUrl, sourceKind: "stylesheet", sourceUrl: pageUrl });
+  if (name.endsWith(".html")) return analyzeHtmlFixture(text, path, pageUrl, expectation);
+  return analyzeStylesheet({ cssText: text, pageUrl, sourceKind: "stylesheet", sourceUrl: pageUrl, enableCssFingerprintingGuard: expectation?.enableCssFingerprintingGuard ?? false });
 }
 
-function analyzeHtmlFixture(html: string, filePath: string, frameUrl: string): AnalysisSummary {
+function analyzeHtmlFixture(html: string, filePath: string, frameUrl: string, expectation?: FixtureExpectation): AnalysisSummary {
   const summaries: AnalysisSummary[] = [];
   const parsedDocument = new DOMParser().parseFromString(html, "text/html");
   summaries.push(scanHtmlResourceAttributes({ documentRef: parsedDocument, pageUrl, frameUrl }));
 
   for (const styleText of extractStyleBlocks(html)) {
-    summaries.push(analyzeStylesheet({ cssText: styleText, pageUrl, frameUrl, sourceKind: "style_element", sourceUrl: frameUrl }));
+    summaries.push(analyzeStylesheet({ cssText: styleText, pageUrl, frameUrl, sourceKind: "style_element", sourceUrl: frameUrl, enableCssFingerprintingGuard: expectation?.enableCssFingerprintingGuard ?? false }));
   }
 
   for (const inline of extractInlineStyleRules(html)) {
-    summaries.push(analyzeStylesheet({ cssText: `${inline.selector}{${inline.styleText}}`, pageUrl, frameUrl, sourceKind: "inline_style", sourceUrl: frameUrl }));
+    summaries.push(analyzeStylesheet({ cssText: `${inline.selector}{${inline.styleText}}`, pageUrl, frameUrl, sourceKind: "inline_style", sourceUrl: frameUrl, enableCssFingerprintingGuard: expectation?.enableCssFingerprintingGuard ?? false }));
   }
 
   for (const src of extractIframeSources(html)) {
@@ -75,7 +76,7 @@ function analyzeHtmlFixture(html: string, filePath: string, frameUrl: string): A
 
     const target = fixturePathForIframe(src, filePath);
     if (target && existsSync(target)) {
-      summaries.push(analyzeHtmlFixture(readFileSync(target, "utf8"), target, iframeUrl));
+      summaries.push(analyzeHtmlFixture(readFileSync(target, "utf8"), target, iframeUrl, expectation));
     } else {
       summaries.push(partialFrameSummary(frameUrl, iframeUrl));
     }
@@ -213,15 +214,17 @@ describe("fixture corpus", () => {
 
   for (const name of fixtureFiles("attacks")) {
     it(`matches attack fixture expectations for ${name}`, () => {
-      const summary = analyzeFixture("attacks", name);
-      assertExpectation("attacks", name, summary, readExpectation("attacks", name));
+      const expectation = readExpectation("attacks", name);
+      const summary = analyzeFixture("attacks", name, expectation);
+      assertExpectation("attacks", name, summary, expectation);
     });
   }
 
   for (const name of fixtureFiles("benign")) {
     it(`matches benign fixture expectations for ${name}`, () => {
-      const summary = analyzeFixture("benign", name);
-      assertExpectation("benign", name, summary, readExpectation("benign", name));
+      const expectation = readExpectation("benign", name);
+      const summary = analyzeFixture("benign", name, expectation);
+      assertExpectation("benign", name, summary, expectation);
     });
   }
 });

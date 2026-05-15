@@ -4,7 +4,7 @@ import { systemNow } from "../../shared/clock";
 import { ANALYSIS_LIMITS } from "../../shared/constants";
 import { analyzeDeclaration, collectCustomProperties, mergeCustomProperties, parseDeclarations } from "../css/declarations";
 import { createFinding } from "../findings/createFinding";
-import { analyzeDeclarationRisk } from "./analyzeDeclaration";
+import { analyzeDeclarationRisk, type DeclarationRisk } from "./analyzeDeclaration";
 import { analyzeSelector } from "./analyzeSelector";
 import { buildFindingDetails } from "./findingDetails";
 import { addCappedFinding } from "./findingPriority";
@@ -22,6 +22,7 @@ import {
 export interface AnalyzeParsedRulesOptions {
 	enforceBudget?: boolean;
 	now?: Now;
+	enableCssFingerprintingGuard?: boolean;
 }
 
 export function analyzeParsedRules(
@@ -57,7 +58,7 @@ export function analyzeParsedRules(
 			for (const url of parseImportUrls(rule)) {
 				importDeclaration.urls.push(url);
 			}
-			const finding = findingForDeclaration(rule, selectorAnalysis, importDeclaration, stylesheetRiskContext, now);
+			const finding = findingForDeclaration(rule, selectorAnalysis, importDeclaration, stylesheetRiskContext, now, options);
 			if (finding) addCappedFinding(findings, finding, maxFindings);
 			continue;
 		}
@@ -70,12 +71,12 @@ export function analyzeParsedRules(
 		for (const declaration of declarations) {
 			if (enforceBudget && analysisBudgetExceeded(startedAt, now)) break;
 			const analyzed = analyzeDeclaration(declaration, rule.context.sourceUrl ?? rule.context.pageUrl, customProperties);
-			const finding = findingForDeclaration(rule, selectorAnalysis, analyzed, stylesheetRiskContext, now);
+			const finding = findingForDeclaration(rule, selectorAnalysis, analyzed, stylesheetRiskContext, now, options);
 			if (finding) addCappedFinding(findings, finding, maxFindings);
 
 			const fontReference = remoteFontReferenceDeclaration(declaration, remoteFontFaces);
 			if (fontReference) {
-				const fontFinding = findingForDeclaration(rule, selectorAnalysis, fontReference, stylesheetRiskContext, now);
+				const fontFinding = findingForDeclaration(rule, selectorAnalysis, fontReference, stylesheetRiskContext, now, options);
 				if (fontFinding) addCappedFinding(findings, fontFinding, maxFindings);
 			}
 		}
@@ -93,6 +94,7 @@ function findingForDeclaration(
 	declaration: DeclarationInfo,
 	stylesheetRiskContext: StylesheetRiskContext,
 	now: Now,
+	options: AnalyzeParsedRulesOptions,
 ): Finding | null {
 	const declarationRisk = analyzeDeclarationRisk(declaration, rule.type);
 	const hasSensitiveSelectorSignals = selectorAnalysis?.isSensitive ?? false;
@@ -106,21 +108,25 @@ function findingForDeclaration(
 	const hasKeyframesContext = rule.context.atRuleStack.some((entry) => /^@(?:-webkit-)?keyframes\b/i.test(entry));
 	const hasContainerSizeQueryContext = rule.context.atRuleStack.some(isContainerSizeQuery);
 	const hasFontSideChannelContext = hasFontSideChannelContextForRule(rule, stylesheetRiskContext, hasContainerQueryContext, hasKeyframesContext);
+	const fingerprintingRisk = options.enableCssFingerprintingGuard ? cssFingerprintingRiskForRule(rule, declarationRisk) : null;
+	const hasExfiltrationRisk = isImportRule || hasCssOnlyRisk || hasSensitiveSelectorSignals || hasLocalNetworkSink || hasDeclarationDataProbe || hasFontSideChannelContext;
 
 	if (isStandaloneFontFace) return null;
 	if (!hasRemoteSink) return null;
-	if (!isImportRule && !hasCssOnlyRisk && !hasSensitiveSelectorSignals && !hasLocalNetworkSink && !hasDeclarationDataProbe && !hasFontSideChannelContext) return null;
+	if (!hasExfiltrationRisk && !fingerprintingRisk) return null;
 
 	const selectorScore = selectorAnalysis?.score ?? (isImportRule ? 1 : 0);
 	const nestedScore = rule.context.atRuleStack.length > 0 ? 1 : 0;
 	const declarationProbeScore = hasDeclarationDataProbe ? 4 : 0;
 	const fontSideChannelScore = hasFontSideChannelContext ? fontSideChannelScoreForContext(stylesheetRiskContext, hasContainerSizeQueryContext, hasKeyframesContext) : 0;
-	const score = selectorScore + declarationRisk.score + nestedScore + declarationProbeScore + fontSideChannelScore;
+	const exfiltrationScore = selectorScore + declarationRisk.score + nestedScore + declarationProbeScore + fontSideChannelScore;
+	const score = hasExfiltrationRisk ? exfiltrationScore + (fingerprintingRisk?.score ?? 0) : fingerprintingRisk?.score ?? 0;
 	if (score < 3) return null;
 
 	const reasons = new Set<ReasonCode>([
 		...(selectorAnalysis?.reasons ?? []),
 		...declarationRisk.reasons,
+		...(fingerprintingRisk?.reasons ?? []),
 	]);
 	if (rule.context.atRuleStack.length > 0) reasons.add("css.grouping_rule.nested");
 	if (hasContainerQueryContext) reasons.add("css.container_query");
@@ -149,4 +155,58 @@ function findingForDeclaration(
 		details: buildFindingDetails(rule, declaration, selectorAnalysis?.isSensitive ?? false),
 		timestamp: now(),
 	});
+}
+
+
+interface CssFingerprintingRisk {
+	score: number;
+	reasons: ReasonCode[];
+}
+
+function cssFingerprintingRiskForRule(rule: ParsedCssRule, declarationRisk: DeclarationRisk): CssFingerprintingRisk | null {
+	if (!declarationRisk.hasRemoteSink) return null;
+	const reasons = new Set<ReasonCode>();
+	let score = 0;
+
+	for (const entry of rule.context.atRuleStack) {
+		if (isPrintMediaQuery(entry)) {
+			reasons.add("privacy.css_fingerprinting.conditional_resource");
+			reasons.add("privacy.css_fingerprinting.media_query_signal");
+			reasons.add("privacy.css_fingerprinting.print_signal");
+			score = Math.max(score, 4);
+		}
+		if (isFingerprintingMediaQuery(entry)) {
+			reasons.add("privacy.css_fingerprinting.conditional_resource");
+			reasons.add("privacy.css_fingerprinting.media_query_signal");
+			score = Math.max(score, 3);
+		}
+		if (/^@page\b/i.test(entry)) {
+			reasons.add("privacy.css_fingerprinting.conditional_resource");
+			reasons.add("privacy.css_fingerprinting.page_rule_signal");
+			reasons.add("privacy.css_fingerprinting.print_signal");
+			score = Math.max(score, 4);
+		}
+		if (/^@supports\b/i.test(entry)) {
+			reasons.add("privacy.css_fingerprinting.conditional_resource");
+			reasons.add("privacy.css_fingerprinting.supports_query_signal");
+			score = Math.max(score, 3);
+		}
+		if (/^@container\b/i.test(entry)) {
+			reasons.add("privacy.css_fingerprinting.conditional_resource");
+			reasons.add("privacy.css_fingerprinting.container_query_signal");
+			score = Math.max(score, 3);
+		}
+	}
+
+	if (reasons.size === 0) return null;
+	if (declarationRisk.reasons.includes("url.cross_origin")) score += 1;
+	return { score, reasons: [...reasons] };
+}
+
+function isPrintMediaQuery(entry: string): boolean {
+	return /^@media\b/i.test(entry) && /(?:^|[\s,(])print(?:[\s,)\{]|$)/i.test(entry);
+}
+
+function isFingerprintingMediaQuery(entry: string): boolean {
+	return /^@media\b/i.test(entry) && /\b(?:prefers-color-scheme|prefers-contrast|prefers-reduced-motion|prefers-reduced-transparency|forced-colors|color-gamut|dynamic-range|inverted-colors|pointer|hover|resolution|device-width|device-height|update|scripting)\b/i.test(entry);
 }

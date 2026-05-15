@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/15 11:50:38 -03
+Last Updated: 2026/05/15 14:18:44 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -28,6 +28,15 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
 - [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
 
+
+## 1.0.72 Additional CSS Fingerprinting and Canary Compatibility Checks
+
+- [ ] Confirm `enableCssFingerprintingGuard` defaults to off and is hidden behind advanced Options visibility.
+- [ ] Confirm `tests/fixtures/benign/defensive-css-canary-token.css` remains non-actionable by default and is not a Balanced-mode DNR candidate.
+- [ ] Confirm `tests/fixtures/attacks/css-fingerprinting-media-print-url.css` reports `privacy.css_fingerprinting.print_signal` only when the experimental guard is enabled.
+- [ ] Confirm `tests/fixtures/attacks/css-fingerprinting-page-url.css` reports `privacy.css_fingerprinting.page_rule_signal` only when the experimental guard is enabled.
+- [ ] Confirm CSS fingerprinting findings stay separate from CSS exfiltration claim language and are not described as universal anti-fingerprinting protection.
+- [ ] Confirm Strict-mode compatibility guidance mentions allowlisting defensive CSS canary endpoints when an origin intentionally depends on cloned-site honeytoken callbacks.
 
 ## 1.0.71 Additional Firefox Runtime Report Acknowledgement Checks
 
