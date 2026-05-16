@@ -17,6 +17,14 @@ function walkFiles(directory: string): string[] {
   });
 }
 
+function expectNoRepeatedTimestampCorruption(path: string, content: string): void {
+  const timestampCount = content.match(/Last Updated:/g)?.length ?? 0;
+  const maximumLineLength = Math.max(...content.split("\n").map((line) => line.length));
+
+  expect(timestampCount, `${path} must not repeat Last Updated metadata through the document body`).toBeLessThanOrEqual(3);
+  expect(maximumLineLength, `${path} must not contain metadata-injected overlong lines`).toBeLessThan(1_200);
+}
+
 describe("project structure", () => {
   it("uses tests/fixtures and not test-fixtures", () => {
     expect(existsSync(join(process.cwd(), "tests", "fixtures"))).toBe(true);
@@ -51,9 +59,18 @@ describe("project structure", () => {
     expect(existsSync(join(process.cwd(), "RELEASE_NOTES.md"))).toBe(false);
   });
 
-  it("keeps Last Updated metadata out of README", () => {
+  it("keeps Last Updated metadata out of README and website-specific documents", () => {
     const readme = readFileSync(join(process.cwd(), "README.md"), "utf8");
     expect(readme).not.toMatch(/Last Updated:/);
+
+    for (const websiteDocument of [
+      "docs/STATUS_WEBSITE.md",
+      "docs/website/TEST_LAB_OVERHAUL_PLAN.md",
+      "docs/website/TEST_LAB_COVERAGE_CONTROL.md",
+    ]) {
+      const content = readProjectFile(websiteDocument);
+      expect(content, `${websiteDocument} must not contain website Last Updated metadata`).not.toMatch(/Last Updated:/);
+    }
   });
 
   it("keeps SVG icon lightweight", () => {
@@ -253,10 +270,13 @@ describe("project structure", () => {
   it("keeps manifest permissions aligned with the documented browser-specific minimal set", async () => {
     const config = readFileSync(join(process.cwd(), "wxt.config.ts"), "utf8");
     expect(config).toContain('const BASE_PERMISSIONS = ["storage", "declarativeNetRequest", "webNavigation"] as const');
+    expect(config).toContain('const ALL_URLS_HOST_PERMISSIONS = ["<all_urls>"] as const');
     expect(config).toContain('const FIREFOX_ENHANCED_PERMISSIONS_MV2 = ["webRequest", "webRequestBlocking"] as const');
     expect(config).toContain('const FIREFOX_ENHANCED_PERMISSIONS_MV3 = ["webRequest", "webRequestBlocking", "webRequestFilterResponse"] as const');
     expect(config).toContain('browser === "firefox"');
     expect(config).toContain("manifestVersion === 3");
+    expect(config).toContain("manifestVersion === 3 ? [...BASE_PERMISSIONS, ...firefoxPermissions] : [...BASE_PERMISSIONS, ...firefoxPermissions, ...ALL_URLS_HOST_PERMISSIONS]");
+    expect(config).toContain("host_permissions: manifestVersion === 3 ? [...ALL_URLS_HOST_PERMISSIONS] : undefined");
     expect(config).not.toContain('permissions: ["storage", "declarativeNetRequest", "webNavigation", "webRequest"]');
     expect(config).not.toContain('"activeTab"');
     expect(config).not.toContain('"scripting"');
@@ -519,6 +539,8 @@ describe("project structure", () => {
     expect(status).toContain("Historical Issue Coverage Tracking");
     expect(checklist).toContain("Documentation Regression Guard");
     expect(checklist).toContain("Documentation Role and Coverage Checks");
+    expectNoRepeatedTimestampCorruption("docs/RELEASE_CHECKLIST.md", checklist);
+    expectNoRepeatedTimestampCorruption("docs/RELEASE_NOTES.md", releaseNotes);
     expect(cveSpec).toContain("1.0.4 CVE Traceability Preservation Update");
     expect(cveSpec).toContain("1.0.5 CVE-2026-40301");
     expect(spec).toContain("1.0.6 Clean Code, UI Composition, and Scope-Tracking Addendum");

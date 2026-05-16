@@ -1,6 +1,12 @@
 # Release Notes
 
-Last Updated: 2026/05/16 14:56:26 -03
+Last Updated: 2026/05/16 17:02:07 -03
+
+## 1.0.82
+
+- Fixed the deployed Cloudflare Worker Test Lab path so supported public Worker origins can receive the same sanitized scan/report diagnostics as localhost while arbitrary public origins remain manual-confirmation-only.
+- Removed the normal Start selected checks page reload by creating the session, recording the selected URL state through browser history, injecting controlled CSS dynamically, and polling endpoint results in place.
+- Activated the GitHub Actions workflow path as `.github/workflows/website-cloudflare.yml` and preserved the null Astro session setup so Worker deploys do not require an unintended `SESSION` KV namespace.
 
 ## 1.0.80
 

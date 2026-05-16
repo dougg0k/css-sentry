@@ -7,7 +7,7 @@ export type InterpretationKind = "expected" | "unexpected" | "inconclusive" | "r
 
 export interface InterpretationInput {
   readonly hasSession: boolean;
-  readonly diagnosticOrigin?: "local" | "public";
+  readonly diagnosticOrigin?: "local" | "public" | "unsupported";
   readonly endpoint: EndpointState;
   readonly scan: ScanState;
   readonly report: ReportState;
@@ -26,15 +26,15 @@ export function interpretTestResult(input: InterpretationInput): InterpretationM
     return {
       kind: "review",
       title: "Start selected checks",
-      detail: "The controlled CSS is rendered only after a test session reloads the page with selected cases.",
+      detail: "The controlled CSS is added after a test session is created and the selected cases are recorded in the URL.",
     };
   }
 
-  if (input.scan === "not-connected" && input.diagnosticOrigin === "public") {
+  if (input.scan === "not-connected" && input.diagnosticOrigin === "unsupported") {
     return {
       kind: "review",
       title: "Manual report confirmation required",
-      detail: "The diagnostic bridge is intentionally local-origin scoped. On public deployments, use CSS Sentry popup/report output with endpoint state instead of expecting automatic scan/report events.",
+      detail: "The diagnostic bridge is restricted to supported Test Lab origins. Use CSS Sentry popup/report output with endpoint state on this origin.",
     };
   }
 

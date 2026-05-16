@@ -4,9 +4,27 @@ export const TEST_SESSION_ID_PATTERN = /^[a-f0-9-]{36}$/i;
 export const DEFAULT_TEST_CASE_IDS = TEST_CASES.filter((testCase) => testCase.defaultEnabled).map((testCase) => testCase.id) as readonly TestCaseId[];
 export const DEFAULT_MODE: ModeId = "not-sure";
 const LOCAL_TEST_LAB_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const CLOUDFLARE_WORKER_TEST_LAB_PREFIX = "css-sentry-test-lab.";
+const CLOUDFLARE_WORKER_TEST_LAB_SUFFIX = ".workers.dev";
+
+export type TestLabDiagnosticOrigin = "local" | "public" | "unsupported";
 
 export function isLocalTestLabOrigin(hostname: string): boolean {
   return LOCAL_TEST_LAB_HOSTS.has(hostname);
+}
+
+export function isCloudflareWorkerTestLabOrigin(hostname: string): boolean {
+  return hostname.startsWith(CLOUDFLARE_WORKER_TEST_LAB_PREFIX) && hostname.endsWith(CLOUDFLARE_WORKER_TEST_LAB_SUFFIX);
+}
+
+export function testLabDiagnosticOrigin(hostname: string): TestLabDiagnosticOrigin {
+  if (isLocalTestLabOrigin(hostname)) return "local";
+  if (isCloudflareWorkerTestLabOrigin(hostname)) return "public";
+  return "unsupported";
+}
+
+export function isDiagnosticCapableTestLabOrigin(hostname: string): boolean {
+  return testLabDiagnosticOrigin(hostname) !== "unsupported";
 }
 
 export function isValidTestSessionId(value: string | null): value is string {

@@ -74,7 +74,7 @@ Implemented side-channel coverage includes remote font signals and font measurem
 
 ## Diagnostic Requirements
 
-The extension must publish separate local Test Lab events:
+The extension must publish separate supported-origin Test Lab events:
 
 ```text
 css-sentry:test-lab-scan
@@ -83,7 +83,7 @@ css-sentry:test-lab-report
 
 The scan event means the content-script scanner completed and can report mode, state, finding counts, reason codes, and actions. The report event means the background path acknowledged report persistence after `saveFrameReport`. The payload must not include selectors, full URLs, fake field values, or raw finding details. The page must process the same sanitized payload whether it arrives through the DOM event, the stored diagnostic attribute, a later attribute mutation, or the same-origin `window.postMessage` bridge.
 
-Public deployments can run endpoint checks, but automatic extension diagnostic events remain intentionally local-origin scoped unless a later release explicitly allowlists an official Test Lab origin. This prevents arbitrary websites from exposing extension mode or finding-summary state merely by copying the Test Lab meta marker. Public deployment interpretation therefore requires manual CSS Sentry popup/report confirmation until an official diagnostic origin is defined.
+Public Cloudflare Worker deployments using the `css-sentry-test-lab.*.workers.dev` origin pattern can run endpoint checks and receive sanitized automatic extension diagnostics. Arbitrary public origins remain unsupported so copying the Test Lab meta marker elsewhere does not expose extension mode or finding-summary state. Unsupported public origins therefore still require manual CSS Sentry popup/report confirmation.
 
 ## Interpretation Requirements
 

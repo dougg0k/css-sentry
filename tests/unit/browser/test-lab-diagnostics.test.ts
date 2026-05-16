@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { isTestLabDiagnosticAllowed, publishTestLabReportDiagnostic, publishTestLabScanDiagnostic } from "../../../src/browser/scanner/testLabDiagnostics";
+import {
+  isTestLabDiagnosticAllowed,
+  publishTestLabReportDiagnostic,
+  publishTestLabScanDiagnostic,
+  publishTestLabScanDisabledDiagnostic,
+} from "../../../src/browser/scanner/testLabDiagnostics";
 import type { AnalysisSummary } from "../../../src/shared/types";
 
 function summary(): AnalysisSummary {
@@ -36,9 +41,11 @@ function summary(): AnalysisSummary {
 }
 
 describe("test lab diagnostics", () => {
-  it("only allows marked local Test Lab pages", () => {
+  it("allows marked local and Cloudflare Worker Test Lab pages only", () => {
     document.head.innerHTML = '<meta name="css-sentry-test-lab" content="v1">';
     expect(isTestLabDiagnosticAllowed(document)).toBe(true);
+    expect(isTestLabDiagnosticAllowed(testLabDocument("https://css-sentry-test-lab.example.workers.dev/tests/"))).toBe(true);
+    expect(isTestLabDiagnosticAllowed(testLabDocument("https://example.com/tests/"))).toBe(false);
 
     document.head.innerHTML = "";
     expect(isTestLabDiagnosticAllowed(document)).toBe(false);
@@ -61,6 +68,45 @@ describe("test lab diagnostics", () => {
     expect(detail.reasons).toContain("selector.attribute.substring_match");
     expect(rawDetail).not.toContain("input[value");
     expect(rawDetail).not.toContain("api/hit");
+
+    const storedDetail = document.documentElement.getAttribute("data-css-sentry-test-lab-scan");
+    expect(storedDetail).toBe(rawDetail);
+  });
+
+  it("also publishes the sanitized scan diagnostic through the page message channel", () => {
+    document.head.innerHTML = '<meta name="css-sentry-test-lab" content="v1">';
+    const postMessage = vi.spyOn(window, "postMessage").mockImplementation(() => undefined);
+
+    publishTestLabScanDiagnostic(document, summary(), "balanced");
+
+    expect(postMessage).toHaveBeenCalledWith(
+      {
+        source: "css-sentry-test-lab",
+        eventName: "css-sentry:test-lab-scan",
+        detail: document.documentElement.getAttribute("data-css-sentry-test-lab-scan"),
+      },
+      document.location.origin,
+    );
+    expect(postMessage.mock.calls[0][0].detail).not.toContain("api/hit");
+    postMessage.mockRestore();
+  });
+
+  it("publishes a scan-disabled diagnostic when policy mode prevents scanning", () => {
+    document.head.innerHTML = '<meta name="css-sentry-test-lab" content="v1">';
+    const listener = vi.fn();
+    document.documentElement.addEventListener("css-sentry:test-lab-scan", listener);
+
+    publishTestLabScanDisabledDiagnostic(document, "trusted");
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const rawDetail = listener.mock.calls[0][0].detail;
+    const detail = JSON.parse(rawDetail);
+    expect(detail.connected).toBe(true);
+    expect(detail.mode).toBe("trusted");
+    expect(detail.actionableFindingCount).toBe(0);
+    expect(detail.scanSkipped).toBe(true);
+    expect(detail.scanSkippedReason).toBe("mode.scan_disabled");
+    expect(document.documentElement.getAttribute("data-css-sentry-test-lab-scan")).toBe(rawDetail);
   });
 
   it("publishes a separate report-save diagnostic acknowledgement", () => {
@@ -83,5 +129,15 @@ describe("test lab diagnostics", () => {
     expect(detail.connected).toBe(true);
     expect(detail.reportSaved).toBe(true);
     expect(detail.actionableFindingCount).toBe(1);
+    expect(document.documentElement.getAttribute("data-css-sentry-test-lab-report")).toBe(listener.mock.calls[0][0].detail);
   });
 });
+
+function testLabDocument(href: string): Document {
+  return {
+    querySelector: (selector: string) => selector === 'meta[name="css-sentry-test-lab"][content="v1"]' ? {} : null,
+    location: { href },
+    documentElement: document.documentElement,
+    defaultView: window,
+  } as unknown as Document;
+}

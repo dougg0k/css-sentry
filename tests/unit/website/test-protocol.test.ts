@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TEST_CASES } from "../../../website/src/data/testCases";
-import { buildControlledTestCss, endpointUrl, isLocalTestLabOrigin, parseRequestedCaseList, visibleCssForTestCase } from "../../../website/src/lib/testProtocol";
+import { buildControlledTestCss, endpointUrl, isCloudflareWorkerTestLabOrigin, isDiagnosticCapableTestLabOrigin, isLocalTestLabOrigin, parseRequestedCaseList, testLabDiagnosticOrigin, visibleCssForTestCase } from "../../../website/src/lib/testProtocol";
 
 const TEST_SESSION_ID = "00000000-0000-4000-8000-000000000000";
 const TEST_ORIGIN = "http://localhost:4321";
@@ -30,10 +30,15 @@ describe("website test protocol", () => {
     expect(css).toContain("remote-font-signal.woff2");
   });
 
-  it("recognizes local diagnostic origins without treating public deployments as local", () => {
+  it("classifies local, supported Cloudflare Worker, and unsupported diagnostic origins", () => {
     expect(isLocalTestLabOrigin("localhost")).toBe(true);
     expect(isLocalTestLabOrigin("127.0.0.1")).toBe(true);
     expect(isLocalTestLabOrigin("example.com")).toBe(false);
+    expect(isCloudflareWorkerTestLabOrigin("css-sentry-test-lab.example.workers.dev")).toBe(true);
+    expect(isCloudflareWorkerTestLabOrigin("other-test-lab.example.workers.dev")).toBe(false);
+    expect(testLabDiagnosticOrigin("css-sentry-test-lab.example.workers.dev")).toBe("public");
+    expect(testLabDiagnosticOrigin("example.com")).toBe("unsupported");
+    expect(isDiagnosticCapableTestLabOrigin("css-sentry-test-lab.example.workers.dev")).toBe(true);
   });
 
   it("parses a deduplicated requested case list and rejects unknown cases", () => {

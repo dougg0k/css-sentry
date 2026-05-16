@@ -28,7 +28,7 @@ The website depends on workspace inclusion. If `pnpm install` reports everything
 
 ## Live session behavior
 
-Starting selected checks creates a short-lived session and reloads the static `/tests/` page with the selected allowlisted cases encoded in the URL. During page parsing, the static runner adds an `initial-test-style` stylesheet link to `/api/controlled-css/[sessionId].css`, then polls the result endpoint. This preserves live endpoint verification while avoiding server-rendering the normal website pages. CSS Sentry still scans normal page content rather than relying on a late text update inside an existing empty style element.
+Starting selected checks creates a short-lived session, records the selected allowlisted cases in the URL with browser history, injects controlled CSS for that session without refreshing the page, and then polls the result endpoint. Direct session URLs still use the `initial-test-style` stylesheet path for reruns and shared links. This preserves live endpoint verification while avoiding server-rendering the normal website pages.
 
 After the reload, each guided check shows fake data, the CSS rule, the controlled request path, endpoint state, manual CSS Sentry confirmation controls, and mode-aware interpretation. Users should compare both signals:
 
@@ -39,13 +39,13 @@ After the reload, each guided check shows fake data, the CSS rule, the controlle
 
 Endpoint results are not a standalone safe/unsafe verdict. Passive, Trusted, and Paused modes can legitimately allow requests, and browser timing or other extensions can affect whether a resource reaches the endpoint before mitigation applies.
 
-Diagnostic events are intentionally local-origin scoped by default. Public Cloudflare deployments can still run endpoint checks, but automatic scan/report events require an explicitly allowlisted official Test Lab origin in the extension. Until that exists, public deployments rely on manual CSS Sentry popup/report confirmation.
+Diagnostic events are restricted to supported Test Lab origins. Localhost is supported for development, and the public Cloudflare Worker Test Lab is supported when deployed under the `css-sentry-test-lab.*.workers.dev` origin pattern. Other public origins can still run endpoint checks, but they rely on manual CSS Sentry popup/report confirmation.
 
 ## Cloudflare Workers deployment model
 
 This website keeps normal pages prerendered/static and uses the Cloudflare adapter only for on-demand routes. Dynamic endpoints handle session creation, selected controlled CSS generation, controlled resource hits, result reads, import probes, and reset behavior.
 
-The disabled deployment workflow is stored under `../_.github/workflows/website-cloudflare.yml`. Rename `_.github` to `.github` only after Cloudflare secrets and deployment settings are configured. The workflow currently uses `pnpm install --no-frozen-lockfile` because this source package may not include a regenerated website importer in `pnpm-lock.yaml`; switch it back to a frozen lockfile after committing the regenerated lockfile.
+The deployment workflow is stored under `../.github/workflows/website-cloudflare.yml`. It builds the workspace website package and deploys the Worker from the `website` directory when Cloudflare secrets and deployment settings are configured.
 
 Required GitHub secrets after enabling the workflow:
 

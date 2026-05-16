@@ -1,8 +1,19 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/16 15:05:43 -03
+Last Updated: 2026/05/16 17:02:07 -03
 
-**Status document version:** 1.0.81
+**Status document version:** 1.0.82
+
+## 1.0.82 Status Update
+
+`1.0.82` corrects the public Cloudflare Worker Test Lab execution path after deployment succeeded but the `/tests/` runner still reported that diagnostics were unavailable and refreshed the page when starting selected checks. The diagnostic bridge now treats marked `css-sentry-test-lab.*.workers.dev` pages as the supported public Test Lab origin pattern while keeping arbitrary public origins unsupported. The automatic diagnostic payload remains sanitized: it contains mode, scan state, finding counts, reason codes, action codes, and report-save acknowledgement only; it still excludes selectors, fake values, destination URLs, and full finding objects.
+
+The runner no longer reloads the page for the normal Start selected checks path. It creates a session, records the selected session/cases in browser history, injects the controlled stylesheet dynamically, and starts endpoint polling in place. Direct session URLs remain supported through the initial stylesheet path for deep links and reruns. This preserves endpoint-backed verification while avoiding the user-visible page refresh observed on the deployed Worker.
+
+The active deployment workflow is now represented as `.github/workflows/website-cloudflare.yml`, matching the uploaded GitHub Actions file used for the current public deployment. The website keeps the Cloudflare adapter with null Astro session storage, so the deploy path does not require the unintended `SESSION` KV binding.
+
+**Package audited:** `css_sentry_1.0.82`
+**Audit timestamp:** 2026/05/16 17:02:07 -03 (`America/Sao_Paulo`)
 
 ## 1.0.81 Status Update
 
@@ -15,7 +26,7 @@ This package does not add a release-notes entry because it is a source/test-alig
 
 ## 1.0.80 Status Update
 
-`1.0.80` corrects the Test Lab diagnostic transport after `1.0.79` still allowed the runner to time out with “CSS Sentry did not signal on this page.” The root cause was that the website could still depend on a single DOM event/listener timing path: the extension stored sanitized diagnostics on `data-css-sentry-test-lab-*` attributes, but the runner only read those attributes during initialization and did not observe later attribute writes. The diagnostic bridge now also posts a same-origin page message, and the runner accepts both the message channel and attribute mutations. This preserves the local-only diagnostic boundary while making the signal survive the normal content-script/page-script isolation and listener-order cases used by Firefox and Chromium extension runtimes.
+`1.0.80` corrects the Test Lab diagnostic transport after `1.0.79` still allowed the runner to time out with “CSS Sentry did not signal on this page.” The root cause was that the website could still depend on a single DOM event/listener timing path: the extension stored sanitized diagnostics on `data-css-sentry-test-lab-*` attributes, but the runner only read those attributes during initialization and did not observe later attribute writes. The diagnostic bridge now also posts a same-origin page message, and the runner accepts both the message channel and attribute mutations. This preserves the supported Test Lab diagnostic boundary while making the signal survive the normal content-script/page-script isolation and listener-order cases used by Firefox and Chromium extension runtimes.
 
 `1.0.80` also corrects generated Firefox MV2 host coverage. MDN documents host permissions in the `permissions` manifest key for Manifest V2 and in `host_permissions` for Manifest V3 or higher; the WXT config now emits `<all_urls>` through `permissions` for Firefox MV2 while keeping `host_permissions` for MV3 targets. The intent is unchanged: CSS Sentry uses static content-script host coverage for page scanning and still does not request `activeTab`, `scripting`, or optional host permissions.
 
@@ -1090,5 +1101,5 @@ These additions keep the default behavior conservative. They are designed for us
 
 ## 1.0.65 Website diagnostic update
 
-- The earlier individual guided check pages are superseded by the 1.0.67 guided `/tests/` runner; local history, troubleshooting, and localhost-scoped diagnostics remain supporting behavior.
+- The earlier individual guided check pages are superseded by the 1.0.67 guided `/tests/` runner; local history, troubleshooting, and supported-origin diagnostics remain supporting behavior.
 - The known detector smoke check is now the first validation step for diagnosing why nothing appears in CSS Sentry.

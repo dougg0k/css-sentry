@@ -1,7 +1,7 @@
 # CSS Sentry Website Coverage Status
 
-**Status document version:** 1.0.80
-**Website package audited:** `website/` from `css_sentry_1.0.80`
+**Status document version:** 1.0.82
+**Website package audited:** `website/` from `css_sentry_1.0.82`
 **Target deployment model:** Astro static/prerendered pages with dynamic Cloudflare Worker endpoints through the Astro Cloudflare adapter
 **Deployment shape:** static pages plus dynamic endpoints
 **Audience:** maintainers, release reviewers, security reviewers, and future website implementers
@@ -31,7 +31,7 @@ The first website implementation is present under `website/` and replaces the de
 7. reset endpoint support;
 8. optional Turnstile validation for session creation when a Worker secret is configured;
 9. a Cloudflare Workers `wrangler.jsonc` baseline;
-10. a disabled GitHub Actions workflow under `_.github/workflows/` rather than `.github/workflows/`.
+10. an active GitHub Actions workflow under `.github/workflows/website-cloudflare.yml` for Cloudflare Worker deployment.
 
 The current website is an implementation foundation with corrected local runtime, readability, guided-runner, and diagnostic separation work, not the final complete public website. It is sufficient to begin local and deployed behavior validation, but the status below tracks the additional content, security, and verification work that remains before treating the website as a polished public diagnostic surface.
 
@@ -61,18 +61,18 @@ A source-level website verifier was added as `pnpm verify:website-source`. It gu
 
 ## 2.3 1.0.67 Guided Runner and Diagnostic Completion
 
-`1.0.67` changes the website from a duplicated per-check-page model to a guided `/tests/` runner. Individual `/tests/:caseId/` URLs now redirect into `/tests/?cases=<caseId>`, preserving deep links while keeping the user-facing flow in one place. The runner supports selecting one check, selecting a category, running all checks, rendering selected CSS in the initial document, polling per-check endpoint results, auto-detecting the CSS Sentry mode from diagnostics, and recording manual popup/report confirmation per check.
+`1.0.67` changes the website from a duplicated per-check-page model to a guided `/tests/` runner. Individual `/tests/:caseId/` URLs now redirect into `/tests/?cases=<caseId>`, preserving deep links while keeping the user-facing flow in one place. The runner supports selecting one check, selecting a category, running all checks, adding selected controlled CSS for the active session without refreshing the page, polling per-check endpoint results, auto-detecting the CSS Sentry mode from diagnostics, and recording manual popup/report confirmation per check.
 
-The extension diagnostic model now separates scanner completion from background report persistence. Automatic diagnostic events remain local-origin scoped by default so arbitrary public websites cannot expose extension mode or finding-summary state by copying the Test Lab marker. Marked localhost Test Lab pages can receive:
+The extension diagnostic model now separates scanner completion from background report persistence. Automatic diagnostic events are restricted to supported Test Lab origins so arbitrary public websites cannot expose extension mode or finding-summary state by copying the Test Lab marker. Marked localhost pages and the official Cloudflare Worker Test Lab origin pattern can receive:
 
 ```text
 css-sentry:test-lab-scan
 css-sentry:test-lab-report
 ```
 
-The scan event reports sanitized mode, analysis state, finding counts, reason codes, actions, and partial-analysis counts. `1.0.79` also lets the content script publish a sanitized scan-disabled diagnostic when the extension is present on a local Test Lab page but the effective mode for the origin is Trusted, Paused, or Never scan / never sanitize. `1.0.80` corrects the remaining diagnostic-transport gap: diagnostic details are stored on safe `data-css-sentry-test-lab-*` attributes, observed through attribute mutation, and also posted through a same-origin `window.postMessage` bridge so the static runner can recover signals emitted before or after its page listeners attach. The report event reports whether the background path acknowledged report storage after `saveFrameReport`. Neither event includes selectors, raw destination URLs, fake values, or full finding objects.
+The scan event reports sanitized mode, analysis state, finding counts, reason codes, actions, and partial-analysis counts. `1.0.79` also lets the content script publish a sanitized scan-disabled diagnostic when the extension is present on a supported Test Lab page but the effective mode for the origin is Trusted, Paused, or Never scan / never sanitize. `1.0.80` corrects the remaining diagnostic-transport gap: diagnostic details are stored on safe `data-css-sentry-test-lab-*` attributes, observed through attribute mutation, and also posted through a same-origin `window.postMessage` bridge so the static runner can recover signals emitted before or after its page listeners attach. The report event reports whether the background path acknowledged report storage after `saveFrameReport`. Neither event includes selectors, raw destination URLs, fake values, or full finding objects.
 
-Public Cloudflare deployments can still run endpoint checks and manual report confirmation, but they must treat missing automatic diagnostic events as expected unless a later release defines an official Test Lab origin allowlist.
+Public Cloudflare Worker deployments using the `css-sentry-test-lab.*.workers.dev` origin pattern can receive the same sanitized diagnostic bridge as localhost. Other public origins remain manual-confirmation-only unless a future release adds an explicit allowlist entry.
 
 The website coverage data was expanded to include exact, prefix, suffix, substring, repeated-probe, `:has()`, `background-image`, `mask-image`, `image-set()`, `@import`, `@supports`, `@media`, nested CSS, `@layer`, large late selector, large import representation, custom property URL, `var()` fallback, attr/if representation, remote font, and font measurement/container indicators. Coverage is documented as behavior completion, not as a separate route named matrix.
 
@@ -201,7 +201,7 @@ Source-controlled baseline:
 
 1. `website/astro.config.mjs` keeps the Cloudflare adapter but does not enable server output for every page;
 2. `website/wrangler.jsonc` sets the Worker name and compatibility date;
-3. `_.github/workflows/website-cloudflare.yml` provides a disabled deployment workflow that can be enabled by renaming `_.github` to `.github`.
+3. `.github/workflows/website-cloudflare.yml` provides the active Cloudflare Worker deployment workflow.
 
 Cloudflare account configuration still required outside source:
 
@@ -215,7 +215,7 @@ Cloudflare account configuration still required outside source:
 
 ## 9. GitHub Actions Coverage
 
-The disabled workflow under `_.github/workflows/website-cloudflare.yml` is intentionally inactive. It is designed to become active only after the directory is renamed to `.github`.
+The active workflow under `.github/workflows/website-cloudflare.yml` builds the website and deploys the Worker from the `website` directory after Cloudflare secrets are configured.
 
 Current workflow behavior after activation:
 
@@ -250,7 +250,7 @@ Required UX properties:
 9. no decorative effects that obscure interpretation;
 10. no user-entered secret fields.
 
-Current coverage: implemented foundation. The session start flow now reloads the page with selected controlled CSS rendered in the initial document so CSS Sentry receives a normal page-scan opportunity. Additional visual polish, deployed validation, and report-correlation content remain.
+Current coverage: implemented foundation. The session start flow now creates a session, updates the URL state through browser history, injects selected controlled CSS dynamically, and polls endpoint results without refreshing the page. Direct session URLs still render the initial stylesheet path for deep links and reruns. Additional visual polish, deployed validation, and report-correlation content remain.
 
 ## 11. Validation Requirements
 
@@ -283,7 +283,6 @@ Current validation status: source-level only in this artifact. The source verifi
 11. Add accessibility validation.
 12. Configure Cloudflare WAF/rate limiting rules externally before public launch.
 13. Preserve website deployment through the root pnpm workspace unless a later repository split is explicitly chosen.
-14. Enable the workflow by renaming `_.github` to `.github` only after secrets and deployment target are configured.
 15. Review the final public copy for precision and non-overclaiming.
 
 ## 13. 1.0.63 Run-Flow Correction
@@ -294,7 +293,7 @@ The corrected behavior is:
 
 1. the Start selected checks button creates a short-lived session;
 2. the page navigates to the same route with the generated session and selected allowlisted cases;
-3. Astro renders the selected controlled CSS into the initial document;
+3. the runner injects selected controlled CSS for the active session and direct session URLs still support the initial stylesheet path;
 4. CSS Sentry receives the same kind of page-scan opportunity it receives on normal pages;
 5. the website polls the result endpoint and updates the endpoint result table;
 6. users compare endpoint status with CSS Sentry's popup and report output.
@@ -346,8 +345,8 @@ Current implemented pages:
 
 Current implemented diagnostic support:
 
-1. localhost-scoped scan diagnostic event from the content script when the page has the `css-sentry-test-lab` meta marker;
-2. localhost-scoped report-save acknowledgement after the background report path responds;
+1. supported-origin scan diagnostic event from the content script when the page has the `css-sentry-test-lab` meta marker;
+2. supported-origin report-save acknowledgement after the background report path responds;
 3. minimal diagnostic payload with finding counts, actions, reason codes, mode, analysis state, and report-save state;
 4. no selector text, URLs, or page data exposed in the diagnostic payload;
 5. website-side recovery of sanitized diagnostic attributes emitted before the runner listener attaches;

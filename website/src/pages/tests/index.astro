@@ -209,7 +209,7 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
 
       <script>
         import { TEST_CASES } from "../../data/testCases";
-        import { endpointUrl, isLocalTestLabOrigin, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, visibleCssForTestCase } from "../../lib/testProtocol";
+        import { endpointUrl, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, testLabDiagnosticOrigin, visibleCssForTestCase } from "../../lib/testProtocol";
 
         const historyKey = "css-sentry-test-lab-history";
         const scanDiagnosticEventName = "css-sentry:test-lab-scan";
@@ -222,12 +222,12 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
         const activeSessionId = isValidTestSessionId(requestedSessionId) ? requestedSessionId : null;
         const selectedCaseIds = parseRequestedCaseList(currentUrl.searchParams.get("cases"));
         const selectedCaseSet = new Set(selectedCaseIds);
-        const diagnosticOrigin = isLocalTestLabOrigin(currentUrl.hostname) ? "local" : "public";
+        const diagnosticOrigin = testLabDiagnosticOrigin(currentUrl.hostname);
         const runConfig = {
           sessionId: activeSessionId,
           cases: selectedCaseIds,
           mode: parseRequestedMode(currentUrl.searchParams.get("mode")),
-          resultPath: activeSessionId ? `/api/result/${activeSessionId}.json?cases=${encodeURIComponent(serializeCaseList(selectedCaseIds))}` : null,
+          resultPath: activeSessionId ? resultPathForSession(activeSessionId, selectedCaseIds) : null,
           diagnosticOrigin,
         };
         const state = {
@@ -239,6 +239,7 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
           lastScanDiagnosticRaw: "",
           lastReportDiagnosticRaw: "",
         };
+        let activeRunToken = 0;
 
         document.documentElement.addEventListener(scanDiagnosticEventName, (event) => {
           applyScanDiagnosticFromRaw(event.detail);
@@ -305,28 +306,13 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
 
         initializeStaticRunner();
 
-        if (runConfig.sessionId) {
-          pollResults();
-          window.setTimeout(() => {
-            if (state.scan === "waiting") {
-              state.scan = "not-connected";
-              setText("#scan-signal-state", runConfig.diagnosticOrigin === "local" ? "no signal from CSS Sentry" : "diagnostic signal unavailable on public deployment");
-              updateGlobalInterpretation();
-              storeHistory("scan-signal-timeout", { diagnosticOrigin: runConfig.diagnosticOrigin });
-            }
-            if (state.report === "waiting") {
-              state.report = "not-saved";
-              setText("#report-signal-state", runConfig.diagnosticOrigin === "local" ? "no report acknowledgement yet" : "manual report confirmation required");
-              updateGlobalInterpretation();
-            }
-          }, 4500);
-        }
+        if (runConfig.sessionId) startRuntimeObservation();
 
         function initializeStaticRunner() {
           setText("#session-state", runConfig.sessionId ?? "not started");
-          setText("#detected-mode", runConfig.diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "manual confirmation required on public deployment");
-          setText("#scan-signal-state", runConfig.diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "diagnostic signal unavailable on public deployment");
-          setText("#report-signal-state", runConfig.diagnosticOrigin === "local" ? "waiting for report acknowledgement" : "manual report confirmation required");
+          setText("#detected-mode", runConfig.diagnosticOrigin === "unsupported" ? "manual confirmation required on this origin" : "waiting for CSS Sentry signal");
+          setText("#scan-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "diagnostic signal unavailable on this origin" : "waiting for CSS Sentry signal");
+          setText("#report-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "manual report confirmation required" : "waiting for report acknowledgement");
           applySelectedCases(selectedCaseSet);
           const modeInput = document.querySelector(`input[name='mode'][value='${cssEscape(runConfig.mode)}']`);
           if (modeInput) modeInput.checked = true;
@@ -367,20 +353,85 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
           if (selectedCases.length === 0) return;
           const response = await fetch("/api/session.json", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
           const body = await response.json().catch(() => null);
-          if (!response.ok || body?.ok !== true) {
+          if (!response.ok || body?.ok !== true || !isValidTestSessionId(body.sessionId)) {
             setText("#session-state", "session creation failed");
             return;
           }
-          const url = new URL(window.location.href);
-          url.searchParams.set("session", body.sessionId);
-          url.searchParams.set("cases", selectedCases.join(","));
-          url.searchParams.set("mode", state.mode);
-          window.location.assign(url);
+          beginSelectedRun(body.sessionId, selectedCases);
         }
 
-        async function pollResults() {
+        function beginSelectedRun(sessionId, selectedCases) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("session", sessionId);
+          url.searchParams.set("cases", selectedCases.join(","));
+          url.searchParams.set("mode", state.mode);
+          window.history.pushState({}, "", url);
+
+          activeRunToken += 1;
+          runConfig.sessionId = sessionId;
+          runConfig.cases = selectedCases;
+          runConfig.mode = state.mode;
+          runConfig.resultPath = resultPathForSession(sessionId, selectedCases);
+          state.scan = "waiting";
+          state.report = "waiting";
+          state.endpointByCase = Object.fromEntries(selectedCases.map((caseId) => [caseId, "pending"]));
+          state.manualByCase = Object.fromEntries(selectedCases.map((caseId) => [caseId, "not-checked"]));
+          state.lastScanDiagnosticRaw = "";
+          state.lastReportDiagnosticRaw = "";
+
+          setText("#session-state", sessionId);
+          setText("#detected-mode", runConfig.diagnosticOrigin === "unsupported" ? "manual confirmation required on this origin" : "waiting for CSS Sentry signal");
+          setText("#scan-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "diagnostic signal unavailable on this origin" : "waiting for CSS Sentry signal");
+          setText("#report-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "manual report confirmation required" : "waiting for report acknowledgement");
+          applySelectedCases(new Set(selectedCases));
+          updateEndpointCount();
+          updateGlobalInterpretation();
+          injectControlledStylesheet(sessionId, selectedCases);
+          startRuntimeObservation();
+        }
+
+        function startRuntimeObservation() {
+          const runToken = activeRunToken + 1;
+          activeRunToken = runToken;
+          pollResults(runToken);
+          window.setTimeout(() => {
+            if (runToken !== activeRunToken) return;
+            if (state.scan === "waiting") {
+              state.scan = "not-connected";
+              setText("#scan-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "diagnostic signal unavailable on this origin" : "no signal from CSS Sentry");
+              updateGlobalInterpretation();
+              storeHistory("scan-signal-timeout", { diagnosticOrigin: runConfig.diagnosticOrigin });
+            }
+            if (state.report === "waiting") {
+              state.report = "not-saved";
+              setText("#report-signal-state", runConfig.diagnosticOrigin === "unsupported" ? "manual report confirmation required" : "no report acknowledgement yet");
+              updateGlobalInterpretation();
+            }
+          }, 4500);
+        }
+
+        function resultPathForSession(sessionId, cases) {
+          return `/api/result/${sessionId}.json?cases=${encodeURIComponent(serializeCaseList(cases))}`;
+        }
+
+        async function injectControlledStylesheet(sessionId, selectedCases) {
+          const styleId = "dynamic-test-style";
+          const href = `/api/controlled-css/${encodeURIComponent(sessionId)}.css?cases=${encodeURIComponent(serializeCaseList(selectedCases))}`;
+          const response = await fetch(href, { headers: { accept: "text/css" } });
+          const css = response.ok ? await response.text() : "";
+          let style = document.getElementById(styleId);
+          if (!style) {
+            style = document.createElement("style");
+            style.id = styleId;
+            document.head.appendChild(style);
+          }
+          style.textContent = css;
+        }
+
+        async function pollResults(runToken) {
           for (let attempt = 0; attempt < 14; attempt += 1) {
             await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 500 : 850));
+            if (runToken !== activeRunToken) return;
             const response = await fetch(runConfig.resultPath, { headers: { accept: "application/json" } });
             const body = await response.json().catch(() => null);
             if (!response.ok || body?.ok !== true || !Array.isArray(body.results)) continue;
@@ -393,6 +444,7 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
             updateEndpointCount();
             if (Object.values(state.endpointByCase).some((value) => value === "received")) storeHistory("endpoint-received", { endpoints: state.endpointByCase });
           }
+          if (runToken !== activeRunToken) return;
           for (const caseId of Object.keys(state.endpointByCase)) {
             if (state.endpointByCase[caseId] === "pending") {
               state.endpointByCase[caseId] = "not-received";
@@ -424,8 +476,8 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
         }
 
         function deriveInterpretation(input) {
-          if (!input.hasSession) return { kind: "review", title: "Start selected checks", detail: "The static page adds controlled CSS only after a test session is created and the URL carries the selected cases." };
-          if (input.scan === "not-connected" && input.diagnosticOrigin !== "local") return { kind: "review", title: "Manual report confirmation required", detail: "The extension diagnostic bridge is intentionally local-origin scoped. On public deployments, use the CSS Sentry popup or report page to confirm findings." };
+          if (!input.hasSession) return { kind: "review", title: "Start selected checks", detail: "The page adds controlled CSS after a test session is created and records the selected cases in the URL." };
+          if (input.scan === "not-connected" && input.diagnosticOrigin === "unsupported") return { kind: "review", title: "Manual report confirmation required", detail: "The extension diagnostic bridge is restricted to supported Test Lab origins. Use the CSS Sentry popup or report page to confirm findings on this origin." };
           if (input.scan === "not-connected") return { kind: "unexpected", title: "CSS Sentry did not signal on this page", detail: "Check extension site access for this origin and whether the installed build includes Test Lab diagnostics." };
           if (input.scan === "scan-disabled") return { kind: "inconclusive", title: "CSS Sentry is present, but scanning is disabled for this origin", detail: "The extension reported its mode without scanning. Re-run in Passive, Balanced, or Strict mode before judging detector behavior." };
           if (input.scan === "connected-no-findings" && input.endpoint === "received") return { kind: "unexpected", title: "Extension scanned but found no matching issue", detail: "The endpoint was reached while CSS Sentry reported zero actionable findings. Treat this as a test-definition or detector-coverage issue." };

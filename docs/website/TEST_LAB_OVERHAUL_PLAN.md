@@ -19,7 +19,7 @@ local history for support
 
 ## Active Website Shape
 
-The primary surface is the statically prerendered main /tests/ runner (`/tests/`). It supports selecting one check, selecting a behavior category, running all checks, polling per-check endpoint results, displaying extension diagnostic state, showing report-save acknowledgement, and recording manual popup/report confirmation. Live verification remains endpoint-backed: the static runner adds a selected controlled stylesheet link for the active session, while `/api/controlled-css/[sessionId].css` and the hit/result endpoints remain dynamic.
+The primary surface is the statically prerendered main /tests/ runner (`/tests/`). It supports selecting one check, selecting a behavior category, running all checks, polling per-check endpoint results, displaying extension diagnostic state, showing report-save acknowledgement, and recording manual popup/report confirmation. Live verification remains endpoint-backed: the static runner records the active session and injects selected controlled CSS without refreshing the page, while `/api/controlled-css/[sessionId].css` and the hit/result endpoints remain dynamic.
 
 Individual `/tests/:caseId/` routes are statically generated compatibility deep links. They redirect in the browser into the runner with that single case selected. This prevents duplicated report instructions, troubleshooting copy, mode controls, and endpoint interpretation across many pages.
 
@@ -51,7 +51,7 @@ css-sentry:test-lab-report
 
 The first event answers whether the content-script scanner saw findings. The second event answers whether the background report-save path acknowledged storage. This distinction is required because a page can be scanned, can find issues, and still fail to show a popup/report if the report pipeline fails. The runner must not rely on a single listener timing path: it must recover stored diagnostic attributes, observe later diagnostic attribute writes, and accept the same-origin `window.postMessage` bridge used by the content script/page script boundary.
 
-The diagnostic bridge remains local-origin scoped by default. A public Cloudflare deployment should still run endpoint checks and manual report confirmation, but it must not expect automatic scan/report events unless the extension later defines and tests an explicit official Test Lab origin allowlist.
+The diagnostic bridge is restricted to supported Test Lab origins. Localhost remains supported for development, and the public Cloudflare Worker Test Lab is supported through the `css-sentry-test-lab.*.workers.dev` origin pattern. Unsupported public origins can still run endpoint checks, but they must rely on manual popup/report confirmation.
 
 ## Coverage Completion Model
 
