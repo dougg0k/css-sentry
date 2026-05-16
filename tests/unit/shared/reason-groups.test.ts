@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasCssFingerprintingReason,
+  hasHighConfidenceRenderedTextCssFingerprintingReason,
   hasDeclarationDataProbeReason,
   hasFontSideChannelReason,
   hasFrameCoverageReason,
@@ -58,8 +59,9 @@ describe("reason groups", () => {
   });
 
   it("classifies experimental CSS fingerprinting reasons separately", () => {
-    const finding = findingWithReasons(["privacy.css_fingerprinting.print_signal"]);
+    const finding = findingWithReasons(["privacy.css_fingerprinting.rendered_text_signal", "privacy.css_fingerprinting.print_signal"]);
     expect(hasCssFingerprintingReason(finding)).toBe(true);
+    expect(hasHighConfidenceRenderedTextCssFingerprintingReason(finding)).toBe(true);
     expect(hasPartialAnalysisReason(finding)).toBe(false);
   });
 });

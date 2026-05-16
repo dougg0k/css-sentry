@@ -238,12 +238,16 @@ describe("project structure", () => {
     expect(parserText).toContain("parseCssWithBudget");
     expect(parserText).toContain("parseLargeStylesheetCssWithBudget");
     expect(parserText).toContain("supplementMissingNestedSecurityRules");
+    expect(parserText).toContain("mayContainNestedSecurityRule");
+    expect(parserText).not.toContain("options.largeSourceScan || hasNestedStyleRuleContext(rules)");
     expect(budgetText).toContain("isParseBudgetExceeded");
     expect(sourceParserText).toContain("findMatchingBrace(input: string, openIndex: number, budget?: ParseBudgetState)");
     expect(importRecoveryText).toContain("addRecoveredImportRules");
     expect(importRecoveryText).not.toContain("isParseBudgetExceeded");
     expect(analyzerText).toContain("parseResult.budgetExceeded");
     expect(analyzerText).toContain("securityCriticalRulesFromBudgetedParse");
+    expect(analyzerText).toContain("securityCriticalRulesSupplementedParse");
+    expect(analyzerText).toContain("prioritizeSecurityCriticalParsedRules");
   });
 
   it("keeps manifest permissions aligned with the documented browser-specific minimal set", async () => {
@@ -401,10 +405,18 @@ describe("project structure", () => {
     expect(existsSync(join(process.cwd(), "tests", "fixtures", "benign", "defensive-css-canary-token.css"))).toBe(true);
     expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "css-fingerprinting-media-print-url.css"))).toBe(true);
     expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "css-fingerprinting-page-url.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-first-line-rendered-text-font.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-first-letter-rendered-text-font.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-overflow-scroll-font-signal.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-script-text-node-font.html"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-firefox-n-character-text-font.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "portswigger-firefox-reversed-text-font.css"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "tests", "fixtures", "attacks", "fontleak-bounded-ligature-unicode-range.css"))).toBe(true);
 
     const constants = readProjectFile("src/shared/constants.ts");
     const types = readProjectFile("src/shared/types.ts");
     const analyzer = readProjectFile("src/core/analyzer/stylesheetRuleAnalysis.ts");
+    const stylesheetRiskContext = readProjectFile("src/core/analyzer/stylesheetRiskContext.ts");
     const scanDocument = readProjectFile("src/browser/scanner/scanDocument.ts");
     const uiMetadata = readProjectFile("src/shared/uiMetadata.ts");
     const spec = readProjectFile("docs/SPEC.md");
@@ -412,12 +424,22 @@ describe("project structure", () => {
 
     expect(constants).toContain("enableCssFingerprintingGuard: false");
     expect(types).toContain("privacy.css_fingerprinting.conditional_resource");
+    expect(types).toContain("privacy.css_fingerprinting.rendered_text_signal");
+    expect(types).toContain("privacy.css_fingerprinting.layout_overflow_signal");
+    expect(types).toContain("privacy.css_fingerprinting.text_node_signal");
     expect(analyzer).toContain("enableCssFingerprintingGuard");
     expect(analyzer).toContain("cssFingerprintingRiskForRule");
+    expect(analyzer).toContain("hasRenderedTextPseudoElementSignal");
+    expect(analyzer).toContain("hasScrollStateSignal");
+    expect(analyzer).toContain("hasTextNodeSelectorSignal");
+    expect(stylesheetRiskContext).toContain("isGeneratedContentSelector(rule.selector)");
+    expect(stylesheetRiskContext).toContain("isTextBearingLeakSelector(rule.selector)");
     expect(scanDocument).toContain("policy?.compatibility.enableCssFingerprintingGuard ?? false");
     expect(uiMetadata).toContain("Enable experimental CSS fingerprinting indicators");
     expect(spec).toContain("Cascading Spy Sheets-style CSS fingerprinting research is tracked as adjacent research");
+    expect(spec).toContain("1.0.73 Rendered-Text, Layout, Scroll-State, and Bounded Font-Side-Channel Coverage");
     expect(cveSpec).toContain("Defensive CSS honeytokens and cloned-site canary callbacks");
+    expect(cveSpec).toContain("PortSwigger rendered-text, layout, and browser-specific CSS side channels");
   });
 
   it("keeps badge action API compatibility isolated", () => {

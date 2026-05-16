@@ -1,6 +1,6 @@
 # CSS Sentry — SPEC.md
 
-Last Updated: 2026/05/15 14:18:44 -03
+Last Updated: 2026/05/15 23:13:42 -03
 
 ## 1. Project Summary
 
@@ -1718,6 +1718,29 @@ Font side-channel modeling is intentionally narrower than universal font attack 
 
 CVE-2026-39315 must be tracked as a CSS-relevant conditional advisory when a browser-decoded leading-zero numeric entity produces a `data:text/css` stylesheet link that then reaches CSS Sentry's data stylesheet scanner. CVE-2026-6861 must remain out of scope because it is a local GNU Emacs SVG/CSS memory-corruption issue, not a browser-rendered CSS exfiltration pattern that this extension can enforce.
 
+
+## 1.0.73 Rendered-Text, Layout, Scroll-State, and Bounded Font-Side-Channel Coverage
+
+PortSwigger-style rendered-text and layout-side-channel techniques are in scope only where CSS Sentry can observe a browser-visible CSS signal. The supported signal classes are:
+
+- `::first-line` and `::first-letter` rendered-text probes when paired with a remote CSS-triggered resource or a modeled remote-font request path;
+- overflow, scroll-state, line-wrapping, width-bounded, or bidirectional-text layout probes when paired with a remote CSS-triggered resource or remote-font request path;
+- CSS that makes normally non-rendered text-bearing elements such as `script`, `style`, `textarea`, `pre`, `code`, `output`, `kbd`, or `samp` renderable and applies a remote font or request-producing declaration;
+- Firefox-style n-character and reversed-text extraction patterns when their CSS contains observable remote-font or remote-resource signals;
+- Safari-specific rendered-text and SVG-font techniques only as documented unsupported references unless CSS Sentry later gains a supported Safari extension target and browser-runtime tests.
+
+These classes are privacy and side-channel indicators, not automatic proof of secret-value exfiltration. They must remain separated from selector/value exfiltration findings with `privacy.css_fingerprinting.*` reason codes unless the same CSS also contains sensitive selector probes, declaration-level data-source probes, local-network targets, SVG remote-resource evidence, or another existing exfiltration signal.
+
+Bounded Fontleak-style coverage may include remote unicode-range fonts, active ligature features, generated-content probes, text-node rendering, container-size or layout measurement, animation/font-family chains, and request-producing CSS sinks. The boundary remains fixed: CSS Sentry does not parse, validate, or classify crafted font binaries and must not claim universal prevention of all ligature, glyph substitution, metric, or rendered-text extraction techniques.
+
+Release acceptance criteria for this area:
+
+- `::first-line` and `::first-letter` rendered-text fixtures use the experimental fingerprinting guard and include rendered-text and pseudo-element reason codes.
+- Overflow, scroll-state, n-character, reversed-text, and script/text-node fixtures are represented as bounded side-channel indicators.
+- Large-source parsing retains the relevant pseudo-element and text-node rules during security-relevant source scanning.
+- Safari-only techniques remain documented as unsupported browser quirks rather than being represented as supported extension behavior.
+- Normal remote fonts, normal responsive layout, normal overflow styling, normal text transforms, and ordinary code/script presentation styles must not become actionable merely because this coverage exists.
+
 ## 1.0.72 Experimental CSS Fingerprinting Guard and Defensive Canary Compatibility
 
 CSS Sentry may optionally report selected CSS-only fingerprinting indicators, but this must remain separate from CSS exfiltration enforcement and must not become a universal anti-fingerprinting claim. The advanced compatibility flag `enableCssFingerprintingGuard` is off by default. When enabled, CSS Sentry reports browser-visible conditional remote-resource signals that are close enough to the existing CSS-triggered request model to inspect safely, including:
@@ -1728,6 +1751,8 @@ CSS Sentry may optionally report selected CSS-only fingerprinting indicators, bu
 - `@container` rules with remote resources that can reveal layout/container state.
 
 These findings use `privacy.css_fingerprinting.*` reason codes. They are privacy indicators, not proof of secret-value extraction. The analyzer must not classify these findings as selector/value exfiltration unless the CSS also contains sensitive selectors, declaration-level data probes, modeled font side-channel evidence, local-network targets, SVG remote-resource evidence, or another existing exfiltration signal.
+
+High-confidence rendered-text, browser-specific text, and script/text-node remote-font indicators may become finding-derived request-rule candidates only when the experimental guard is enabled and a concrete request target exists. Lower-confidence print, `@page`, media-query, and scroll-only privacy indicators remain report-oriented unless they also satisfy an existing exfiltration or modeled font-side-channel rule. This keeps the advanced guard useful for bounded side-channel mitigation without turning CSS Sentry into a broad anti-fingerprinting or generic font-blocking extension.
 
 Defensive CSS honeytokens and cloned-site canary callbacks are compatibility-sensitive benign patterns. A CSS canary that only loads a defender-controlled URL without probing a DOM value must remain non-actionable by default. If Strict mode or destination blocklists interfere with a site that intentionally depends on CSS canary callbacks, the compatible remediation is a destination allowlist entry for the defender-controlled canary origin, not weakening the detector or classifying the canary as exfiltration.
 

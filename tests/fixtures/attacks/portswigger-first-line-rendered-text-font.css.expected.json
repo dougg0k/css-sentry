@@ -1,0 +1,20 @@
+{
+  "description": "PortSwigger-style rendered-text extraction uses ::first-line, forced line wrapping, and a remote unicode-range font. The experimental fingerprinting guard reports the rendered-text and pseudo-element signal while the font-side-channel reasons keep the claim bounded to observable CSS-triggered requests.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.rendered_text_signal",
+    "privacy.css_fingerprinting.pseudo_element_signal",
+    "privacy.css_fingerprinting.browser_specific_text_signal",
+    "sink.font_remote",
+    "sink.font_unicode_range_remote",
+    "sink.font_metric_side_channel",
+    "css.font_measurement_setup",
+    "css.font_generated_content_probe",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

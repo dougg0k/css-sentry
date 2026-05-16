@@ -54,11 +54,16 @@ function parseCssInternal(input: ParseInput, options: ParseOptions = {}, budget?
 }
 
 function supplementMissingNestedSecurityRules(rules: ParsedCssRule[], options: ParseOptions, normalizedCss: string, baseContext: ReturnType<typeof createBaseRuleContext>): ParsedCssRule[] {
-	if (options.largeSourceScan || hasNestedStyleRuleContext(rules)) return rules;
+	if (options.largeSourceScan || !mayContainNestedSecurityRule(normalizedCss, rules)) return rules;
 	const nestedSecurityRules = parseCompleteSourceRules(normalizedCss, baseContext, undefined, { retainOnlyPotentiallyRelevantRules: true })
 		.filter((rule) => rule.context.atRuleStack.includes("nested-style-rule"));
 	if (nestedSecurityRules.length === 0) return rules;
 	return appendMissingRules(rules, nestedSecurityRules);
+}
+
+function mayContainNestedSecurityRule(normalizedCss: string, rules: ParsedCssRule[]): boolean {
+	if (hasNestedStyleRuleContext(rules)) return true;
+	return normalizedCss.includes("&") && /(?:url\s*\(|(?:-webkit-)?image-set\s*\(|\[(?:[^\]~|^$*=]+)\s*(?:\^=|\$=|\*=|=)|\b(?:attr|if|style|var)\s*\()/i.test(normalizedCss);
 }
 
 function appendMissingRules(baseRules: ParsedCssRule[], candidateRules: ParsedCssRule[]): ParsedCssRule[] {

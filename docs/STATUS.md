@@ -1,13 +1,55 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/15 14:18:44 -03
+Last Updated: 2026/05/15 23:51:18 -03
 
-**Status document version:** 1.0.72
-**Package audited:** `css_sentry_1.0.72`
-**Audit timestamp:** 2026/05/13 19:18:29 -03 (`America/Sao_Paulo`)
+**Status document version:** 1.0.77
+
+## 1.0.77 Status Update
+
+`1.0.77` corrects the repeated late nested CSS regression by changing the normal analyzer path from append-only supplementation to priority supplementation. The source-scanned security-relevant nested rules are now analyzed before the large primary parser rule list, so analysis-budget checks cannot stop on thousands of benign padding rules before reaching the late selector probe.
+
+The preserved invariant is that a late nested rule such as `& input[name="session_token"][value*="abc"] { mask-image: url(...) }` must produce `selector.attribute.substring_match`, `css.grouping_rule.nested`, and the remote destination finding even when the stylesheet contains a large benign prefix. The fix keeps the 1.0.73 through 1.0.74 rendered-text, scroll-state, and bounded font-side-channel coverage unchanged.
+
+**Package audited:** `css_sentry_1.0.77`
+**Audit timestamp:** 2026/05/15 23:51:18 -03 (`America/Sao_Paulo`)
+
+## 1.0.76 Status Update
+
+`1.0.76` corrects the remaining late nested CSS recovery failure by moving the recovery guarantee to the analyzer input boundary as well as the parser boundary. The normal analysis path now supplements primary parser output with source-scanned security-relevant nested rules when the stylesheet contains nested CSS and selector/request-risk evidence. This prevents a large primary parse from returning a partial rule set that omits the specific late nested selector probe while still reporting the analysis as complete.
+
+The intended invariant is unchanged: a late nested rule such as `& input[name="session_token"][value*="abc"] { mask-image: url(...) }` must produce `selector.attribute.substring_match`, `css.grouping_rule.nested`, and the remote destination finding. The PortSwigger rendered-text, scroll-state, and bounded font-side-channel coverage added in `1.0.73` and corrected in `1.0.74` remains preserved.
+
+**Package audited:** `css_sentry_1.0.76`
+**Audit timestamp:** 2026/05/15 23:39:55 -03 (`America/Sao_Paulo`)
+
+## 1.0.75 Status Update
+
+`1.0.75` corrects the nested-rule recovery invariant after the rendered-text side-channel work exposed a regression in the normal parser supplementation path. The parser now source-scans for missing nested security rules even when the primary parser already emitted some nested-rule context, because a partial nested parse is not sufficient evidence that every late security-relevant nested selector was retained.
+
+The fix preserves the bounded PortSwigger/fingerprinting additions from `1.0.73` and `1.0.74` while restoring the earlier large-but-below-threshold nested CSS guarantee: selector probes inside late nested CSS blocks must still produce `selector.attribute.substring_match`, `css.grouping_rule.nested`, and the remote destination finding.
+
+**Package audited:** `css_sentry_1.0.75`
+**Audit timestamp:** 2026/05/15 23:29:27 -03 (`America/Sao_Paulo`)
+
+## 1.0.74 Status Update
+
+`1.0.74` corrects the PortSwigger-style rendered-text side-channel implementation added in `1.0.73`. The experimental CSS fingerprinting guard now preserves scroll-state indicators for guarded overflow/content-visibility probes and aligns high-confidence rendered-text/font side-channel findings with the shared DNR eligibility authority used by runtime mitigation and fixture expectations.
+
+The mitigation boundary remains narrow. CSS Sentry does not broadly block print/page/privacy indicators or normal remote fonts. A finding-derived request rule is eligible only when the advanced guard has produced a high-confidence rendered-text, text-node, or browser-specific text signal with a concrete request target and the normal severity/cross-origin eligibility gates are satisfied.
+
+**Package audited:** `css_sentry_1.0.74`
+**Audit timestamp:** 2026/05/15 23:13:42 -03 (`America/Sao_Paulo`)
 **Audience:** maintainers, reviewers, and release decision-makers  
 **Related documents:** `README.md`, `docs/SPEC.md`, `docs/CVE_SPEC.md`, `docs/SECURITY.md`, `docs/PRIVACY.md`, `docs/PERMISSIONS.md`, `docs/RELEASE_CHECKLIST.md`, `docs/RELEASE_NOTES.md`, `docs/SELF_SECURITY.md`
 
+
+## 1.0.73 PortSwigger Rendered-Text and Bounded Font-Side-Channel Coverage
+
+`1.0.73` extends the experimental CSS fingerprinting guard with the PortSwigger rendered-text and layout-side-channel families that were not represented as first-class executable coverage. The implementation remains bounded: these findings use `privacy.css_fingerprinting.*` reason codes and are reported only when the advanced `enableCssFingerprintingGuard` setting is enabled unless they also satisfy an existing Fontleak-style evidence model.
+
+Executable coverage added in this release includes `::first-line` rendered-text probes, `::first-letter` rendered-text probes, overflow and scroll-state layout probes, CSS that makes script text nodes renderable and applies a remote unicode-range font, Firefox-style n-character rendered-text extraction, Firefox-style reversed-text extraction, and an additional bounded ligature/unicode-range Fontleak fixture. Safari-specific rendered-text/font quirks remain documented as unsupported browser-scope references because CSS Sentry does not currently support Safari as an extension target.
+
+The parser source-scan relevance filter now retains rendered-text pseudo-element, text-node, overflow, scroll-state, and bidirectional-text rules so large-source recovery does not drop the same side-channel evidence that normal parsing can analyze. Documentation now states the limitation explicitly: CSS Sentry observes CSS selectors, declarations, URLs, remote-font references, and browser-visible request or measurement signals; it does not inspect crafted font binaries, prove ligature substitution tables are malicious, or claim universal prevention of every rendered-text or font metric side channel.
 
 ## 1.0.72 CSS Fingerprinting Guard and Defensive Canary Compatibility
 

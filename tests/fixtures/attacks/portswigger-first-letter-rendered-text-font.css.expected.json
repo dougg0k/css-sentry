@@ -1,0 +1,20 @@
+{
+  "description": "A ::first-letter rendered-text probe with a remote unicode-range font is reported as an experimental rendered-text fingerprinting indicator and bounded font side-channel finding.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.rendered_text_signal",
+    "privacy.css_fingerprinting.pseudo_element_signal",
+    "privacy.css_fingerprinting.browser_specific_text_signal",
+    "sink.font_remote",
+    "sink.font_unicode_range_remote",
+    "sink.font_metric_side_channel",
+    "css.font_measurement_setup",
+    "css.font_generated_content_probe",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

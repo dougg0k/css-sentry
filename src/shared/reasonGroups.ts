@@ -34,6 +34,12 @@ const CSS_FINGERPRINTING_REASONS = new Set<ReasonCode>([
   "privacy.css_fingerprinting.page_rule_signal",
   "privacy.css_fingerprinting.supports_query_signal",
   "privacy.css_fingerprinting.container_query_signal",
+  "privacy.css_fingerprinting.rendered_text_signal",
+  "privacy.css_fingerprinting.pseudo_element_signal",
+  "privacy.css_fingerprinting.layout_overflow_signal",
+  "privacy.css_fingerprinting.scroll_signal",
+  "privacy.css_fingerprinting.text_node_signal",
+  "privacy.css_fingerprinting.browser_specific_text_signal",
 ]);
 
 const ATTRIBUTE_PROBE_REASONS = new Set<ReasonCode>([
@@ -91,6 +97,12 @@ export function hasSvgRemoteResourceSinkReason(finding: Finding): boolean {
 
 export function hasCssFingerprintingReason(finding: Finding): boolean {
   return hasAnyReason(finding, CSS_FINGERPRINTING_REASONS);
+}
+
+export function hasHighConfidenceRenderedTextCssFingerprintingReason(finding: Finding): boolean {
+  return findingHasReason(finding, "privacy.css_fingerprinting.rendered_text_signal")
+    || findingHasReason(finding, "privacy.css_fingerprinting.text_node_signal")
+    || findingHasReason(finding, "privacy.css_fingerprinting.browser_specific_text_signal");
 }
 
 function hasAnyReason(finding: Finding, reasons: ReadonlySet<ReasonCode>): boolean {

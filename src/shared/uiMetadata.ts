@@ -213,8 +213,8 @@ export const COMPATIBILITY_DEFINITIONS: CompatibilityDefinition[] = [
   {
     key: "enableCssFingerprintingGuard",
     label: "Enable experimental CSS fingerprinting indicators",
-    summary: "Report selected CSS-only fingerprinting signals such as print, feature-query, and container-query remote resources.",
-    tooltip: "Recommended off. This advanced option reports conditional CSS-triggered remote resources that may reveal browser, rendering, print, or environment state. It is separate from CSS exfiltration findings and may produce compatibility noise on complex pages.",
+    summary: "Report selected CSS-only fingerprinting signals such as print, feature-query, container-query, rendered-text, layout, scroll-state, and text-node indicators.",
+    tooltip: "Recommended off. This advanced option reports conditional CSS-triggered remote resources and bounded rendered-text, layout, scroll-state, and text-node indicators that may reveal browser, rendering, print, or environment state. It is separate from CSS exfiltration findings and may produce compatibility noise on complex pages.",
     recommendedValue: false,
     advanced: true
   }

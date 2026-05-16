@@ -152,10 +152,13 @@ export function findMatchingBrace(input: string, openIndex: number, budget?: Par
 function isPotentiallyRelevantSourceRule(selectorText: string, body: string): boolean {
 	if (/url\s*\(|(?:-webkit-)?image-set\s*\(|\battr\s*\(|\bif\s*\(|\bstyle\s*\(|\bvar\s*\(|--[_a-zA-Z][_a-zA-Z0-9-]*/i.test(body)) return true;
 	if (/\[(?:[^\]~|^$*=]+)\s*(?:\^=|\$=|\*=|=)/i.test(selectorText) && /background|border-image|list-style|cursor|content|mask|clip-path|filter|fill|stroke|marker|font/i.test(body)) return true;
+	if (/::(?:first-line|first-letter)\b/i.test(selectorText) && /font|text-transform|overflow|width|inline-size|word-break|overflow-wrap|word-wrap/i.test(body)) return true;
+	if (/(?:^|[\s>+~,(])(?:script|style|textarea|pre|code|output|kbd|samp)(?:[\s.#:[>+~),]|$)/i.test(selectorText) && /display|font|content|background|color/i.test(body)) return true;
+	if (/\b(?:content-visibility|unicode-bidi|direction|overflow|overflow-x|overflow-y|word-break|overflow-wrap|word-wrap)\s*:/i.test(body)) return true;
 	return false;
 }
 
-const SOURCE_RISK_TOKEN_RE = /@import\b|url\s*\(|(?:-webkit-)?image-set\s*\(|\battr\s*\(|\bif\s*\(|\bstyle\s*\(|\bvar\s*\(|--[_a-zA-Z][_a-zA-Z0-9-]*/gim;
+const SOURCE_RISK_TOKEN_RE = /@import\b|url\s*\(|(?:-webkit-)?image-set\s*\(|\battr\s*\(|\bif\s*\(|\bstyle\s*\(|\bvar\s*\(|::(?:first-line|first-letter)\b|\b(?:script|style|textarea|pre|code|output|kbd|samp)\b|\b(?:content-visibility|unicode-bidi|overflow|word-break|overflow-wrap|word-wrap)\s*:|--[_a-zA-Z][_a-zA-Z0-9-]*/gim;
 
 function advanceToNextPotentiallyRelevantRule(input: string, index: number): number {
 	const riskIndex = findNextPotentialSourceRisk(input, index);

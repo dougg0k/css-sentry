@@ -108,7 +108,7 @@ function findingForDeclaration(
 	const hasKeyframesContext = rule.context.atRuleStack.some((entry) => /^@(?:-webkit-)?keyframes\b/i.test(entry));
 	const hasContainerSizeQueryContext = rule.context.atRuleStack.some(isContainerSizeQuery);
 	const hasFontSideChannelContext = hasFontSideChannelContextForRule(rule, stylesheetRiskContext, hasContainerQueryContext, hasKeyframesContext);
-	const fingerprintingRisk = options.enableCssFingerprintingGuard ? cssFingerprintingRiskForRule(rule, declarationRisk) : null;
+	const fingerprintingRisk = options.enableCssFingerprintingGuard ? cssFingerprintingRiskForRule(rule, declaration, declarationRisk) : null;
 	const hasExfiltrationRisk = isImportRule || hasCssOnlyRisk || hasSensitiveSelectorSignals || hasLocalNetworkSink || hasDeclarationDataProbe || hasFontSideChannelContext;
 
 	if (isStandaloneFontFace) return null;
@@ -163,7 +163,7 @@ interface CssFingerprintingRisk {
 	reasons: ReasonCode[];
 }
 
-function cssFingerprintingRiskForRule(rule: ParsedCssRule, declarationRisk: DeclarationRisk): CssFingerprintingRisk | null {
+function cssFingerprintingRiskForRule(rule: ParsedCssRule, declaration: DeclarationInfo, declarationRisk: DeclarationRisk): CssFingerprintingRisk | null {
 	if (!declarationRisk.hasRemoteSink) return null;
 	const reasons = new Set<ReasonCode>();
 	let score = 0;
@@ -198,6 +198,37 @@ function cssFingerprintingRiskForRule(rule: ParsedCssRule, declarationRisk: Decl
 		}
 	}
 
+	if (hasRenderedTextPseudoElementSignal(rule.selector)) {
+		reasons.add("privacy.css_fingerprinting.conditional_resource");
+		reasons.add("privacy.css_fingerprinting.rendered_text_signal");
+		reasons.add("privacy.css_fingerprinting.pseudo_element_signal");
+		score = Math.max(score, 4);
+	}
+
+	if (hasLayoutOverflowSignal(rule.declarationsText)) {
+		reasons.add("privacy.css_fingerprinting.conditional_resource");
+		reasons.add("privacy.css_fingerprinting.layout_overflow_signal");
+		score = Math.max(score, 4);
+	}
+
+	if (hasScrollStateSignal(rule.selector, rule.declarationsText)) {
+		reasons.add("privacy.css_fingerprinting.conditional_resource");
+		reasons.add("privacy.css_fingerprinting.scroll_signal");
+		score = Math.max(score, 4);
+	}
+
+	if (hasTextNodeSelectorSignal(rule.selector)) {
+		reasons.add("privacy.css_fingerprinting.conditional_resource");
+		reasons.add("privacy.css_fingerprinting.text_node_signal");
+		score = Math.max(score, 4);
+	}
+
+	if (hasBrowserSpecificTextExtractionSignal(rule.selector, rule.declarationsText, declaration)) {
+		reasons.add("privacy.css_fingerprinting.conditional_resource");
+		reasons.add("privacy.css_fingerprinting.browser_specific_text_signal");
+		score = Math.max(score, 4);
+	}
+
 	if (reasons.size === 0) return null;
 	if (declarationRisk.reasons.includes("url.cross_origin")) score += 1;
 	return { score, reasons: [...reasons] };
@@ -209,4 +240,33 @@ function isPrintMediaQuery(entry: string): boolean {
 
 function isFingerprintingMediaQuery(entry: string): boolean {
 	return /^@media\b/i.test(entry) && /\b(?:prefers-color-scheme|prefers-contrast|prefers-reduced-motion|prefers-reduced-transparency|forced-colors|color-gamut|dynamic-range|inverted-colors|pointer|hover|resolution|device-width|device-height|update|scripting)\b/i.test(entry);
+}
+
+function hasRenderedTextPseudoElementSignal(selector: string): boolean {
+	return /::(?:first-line|first-letter)\b/i.test(selector);
+}
+
+function hasTextNodeSelectorSignal(selector: string): boolean {
+	return /(?:^|[\s>+~,(])(?:script|style|textarea|pre|code|output|kbd|samp)(?:[\s.#:[>+~),]|$)/i.test(selector);
+}
+
+function hasLayoutOverflowSignal(declarationsText: string): boolean {
+	return /\b(?:overflow|overflow-x|overflow-y|overflow-block|overflow-inline)\s*:\s*(?:auto|scroll|hidden|clip)\b/i.test(declarationsText)
+		|| /\b(?:word-wrap|overflow-wrap|word-break)\s*:/i.test(declarationsText)
+		|| /\b(?:width|max-width|min-width|inline-size|max-inline-size|min-inline-size|height|max-height|min-height|block-size|max-block-size|min-block-size)\s*:\s*(?:calc\(|[0-9.]+(?:ch|em|rem|px)|fit-content|max-content|min-content)/i.test(declarationsText);
+}
+
+function hasScrollStateSignal(selector: string, declarationsText: string): boolean {
+	const hasScrollRelatedSelector = /(?:^|[\s.#:[>+~),])(?:html|body|main|section|article|div|input|textarea)(?:[\s.#:[>+~),]|$)/i.test(selector)
+		|| /(?:scroll|overflow|viewport|page|container|text|probe|secret|token)/i.test(selector);
+	const hasScrollRelatedDeclarations = /\b(?:content-visibility|overflow|overflow-x|overflow-y|scrollbar-width|scroll-margin|scroll-padding)\s*:/i.test(declarationsText);
+	return hasScrollRelatedSelector && hasScrollRelatedDeclarations;
+}
+
+function hasBrowserSpecificTextExtractionSignal(selector: string, declarationsText: string, declaration: DeclarationInfo): boolean {
+	if (hasRenderedTextPseudoElementSignal(selector) && /\btext-transform\s*:\s*(?:uppercase|lowercase|capitalize)\b/i.test(declarationsText)) return true;
+	if (/\b(?:direction\s*:\s*rtl|unicode-bidi\s*:\s*(?:bidi-override|plaintext|isolate-override))\b/i.test(declarationsText)) return true;
+	if (/\b(?:-moz-|::-moz-|:-moz-)/i.test(`${selector};${declarationsText};${declaration.resolvedValue}`)) return true;
+	if (/\b(?:-webkit-|::-webkit-|:-webkit-)/i.test(`${selector};${declarationsText};${declaration.resolvedValue}`)) return true;
+	return false;
 }

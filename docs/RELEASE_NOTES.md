@@ -1,6 +1,37 @@
 # Release Notes
 
-Last Updated: 2026/05/15 14:18:44 -03
+Last Updated: 2026/05/15 23:51:18 -03
+
+## 1.0.77
+
+- Fixed the repeated late nested CSS regression by prioritizing source-scanned security-relevant nested rules before the large primary parser output during normal analysis. Large benign rule prefixes can no longer cause the analysis budget to be spent before the late nested selector probe is scored.
+- Preserved the analyzer and parser recovery boundaries while making the recovery order explicit: recovered security-critical nested rules are analyzed first, then non-priority primary parser rules continue through the regular analyzer path.
+- Added a structure guard for the priority-supplementation helper so future refactors cannot silently revert to append-only supplementation.
+
+## 1.0.76
+
+- Fixed the late nested CSS recovery regression at the analyzer input boundary. Large-but-below-threshold stylesheets now supplement the primary parse with source-scanned security-relevant nested selector rules before normal finding analysis, not only when the parse budget path is already active.
+- Preserved the parser-level nested-rule recovery guard while adding analyzer-level supplementation for the normal parse path, so partial primary-parser output cannot hide a later nested selector probe with a remote sink.
+- Added direct parser coverage for the 16,000-rule padding shape used by the analyzer regression test and kept the project-structure guard tied to the analyzer supplementation path.
+
+## 1.0.75
+
+- Fixed the nested CSS parser-recovery regression where a late selector probe inside a nested rule could be missed when the primary parser emitted some nested-rule context but did not retain the specific security-relevant nested selector.
+- Kept rendered-text, scroll-state, and bounded font-side-channel coverage from 1.0.73/1.0.74 intact while restoring the earlier guarantee that source-scanned nested selector probes are merged into analyzer input when primary parsing is incomplete.
+- Added a project-structure guard so the parser cannot regress to treating any existing nested-rule context as proof that source-scan supplementation is unnecessary.
+
+## 1.0.74
+
+- Corrected the experimental rendered-text CSS fingerprinting guard so scroll-state indicators are reported for guarded overflow/content-visibility probes and high-confidence rendered-text/font side-channel findings can become precise finding-derived request rules when the advanced guard is enabled.
+- Preserved the bounded claim model: lower-confidence print/page and scroll-only privacy indicators remain report-oriented, while selected cross-origin rendered-text, browser-specific text, and text-node remote-font indicators are eligible for mitigation only after the guard produces high-confidence findings.
+- Added focused regression coverage for the shared reason grouping and request-rule eligibility path so fixture expectations and runtime mitigation use the same authority.
+
+## 1.0.73
+
+- Added PortSwigger-style rendered-text, layout, scroll-state, pseudo-element, script/text-node, n-character, and reversed-text CSS side-channel coverage as bounded experimental CSS fingerprinting indicators. These findings remain separate from selector/value exfiltration claims.
+- Added fixture coverage for `::first-line`, `::first-letter`, overflow/scroll-state, Firefox-style n-character and reversed-text, and script text-node CSS extraction shapes when the experimental CSS fingerprinting guard is enabled.
+- Added an additional bounded Fontleak ligature/unicode-range fixture and clearer limitation language stating that CSS Sentry observes CSS-triggered request and measurement signals but does not inspect crafted font binaries or claim universal crafted-font exploit prevention.
+- Updated parser source-scanning relevance so large-source recovery retains rendered-text pseudo-element and text-node rules needed for this coverage.
 
 ## 1.0.72
 

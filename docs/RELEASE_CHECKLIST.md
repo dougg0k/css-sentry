@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/15 14:18:44 -03
+Last Updated: 2026/05/15 23:51:18 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -27,7 +27,45 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm `pnpm-workspace.yaml` remains at the repository root when pnpm build-script approval is needed.
 - [ ] Confirm native-build helper dependencies requested for the release, such as `node-gyp`, are present in both `package.json` and `pnpm-lock.yaml` before running frozen installs.
 - [ ] Confirm Fontleak ligature-feature tests cover parser-normalized active feature values such as `"liga"1` and disabled values such as `"liga" 0`.
+- [ ] Confirm late nested CSS recovery analyzes source-scanned security-relevant nested rules before large benign primary-parser output, not only after the primary rule list.
 
+
+
+
+
+## 1.0.77 Late Nested CSS Priority Supplementation Checks
+
+- [ ] Confirm `tests/unit/core/analyzer.test.ts` keeps `supplements primary parsing with source scanning for late nested CSS rules` passing under the normal full test environment.
+- [ ] Confirm the analyzer normal path prioritizes source-scanned security-relevant nested rules before the large primary parser rule list.
+- [ ] Confirm `src/core/analyzer/analyzeStylesheet.ts` contains `prioritizeSecurityCriticalParsedRules` and does not rely on append-only supplementation for the normal analysis path.
+- [ ] Confirm rendered-text, scroll-state, and bounded font-side-channel fixture expectations from 1.0.73/1.0.74 still pass after the priority-order fix.
+
+## 1.0.76 Nested CSS Analyzer Supplementation Checks
+
+- [ ] Confirm `tests/unit/core/analyzer.test.ts` keeps `supplements primary parsing with source scanning for late nested CSS rules` passing.
+- [ ] Confirm the analyzer normal path calls the source-scanned nested security-rule supplementation before `analyzeParsedRules`.
+- [ ] Confirm `tests/unit/core/css-parser.test.ts` retains the 16,000-rule large primary-parser output regression shape.
+- [ ] Confirm parser-level supplementation remains present so direct parser consumers still receive missing source-scanned nested security rules.
+- [ ] Confirm rendered-text, scroll-state, and bounded font-side-channel fixture expectations from 1.0.73/1.0.74 still pass after the analyzer supplementation fix.
+
+## 1.0.75 Nested CSS Recovery Checks
+
+- [ ] Confirm `tests/unit/core/analyzer.test.ts` keeps `supplements primary parsing with source scanning for late nested CSS rules` passing.
+- [ ] Confirm primary-parser nested-rule context does not suppress source-scan supplementation for missing late security-relevant nested selector probes.
+- [ ] Confirm parser structure guards reject the stale `options.largeSourceScan || hasNestedStyleRuleContext(rules)` early-return shape.
+- [ ] Confirm rendered-text, scroll-state, and bounded font-side-channel fixture expectations from 1.0.73/1.0.74 still pass after the parser recovery fix.
+
+## 1.0.73 Rendered-Text and Font-Side-Channel Checks
+
+- [ ] Confirm `tests/fixtures/attacks/portswigger-first-line-rendered-text-font.css` reports `privacy.css_fingerprinting.rendered_text_signal` and `privacy.css_fingerprinting.pseudo_element_signal` only when the experimental guard is enabled.
+- [ ] Confirm high-confidence rendered-text, browser-specific text, and script/text-node remote-font findings are eligible for finding-derived request rules only after the experimental guard reports them.
+- [ ] Confirm `tests/fixtures/attacks/portswigger-overflow-scroll-font-signal.css` reports `privacy.css_fingerprinting.scroll_signal` when the experimental guard is enabled and remains below Balanced request-rule eligibility when only low-confidence scroll/layout evidence is present.
+- [ ] Confirm `tests/fixtures/attacks/portswigger-first-letter-rendered-text-font.css` covers the corresponding `::first-letter` rendered-text path.
+- [ ] Confirm `tests/fixtures/attacks/portswigger-overflow-scroll-font-signal.css` reports layout-overflow and scroll-state indicators without making ordinary overflow CSS actionable.
+- [ ] Confirm `tests/fixtures/attacks/portswigger-script-text-node-font.html` covers renderable script/text-node CSS as a bounded side-channel indicator.
+- [ ] Confirm `tests/fixtures/attacks/portswigger-firefox-n-character-text-font.css` and `tests/fixtures/attacks/portswigger-firefox-reversed-text-font.css` keep Firefox-style text extraction coverage bounded to observable CSS signals.
+- [ ] Confirm Safari-specific rendered-text and SVG-font techniques remain documented as unsupported browser-scope references unless Safari extension support and tests are added.
+- [ ] Confirm `tests/fixtures/attacks/fontleak-bounded-ligature-unicode-range.css` keeps crafted-font coverage bounded and does not imply font-binary inspection.
 
 ## 1.0.72 Additional CSS Fingerprinting and Canary Compatibility Checks
 

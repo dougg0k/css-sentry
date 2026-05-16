@@ -1,0 +1,18 @@
+{
+  "description": "A Firefox-style n-character rendered-text probe uses width-bounded line wrapping, text transforms, ::first-line, and a remote unicode-range font. CSS Sentry reports bounded rendered-text/browser-specific indicators when the experimental guard is enabled.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.layout_overflow_signal",
+    "privacy.css_fingerprinting.rendered_text_signal",
+    "privacy.css_fingerprinting.pseudo_element_signal",
+    "privacy.css_fingerprinting.browser_specific_text_signal",
+    "sink.font_remote",
+    "sink.font_unicode_range_remote",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

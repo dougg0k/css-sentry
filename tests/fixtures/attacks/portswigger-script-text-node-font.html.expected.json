@@ -1,0 +1,16 @@
+{
+  "description": "CSS can make script text nodes renderable and apply a remote unicode-range font. CSS Sentry reports the observable text-node CSS signal when the experimental fingerprinting guard is enabled without claiming script-content extraction is universally preventable.",
+  "enableCssFingerprintingGuard": true,
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "privacy.css_fingerprinting.conditional_resource",
+    "privacy.css_fingerprinting.text_node_signal",
+    "sink.font_remote",
+    "sink.font_unicode_range_remote",
+    "sink.font_metric_side_channel",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}

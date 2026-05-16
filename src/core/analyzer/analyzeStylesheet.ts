@@ -37,7 +37,8 @@ export function analyzeStylesheet(input: AnalyzeStylesheetInput): AnalysisSummar
 		const budgetResilientFindings = analyzeParsedRules(securityCriticalRulesFromBudgetedParse(input, parseResult), maxFindings, startedAt, { enforceBudget: false, now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
 		return createPerformanceBudgetAnalysisSummary(input, startedAt, budgetResilientFindings, now);
 	}
-	const findings = analyzeParsedRules(parseResult.rules, maxFindings, startedAt, { now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
+	const rules = securityCriticalRulesSupplementedParse(input, parseResult.rules);
+	const findings = analyzeParsedRules(rules, maxFindings, startedAt, { now, enableCssFingerprintingGuard: input.enableCssFingerprintingGuard });
 	if (analysisBudgetExceeded(startedAt, now)) return createPerformanceBudgetAnalysisSummary(input, startedAt, findings, now);
 	return {
 		state: findings.some((finding) => finding.state !== "analysis.complete") ? "analysis.partial" : "analysis.complete",
@@ -56,7 +57,51 @@ function securityCriticalRulesFromBudgetedParse(input: AnalyzeStylesheetInput, p
 	const sourceRules = parseSecurityCriticalSourceRules(input);
 	const sourceNonImportRules = sourceRules.filter((rule) => rule.type !== "import");
 	if (sourceNonImportRules.length === 0) return importRulesFromBudgetedParse;
-	return [...importRulesFromBudgetedParse, ...sourceNonImportRules];
+	return appendMissingParsedRules(importRulesFromBudgetedParse, sourceNonImportRules);
+}
+
+function securityCriticalRulesSupplementedParse(input: AnalyzeStylesheetInput, parsedRules: ParsedCssRule[]): ParsedCssRule[] {
+	if (!shouldSupplementSecurityCriticalRules(input.cssText)) return parsedRules;
+	const sourceRules = parseSecurityCriticalSourceRules(input).filter((rule) => rule.type !== "import");
+	if (sourceRules.length === 0) return parsedRules;
+	return prioritizeSecurityCriticalParsedRules(parsedRules, sourceRules);
+}
+
+function shouldSupplementSecurityCriticalRules(cssText: string): boolean {
+	return cssText.includes("&")
+		&& /(?:url\s*\(|(?:-webkit-)?image-set\s*\(|\[(?:[^\]~|^$*=]+)\s*(?:\^=|\$=|\*=|=)|\b(?:attr|if|style|var)\s*\()/i.test(cssText);
+}
+
+function prioritizeSecurityCriticalParsedRules(baseRules: ParsedCssRule[], priorityRules: ParsedCssRule[]): ParsedCssRule[] {
+	const priorityKeys = new Set(priorityRules.map(parsedRuleIdentityKey));
+	const orderedPriorityRules = appendMissingParsedRules([], priorityRules);
+	const nonPriorityBaseRules = baseRules.filter((rule) => !priorityKeys.has(parsedRuleIdentityKey(rule)));
+	return orderedPriorityRules.length === 0 ? baseRules : [...orderedPriorityRules, ...nonPriorityBaseRules];
+}
+
+function appendMissingParsedRules(baseRules: ParsedCssRule[], candidateRules: ParsedCssRule[]): ParsedCssRule[] {
+	const ruleKeys = new Set(baseRules.map(parsedRuleIdentityKey));
+	const missingRules = candidateRules.filter((rule) => {
+		const key = parsedRuleIdentityKey(rule);
+		if (ruleKeys.has(key)) return false;
+		ruleKeys.add(key);
+		return true;
+	});
+	return missingRules.length === 0 ? baseRules : [...baseRules, ...missingRules];
+}
+
+function parsedRuleIdentityKey(rule: ParsedCssRule): string {
+	return JSON.stringify([
+		rule.type,
+		rule.selector,
+		rule.declarationsText,
+		rule.importValue ?? null,
+		rule.context.sourceKind,
+		rule.context.sourceUrl,
+		rule.context.pageUrl,
+		rule.context.frameUrl,
+		rule.context.atRuleStack,
+	]);
 }
 
 function createPerformanceBudgetAnalysisSummary(input: AnalyzeStylesheetInput, startedAt: number, findings: Finding[], now: Now): AnalysisSummary {

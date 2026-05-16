@@ -1,5 +1,5 @@
 import type { ExtensionMode, Finding } from "../../shared/types";
-import { findingHasReason, hasDeclarationDataProbeReason, hasFontSideChannelReason, hasSensitiveSelectorReason, hasSinkReason, hasSvgRemoteResourceSinkReason } from "../../shared/reasonGroups";
+import { findingHasReason, hasDeclarationDataProbeReason, hasFontSideChannelReason, hasHighConfidenceRenderedTextCssFingerprintingReason, hasSensitiveSelectorReason, hasSinkReason, hasSvgRemoteResourceSinkReason } from "../../shared/reasonGroups";
 
 const DNR_SEVERITY_PRIORITY = { info: 0, low: 1, medium: 2, high: 3, critical: 4 } as const;
 
@@ -16,6 +16,8 @@ export function compareDnrCandidatePriority(left: Finding, right: Finding): numb
   if (declarationProbeDelta !== 0) return declarationProbeDelta;
   const fontSideChannelDelta = Number(hasFontSideChannelReason(right)) - Number(hasFontSideChannelReason(left));
   if (fontSideChannelDelta !== 0) return fontSideChannelDelta;
+  const renderedTextFingerprintingDelta = Number(hasHighConfidenceRenderedTextCssFingerprintingReason(right)) - Number(hasHighConfidenceRenderedTextCssFingerprintingReason(left));
+  if (renderedTextFingerprintingDelta !== 0) return renderedTextFingerprintingDelta;
   return right.confidence - left.confidence;
 }
 
@@ -40,10 +42,11 @@ export function isFindingDnrBlockCandidate(finding: Finding, mode: ExtensionMode
 
 function isStrictDnrBlockCandidate(finding: Finding): boolean {
   if (!hasSinkReason(finding) && !findingHasReason(finding, "url.local_network")) return false;
-  if (findingHasReason(finding, "sink.font_remote") && !hasSensitiveSelectorReason(finding)) return false;
+  if (findingHasReason(finding, "sink.font_remote") && !hasSensitiveSelectorReason(finding) && !hasHighConfidenceRenderedTextCssFingerprintingReason(finding)) return false;
   if (hasSensitiveSelectorReason(finding)) return true;
   if (hasDeclarationDataProbeReason(finding)) return true;
   if (hasFontSideChannelReason(finding)) return true;
+  if (hasHighConfidenceRenderedTextCssFingerprintingReason(finding)) return true;
   if (hasSvgRemoteResourceSinkReason(finding)) return true;
   if (findingHasReason(finding, "sink.import_remote")) return true;
   if (findingHasReason(finding, "url.local_network")) return true;
@@ -51,12 +54,13 @@ function isStrictDnrBlockCandidate(finding: Finding): boolean {
 }
 
 function isBalancedDnrBlockCandidate(finding: Finding): boolean {
-  if (findingHasReason(finding, "sink.font_remote") && !hasSensitiveSelectorReason(finding)) return false;
+  if (findingHasReason(finding, "sink.font_remote") && !hasSensitiveSelectorReason(finding) && !hasHighConfidenceRenderedTextCssFingerprintingReason(finding)) return false;
   if (!hasSinkReason(finding) && !findingHasReason(finding, "url.local_network")) return false;
   if (findingHasReason(finding, "url.local_network")) return true;
   if (hasSensitiveSelectorReason(finding)) return true;
   if (hasDeclarationDataProbeReason(finding)) return true;
   if (hasFontSideChannelReason(finding) && findingHasReason(finding, "url.cross_origin")) return true;
+  if (hasHighConfidenceRenderedTextCssFingerprintingReason(finding) && findingHasReason(finding, "url.cross_origin")) return true;
   if (findingHasReason(finding, "sink.import_remote") && findingHasReason(finding, "url.cross_origin")) return true;
   if (hasSvgRemoteResourceSinkReason(finding) && findingHasReason(finding, "url.cross_origin")) return true;
   return false;

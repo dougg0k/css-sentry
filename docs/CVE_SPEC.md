@@ -1,6 +1,6 @@
 # CSS Sentry — CVE_SPEC.md
 
-Last Updated: 2026/05/15 14:18:44 -03
+Last Updated: 2026/05/15 23:13:42 -03
 
 ## Purpose
 
@@ -579,6 +579,19 @@ Cascading Spy Sheets-style techniques are related because they use CSS features 
 `1.0.72` adds the first experimental coverage boundary: when the advanced `enableCssFingerprintingGuard` setting is enabled, CSS Sentry reports selected conditional CSS-triggered remote resources through `privacy.css_fingerprinting.*` reason codes. Initial executable coverage includes `@media print` and `@page` remote-resource fixtures. The findings are privacy indicators and remain separate from selector/value exfiltration findings.
 
 Future Cascading Spy Sheets-derived fixtures should be added only when the technique produces a browser-visible CSS remote-resource signal or another observable CSS behavior that CSS Sentry can inspect without claiming broad anti-fingerprinting protection. Pure environment inference without an observable request path, visual deception, phishing page cloning, and browser-engine behavior outside extension control remain out of scope unless a specific browser-visible CSS request path is identified.
+
+
+### PortSwigger rendered-text, layout, and browser-specific CSS side channels
+
+Disposition: In-scope as bounded experimental indicator coverage, with unsupported browser quirks documented separately.
+
+The PortSwigger CSS exfiltration corpus includes rendered-text and layout-side-channel families such as `::first-line`, `::first-letter`, overflow/scroll detection, Firefox n-character and reversed-text extraction, script/text-node rendering, and Safari-specific text extraction techniques. These classes are broader than selector/value CSS exfiltration because some depend on browser layout, pseudo-element behavior, font metrics, text transforms, bidirectional text, or rendered text nodes rather than direct attribute selectors.
+
+`1.0.73` adds executable fixture coverage for the supported browser-observable parts: rendered-text pseudo-elements, overflow and scroll-state layout probes, script/text-node rendering with remote fonts, Firefox-style n-character and reversed-text patterns, and an additional bounded ligature/unicode-range Fontleak fixture. These findings use `privacy.css_fingerprinting.*` reason codes when they are privacy indicators and retain existing Fontleak reason codes when the CSS also contains modeled remote-font side-channel evidence.
+
+`1.0.74` corrects the enforcement boundary for this coverage. Scroll-state probes keep their `privacy.css_fingerprinting.scroll_signal` when the guard is enabled. High-confidence rendered-text, browser-specific text, and script/text-node remote-font findings can become finding-derived request-rule candidates through the same shared DNR eligibility authority used for other high-confidence findings. Print, `@page`, media-query, and scroll-only indicators remain report-oriented unless additional modeled exfiltration evidence exists.
+
+Safari-specific cases remain tracked as unsupported browser quirks. CSS Sentry currently targets modern Chromium/Chrome and Firefox extension runtimes; it must not claim Safari extension coverage or full SVG-font exploit prevention from references that require Safari-specific behavior.
 
 ### Defensive CSS honeytokens and cloned-site canary callbacks
 

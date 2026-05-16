@@ -33,7 +33,8 @@ export function hasFontSideChannelContextForRule(
 	if (!context.hasRemoteFontFace) return false;
 	if (hasContainerQueryContext && (context.hasRemoteFontMeasurementSetup || context.hasGeneratedContentFontProbe || context.hasFontImportChain)) return true;
 	if (hasKeyframesContext && (context.hasFontAnimationChain || context.hasGeneratedContentFontProbe || context.hasRemoteFontMeasurementSetup)) return true;
-	if ((rule.selector.includes("::before") || rule.selector.includes("::after")) && context.hasGeneratedContentFontProbe) return true;
+	if (isGeneratedContentSelector(rule.selector) && (context.hasGeneratedContentFontProbe || context.hasRemoteFontMeasurementSetup)) return true;
+	if (isTextBearingLeakSelector(rule.selector) && context.hasRemoteFontMeasurementSetup) return true;
 	return false;
 }
 

@@ -1,0 +1,17 @@
+{
+  "description": "Bounded Fontleak-style fixture for remote unicode-range fonts, active ligature features, generated content, and container-size request signaling. This proves indicator coverage while preserving the documented limitation that CSS Sentry does not inspect crafted font binaries.",
+  "minActionableFindings": 1,
+  "severityAtLeast": "high",
+  "requiredReasons": [
+    "css.font_ligature_feature",
+    "css.font_generated_content_probe",
+    "css.font_measurement_setup",
+    "css.container_query",
+    "css.container_size_query",
+    "sink.font_metric_side_channel",
+    "sink.inline_remote_url",
+    "url.cross_origin"
+  ],
+  "requiredDestinationOrigins": ["https://attacker.example"],
+  "mustBeBlockCandidate": true
+}
