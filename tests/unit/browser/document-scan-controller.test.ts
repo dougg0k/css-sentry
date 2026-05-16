@@ -73,4 +73,31 @@ describe("document scan controller", () => {
     triggerAttributeMutation();
     expect(scheduler.schedule).toHaveBeenCalledTimes(1);
   });
+
+  it("publishes a bounded partial summary when scanning throws", () => {
+    const document = window.document;
+    const applyContentNeutralization = vi.fn((_document, nextSummary: AnalysisSummary) => ({ summary: nextSummary }));
+    const sendScanComplete = vi.fn();
+    const observer = { observe: vi.fn(), disconnect: vi.fn() };
+
+    const controller = createDocumentScanController({
+      document,
+      windowTarget: window,
+      policy: DEFAULT_SITE_POLICY,
+      mode: "balanced",
+      scanDocument: () => { throw new Error("scanner recursion guard fixture"); },
+      applyContentNeutralization,
+      sendScanComplete,
+      createMutationObserver: () => observer,
+    });
+
+    expect(() => controller.start()).not.toThrow();
+    const fallbackSummary = sendScanComplete.mock.calls[0][0] as AnalysisSummary;
+
+    expect(fallbackSummary.state).toBe("analysis.skipped.performance_budget");
+    expect(fallbackSummary.partialStylesheets).toBe(1);
+    expect(fallbackSummary.findings[0]?.details).toContain("runtime error");
+    expect(controller.getLastSummary()).toBe(fallbackSummary);
+  });
+
 });

@@ -1,6 +1,12 @@
 # Release Notes
 
-Last Updated: 2026/05/16 17:02:07 -03
+Last Updated: 2026/05/16 17:42:32 -03
+
+## 1.0.83
+
+- Fixed the public Test Lab scanner recursion failure observed after Start selected checks by removing recursive-prone global replacement from CSS text normalization, bounding generated selector redaction before regex redaction, and converting runtime scanner exceptions into bounded partial summaries instead of uncaught repeated content-script errors.
+- Kept the large stylesheet resilience case available, but removed it from the default selected run so the baseline Test Lab path no longer starts with a stress fixture.
+- Added regression coverage for bounded scanner failure handling, large selector redaction, iterative CSS comment stripping/unescaping, and the default selected-case boundary.
 
 ## 1.0.82
 

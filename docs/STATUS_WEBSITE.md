@@ -1,7 +1,7 @@
 # CSS Sentry Website Coverage Status
 
-**Status document version:** 1.0.82
-**Website package audited:** `website/` from `css_sentry_1.0.82`
+**Status document version:** 1.0.83
+**Website package audited:** `website/` from `css_sentry_1.0.83`
 **Target deployment model:** Astro static/prerendered pages with dynamic Cloudflare Worker endpoints through the Astro Cloudflare adapter
 **Deployment shape:** static pages plus dynamic endpoints
 **Audience:** maintainers, release reviewers, security reviewers, and future website implementers
@@ -75,6 +75,17 @@ The scan event reports sanitized mode, analysis state, finding counts, reason co
 Public Cloudflare Worker deployments using the `css-sentry-test-lab.*.workers.dev` origin pattern can receive the same sanitized diagnostic bridge as localhost. Other public origins remain manual-confirmation-only unless a future release adds an explicit allowlist entry.
 
 The website coverage data was expanded to include exact, prefix, suffix, substring, repeated-probe, `:has()`, `background-image`, `mask-image`, `image-set()`, `@import`, `@supports`, `@media`, nested CSS, `@layer`, large late selector, large import representation, custom property URL, `var()` fallback, attr/if representation, remote font, and font measurement/container indicators. Coverage is documented as behavior completion, not as a separate route named matrix.
+
+## 2.4 1.0.83 Public Test Lab Runtime Recursion Correction
+
+`1.0.83` fixes the public Firefox release-runtime failure where clicking Start selected checks could produce repeated `InternalError: too much recursion` exceptions from the content script. The correction is split across the extension scanner and the website runner boundary:
+
+1. CSS comment stripping and CSS unescaping now use explicit iterative scanners instead of global regular-expression replacement in hot stylesheet analysis paths.
+2. Privacy redaction now bounds generated selector text before applying redaction regular expressions, preserving the existing output cap while avoiding unbounded generated selector processing.
+3. The document scan controller converts scanner runtime exceptions into a bounded partial-analysis summary so the content script can report a controlled partial state rather than repeatedly throwing.
+4. The large stylesheet resilience case remains available, but it is no longer part of the default selected Test Lab run. Users can still select it directly or use Run all checks for stress validation after the baseline path works.
+
+This keeps the Test Lab's large-stylesheet coverage intact without making the first public Start selected checks action depend on the stress fixture.
 
 ## 3. Deployment and Abuse-Control Model
 

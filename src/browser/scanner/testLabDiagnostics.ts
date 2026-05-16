@@ -2,8 +2,13 @@ import type { AnalysisSummary, ExtensionMode, MitigationAction, ReasonCode, Scan
 
 const TEST_LAB_MARKER_SELECTOR = 'meta[name="css-sentry-test-lab"][content="v1"]';
 const LOCAL_TEST_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
+const CLOUDFLARE_WORKER_TEST_LAB_PREFIX = "css-sentry-test-lab.";
+const CLOUDFLARE_WORKER_TEST_LAB_SUFFIX = ".workers.dev";
 const SCAN_DIAGNOSTIC_EVENT_NAME = "css-sentry:test-lab-scan";
 const REPORT_DIAGNOSTIC_EVENT_NAME = "css-sentry:test-lab-report";
+const SCAN_DIAGNOSTIC_ATTRIBUTE = "data-css-sentry-test-lab-scan";
+const REPORT_DIAGNOSTIC_ATTRIBUTE = "data-css-sentry-test-lab-report";
+const DIAGNOSTIC_MESSAGE_SOURCE = "css-sentry-test-lab";
 
 export interface TestLabScanDiagnosticDetail {
   readonly version: 1;
@@ -16,6 +21,8 @@ export interface TestLabScanDiagnosticDetail {
   readonly actions: MitigationAction[];
   readonly partialStylesheets: number;
   readonly partialFrames: number;
+  readonly scanSkipped?: boolean;
+  readonly scanSkippedReason?: "mode.scan_disabled";
 }
 
 export interface TestLabReportDiagnosticDetail {
@@ -33,8 +40,8 @@ export function publishTestLabDiagnostic(documentRef: Document, summary: Analysi
   publishTestLabScanDiagnostic(documentRef, summary, mode);
 }
 
-export function publishTestLabScanDiagnostic(documentRef: Document, summary: AnalysisSummary, mode: ExtensionMode): void {
-  if (!isTestLabDiagnosticAllowed(documentRef)) return;
+export function publishTestLabScanDiagnostic(documentRef: Document, summary: AnalysisSummary, mode: ExtensionMode): boolean {
+  if (!isTestLabDiagnosticAllowed(documentRef)) return false;
   const detail: TestLabScanDiagnosticDetail = {
     version: 1,
     connected: true,
@@ -44,23 +51,50 @@ export function publishTestLabScanDiagnostic(documentRef: Document, summary: Ana
     partialStylesheets: summary.partialStylesheets,
     partialFrames: summary.partialFrames,
   };
-  dispatchDiagnostic(documentRef, SCAN_DIAGNOSTIC_EVENT_NAME, detail);
+  return dispatchDiagnostic(documentRef, SCAN_DIAGNOSTIC_EVENT_NAME, SCAN_DIAGNOSTIC_ATTRIBUTE, detail);
 }
 
-export function publishTestLabReportDiagnostic(documentRef: Document, response: unknown): void {
-  if (!isTestLabDiagnosticAllowed(documentRef)) return;
+export function publishTestLabScanDisabledDiagnostic(documentRef: Document, mode: ExtensionMode): boolean {
+  if (!isTestLabDiagnosticAllowed(documentRef)) return false;
+  const detail: TestLabScanDiagnosticDetail = {
+    version: 1,
+    connected: true,
+    state: "analysis.complete",
+    mode,
+    findingCount: 0,
+    actionableFindingCount: 0,
+    reasons: [],
+    actions: [],
+    partialStylesheets: 0,
+    partialFrames: 0,
+    scanSkipped: true,
+    scanSkippedReason: "mode.scan_disabled",
+  };
+  return dispatchDiagnostic(documentRef, SCAN_DIAGNOSTIC_EVENT_NAME, SCAN_DIAGNOSTIC_ATTRIBUTE, detail);
+}
+
+export function publishTestLabReportDiagnostic(documentRef: Document, response: unknown): boolean {
+  if (!isTestLabDiagnosticAllowed(documentRef)) return false;
   const detail = normalizeReportResponse(response);
-  dispatchDiagnostic(documentRef, REPORT_DIAGNOSTIC_EVENT_NAME, detail);
+  return dispatchDiagnostic(documentRef, REPORT_DIAGNOSTIC_EVENT_NAME, REPORT_DIAGNOSTIC_ATTRIBUTE, detail);
 }
 
 export function isTestLabDiagnosticAllowed(documentRef: Document): boolean {
   if (!documentRef.querySelector(TEST_LAB_MARKER_SELECTOR)) return false;
   try {
     const url = new URL(documentRef.location.href);
-    return (url.protocol === "http:" || url.protocol === "https:") && LOCAL_TEST_HOSTS.has(url.hostname);
+    return (url.protocol === "http:" || url.protocol === "https:") && isAllowedTestLabHost(url.hostname);
   } catch {
     return false;
   }
+}
+
+function isAllowedTestLabHost(hostname: string): boolean {
+  return LOCAL_TEST_HOSTS.has(hostname) || isCloudflareWorkerTestLabHost(hostname);
+}
+
+function isCloudflareWorkerTestLabHost(hostname: string): boolean {
+  return hostname.startsWith(CLOUDFLARE_WORKER_TEST_LAB_PREFIX) && hostname.endsWith(CLOUDFLARE_WORKER_TEST_LAB_SUFFIX);
 }
 
 function summaryDiagnostic(summary: AnalysisSummary): Pick<TestLabScanDiagnosticDetail, "findingCount" | "actionableFindingCount" | "reasons" | "actions"> {
@@ -118,6 +152,29 @@ function isScanCompleteResponse(value: unknown): value is ScanCompleteResponse {
     && Array.isArray(candidate.actions);
 }
 
-function dispatchDiagnostic(documentRef: Document, eventName: string, detail: TestLabScanDiagnosticDetail | TestLabReportDiagnosticDetail): void {
-  documentRef.documentElement.dispatchEvent(new CustomEvent<string>(eventName, { detail: JSON.stringify(detail) }));
+function dispatchDiagnostic(documentRef: Document, eventName: string, attributeName: string, detail: TestLabScanDiagnosticDetail | TestLabReportDiagnosticDetail): boolean {
+  const target = documentRef.documentElement;
+  if (!target) return false;
+  const serializedDetail = JSON.stringify(detail);
+  target.setAttribute(attributeName, serializedDetail);
+  target.dispatchEvent(new CustomEvent<string>(eventName, { detail: serializedDetail }));
+  postDiagnosticMessage(documentRef, eventName, serializedDetail);
+  return true;
+}
+
+function postDiagnosticMessage(documentRef: Document, eventName: string, serializedDetail: string): void {
+  try {
+    const windowTarget = documentRef.defaultView;
+    if (!windowTarget) return;
+    windowTarget.postMessage(
+      {
+        source: DIAGNOSTIC_MESSAGE_SOURCE,
+        eventName,
+        detail: serializedDetail,
+      },
+      documentRef.location.origin,
+    );
+  } catch {
+    // The diagnostic attribute and DOM event already expose the sanitized local signal.
+  }
 }

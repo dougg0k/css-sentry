@@ -215,6 +215,8 @@ describe("project structure", () => {
     expect(controllerText).toContain("createDebouncedScanScheduler");
     expect(controllerText).toContain("shouldScheduleRescanForMutations");
     expect(controllerText).toContain("RESCAN_ATTRIBUTE_FILTER");
+    expect(controllerText).toContain("scanDocumentSafely");
+    expect(controllerText).toContain("createPerformanceBudgetSummary");
     expect(schedulerText).toContain("RESCAN_TRIGGER_SELECTOR");
     expect(schedulerText).toContain("iframe[src]");
     expect(schedulerText).toContain('"src"');

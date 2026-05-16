@@ -626,7 +626,7 @@ export const TEST_CASES = [
     category: "large stylesheet resilience",
     riskClass: "large stylesheet late selector probe",
     status: "live",
-    defaultEnabled: true,
+    defaultEnabled: false,
     title: "Large stylesheet late-rule check",
     shortTitle: "Large stylesheet",
     question: "Can CSS Sentry still notice a risky selector near the end of a large stylesheet?",

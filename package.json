@@ -2,7 +2,7 @@
 	"name": "css-sentry",
 	"description": "Browser extension for detecting and reducing CSS-based data exfiltration risk.",
 	"private": true,
-	"version": "1.0.82",
+	"version": "1.0.83",
 	"type": "module",
 	"scripts": {
 		"dev": "wxt",

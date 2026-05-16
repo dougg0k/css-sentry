@@ -7,9 +7,10 @@ const TOKEN_IN_TEXT_RE = /\b[A-Za-z0-9+/_=-]{24,}\b/g;
 const ATTRIBUTE_VALUE_RE = /\[\s*([^\]\s~|^$*=]+)\s*(\^=|\$=|\*=|~=|\|=|=)\s*((?:"(?:\\.|[^"])*")|(?:'(?:\\.|[^'])*')|[^\]\s]+)(\s*[is])?\s*\]/gi;
 const ASSIGNMENT_RE = /\b(csrf|xsrf|token|nonce|secret|password|passwd|pwd|session|auth|api[-_]?key|access[-_]?key|bearer|oauth|jwt|credential|anti[-_]?forgery|state|code)([\w-]*)(\s*[=:]\s*)([^\s;,'")\]]+)/gi;
 const URL_RE = /https?:\/\/[^\s"'<>`]+/gi;
+const REDACTION_SCAN_MARGIN = 512;
 
 export function redactSensitiveText(value: string, max = 96): string {
-  const compact = value.replace(/\s+/g, " ").trim();
+  const compact = collapseWhitespace(limitRedactionInput(value, max));
   const redactedAttributes = compact.replace(ATTRIBUTE_VALUE_RE, (match, rawName: string, operator: string, rawValue: string, flags: string = "") => {
     const name = cssUnescape(rawName).toLowerCase();
     const unquotedValue = unquoteCssString(String(rawValue));
@@ -36,11 +37,11 @@ export function redactSensitiveUrl(value: string | null | undefined): string | n
       for (const [key, paramValue] of [...params.entries()]) {
         params.set(key, shouldRedactValue(key, paramValue) || paramValue.length > 0 ? "[redacted]" : paramValue);
       }
-      const serialized = params.toString().replace(/%5Bredacted%5D/g, "[redacted]");
+      const serialized = replaceAllLiteral(params.toString(), "%5Bredacted%5D", "[redacted]");
       url.search = serialized ? `?${serialized}` : "";
     }
     if (url.hash) url.hash = "#[redacted]";
-    return url.toString().replace(/%5Bredacted%5D/g, "[redacted]");
+    return replaceAllLiteral(url.toString(), "%5Bredacted%5D", "[redacted]");
   } catch {
     return redactSensitiveText(value, 180);
   }
@@ -78,6 +79,40 @@ export function sanitizeStoredReportForExport(report: StoredTabReport): StoredTa
     summary: sanitizeSummaryForStorage(report.summary),
     frames: report.frames.map(sanitizeFrameReportForStorage)
   };
+}
+
+
+function limitRedactionInput(value: string, max: number): string {
+  const limit = Math.max(max + REDACTION_SCAN_MARGIN, max);
+  return value.length > limit ? value.slice(0, limit) : value;
+}
+
+function collapseWhitespace(value: string): string {
+  let output = "";
+  let pendingSpace = false;
+  let started = false;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? "";
+    if (isWhitespace(char)) {
+      if (started) pendingSpace = true;
+      continue;
+    }
+    if (pendingSpace) output += " ";
+    output += char;
+    started = true;
+    pendingSpace = false;
+  }
+
+  return output;
+}
+
+function isWhitespace(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f" || char === "\v";
+}
+
+function replaceAllLiteral(value: string, search: string, replacement: string): string {
+  return value.split(search).join(replacement);
 }
 
 function redactPathSegment(segment: string): string {

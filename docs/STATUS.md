@@ -1,8 +1,19 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/16 17:02:07 -03
+Last Updated: 2026/05/16 17:42:32 -03
 
-**Status document version:** 1.0.82
+**Status document version:** 1.0.83
+
+## 1.0.83 Status Update
+
+`1.0.83` corrects the Firefox release-runtime recursion failure observed on the deployed Test Lab after clicking Start selected checks. The failure manifested as repeated `InternalError: too much recursion` exceptions from the minified content script while the page was injecting and scanning the selected controlled CSS. The fix removes recursive-prone global replacement from CSS comment stripping and CSS unescaping, bounds generated selector text before privacy redaction regexes run, and wraps the document scanner boundary so a runtime scanner exception becomes a bounded partial-analysis summary instead of an uncaught repeated content-script failure.
+
+The Test Lab default selected run now excludes the large stylesheet stress fixture. The case remains available through manual selection and Run all checks, but the baseline Start selected checks flow now starts from ordinary detector coverage instead of including a large generated stylesheet by default.
+
+Regression coverage was added for the scanner failure boundary, iterative CSS text helpers, bounded large-selector redaction, and the default selected-case boundary.
+
+**Package audited:** `css_sentry_1.0.83`
+**Audit timestamp:** 2026/05/16 17:42:32 -03 (`America/Sao_Paulo`)
 
 ## 1.0.82 Status Update
 

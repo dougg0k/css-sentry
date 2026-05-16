@@ -1,5 +1,26 @@
 export function stripCssComments(value: string): string {
-  return value.replace(/\/\*[\s\S]*?\*\//g, "");
+  let output = "";
+  let index = 0;
+  let segmentStart = 0;
+
+  while (index < value.length) {
+    if (value[index] !== "/" || value[index + 1] !== "*") {
+      index += 1;
+      continue;
+    }
+
+    output += value.slice(segmentStart, index);
+    index += 2;
+
+    while (index < value.length && !(value[index] === "*" && value[index + 1] === "/")) {
+      index += 1;
+    }
+
+    index = index < value.length ? index + 2 : value.length;
+    segmentStart = index;
+  }
+
+  return output.length === 0 && segmentStart === 0 ? value : output + value.slice(segmentStart);
 }
 
 export function splitTopLevel(value: string, delimiter: string): string[] {
@@ -41,12 +62,55 @@ export function unquoteCssString(value: string): string {
 }
 
 export function cssUnescape(value: string): string {
-  return value.replace(/\\([0-9a-fA-F]{1,6}\s?|.)/g, (_match, escaped: string) => {
-    const hex = /^[0-9a-fA-F]/.test(escaped);
-    if (!hex) return escaped;
-    const code = Number.parseInt(escaped.trim(), 16);
-    if (!Number.isFinite(code) || code === 0) return "\uFFFD";
-    try { return String.fromCodePoint(code); } catch { return "\uFFFD"; }
-  });
+  let output = "";
+  let segmentStart = 0;
+  let index = 0;
+
+  while (index < value.length) {
+    if (value[index] !== "\\") {
+      index += 1;
+      continue;
+    }
+
+    output += value.slice(segmentStart, index);
+    index += 1;
+
+    if (index >= value.length) {
+      segmentStart = index;
+      break;
+    }
+
+    const hexStart = index;
+    while (index < value.length && index - hexStart < 6 && isHexDigit(value[index] ?? "")) {
+      index += 1;
+    }
+
+    if (index > hexStart) {
+      const rawHex = value.slice(hexStart, index);
+      if (index < value.length && isCssEscapeWhitespace(value[index] ?? "")) index += 1;
+      const code = Number.parseInt(rawHex, 16);
+      output += Number.isFinite(code) && code !== 0 ? codePointToString(code) : "\uFFFD";
+      segmentStart = index;
+      continue;
+    }
+
+    output += value[index] ?? "";
+    index += 1;
+    segmentStart = index;
+  }
+
+  return output.length === 0 && segmentStart === 0 ? value : output + value.slice(segmentStart);
 }
 
+function isHexDigit(char: string): boolean {
+  const code = char.charCodeAt(0);
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 70) || (code >= 97 && code <= 102);
+}
+
+function isCssEscapeWhitespace(char: string): boolean {
+  return char === " " || char === "\t" || char === "\n" || char === "\r" || char === "\f";
+}
+
+function codePointToString(code: number): string {
+  try { return String.fromCodePoint(code); } catch { return "\uFFFD"; }
+}

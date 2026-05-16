@@ -1,11 +1,16 @@
 import { defineContentScript } from "wxt/utils/define-content-script";
 import { browser } from "wxt/browser";
 import { effectiveModeForUrl, shouldScan } from "../core/policy/mode";
+import type { ExtensionMode } from "../shared/types";
 import { getSitePolicy } from "../browser/storage/reports";
 import { scanDocument } from "../browser/scanner/scanDocument";
 import { applyContentNeutralization } from "../browser/scanner/contentNeutralization";
 import { createDocumentScanController } from "../browser/scanner/documentScanController";
-import { publishTestLabReportDiagnostic, publishTestLabScanDiagnostic } from "../browser/scanner/testLabDiagnostics";
+import {
+  publishTestLabReportDiagnostic,
+  publishTestLabScanDiagnostic,
+  publishTestLabScanDisabledDiagnostic,
+} from "../browser/scanner/testLabDiagnostics";
 
 export default defineContentScript({
   matches: ["<all_urls>"],
@@ -14,7 +19,10 @@ export default defineContentScript({
   async main() {
     const policy = await getSitePolicy();
     const mode = effectiveModeForUrl(location.href, policy);
-    if (!shouldScan(mode)) return;
+    if (!shouldScan(mode)) {
+      publishScanDisabledDiagnosticAtReadyBoundaries(document, window, mode);
+      return;
+    }
 
     createDocumentScanController({
       document,
@@ -39,3 +47,22 @@ export default defineContentScript({
     }).start();
   },
 });
+
+function publishScanDisabledDiagnosticAtReadyBoundaries(
+  documentRef: Document,
+  windowTarget: Window,
+  mode: ExtensionMode,
+): void {
+  let published = publishTestLabScanDisabledDiagnostic(documentRef, mode);
+  if (published || documentRef.readyState === "complete") return;
+
+  const publishIfNeeded = (): void => {
+    if (published) return;
+    published = publishTestLabScanDisabledDiagnostic(documentRef, mode);
+  };
+
+  if (documentRef.readyState === "loading") {
+    documentRef.addEventListener("DOMContentLoaded", publishIfNeeded, { once: true });
+  }
+  windowTarget.addEventListener("load", publishIfNeeded, { once: true });
+}

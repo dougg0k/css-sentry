@@ -69,4 +69,15 @@ describe("privacy redaction", () => {
     expect(serialized).toContain("https://attacker.example");
     expect(serialized).toContain("[redacted]");
   });
+
+  it("keeps large generated selectors bounded before regex redaction", () => {
+    const selector = `input[name="csrf_token"][value^="${SECRET}"] ${".generated-fixture ".repeat(5000)}`;
+    const redacted = redactSensitiveText(selector, 140);
+
+    expect(redacted.length).toBeLessThanOrEqual(140);
+    expect(redacted).toContain("csrf_token");
+    expect(redacted).toContain('[value^="[redacted]"]');
+    expect(redacted).not.toContain(SECRET);
+  });
+
 });

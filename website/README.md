@@ -28,7 +28,7 @@ The website depends on workspace inclusion. If `pnpm install` reports everything
 
 ## Live session behavior
 
-Starting selected checks creates a short-lived session, records the selected allowlisted cases in the URL with browser history, injects controlled CSS for that session without refreshing the page, and then polls the result endpoint. Direct session URLs still use the `initial-test-style` stylesheet path for reruns and shared links. This preserves live endpoint verification while avoiding server-rendering the normal website pages.
+Starting selected checks creates a short-lived session, records the selected allowlisted cases in the URL with browser history, injects controlled CSS for that session without refreshing the page, and then polls the result endpoint. The default selected run intentionally excludes the large stylesheet stress case; select that case directly or use Run all checks after the baseline scan path works. Direct session URLs still use the `initial-test-style` stylesheet path for reruns and shared links. This preserves live endpoint verification while avoiding server-rendering the normal website pages.
 
 After the reload, each guided check shows fake data, the CSS rule, the controlled request path, endpoint state, manual CSS Sentry confirmation controls, and mode-aware interpretation. Users should compare both signals:
 
@@ -40,30 +40,3 @@ After the reload, each guided check shows fake data, the CSS rule, the controlle
 Endpoint results are not a standalone safe/unsafe verdict. Passive, Trusted, and Paused modes can legitimately allow requests, and browser timing or other extensions can affect whether a resource reaches the endpoint before mitigation applies.
 
 Diagnostic events are restricted to supported Test Lab origins. Localhost is supported for development, and the public Cloudflare Worker Test Lab is supported when deployed under the `css-sentry-test-lab.*.workers.dev` origin pattern. Other public origins can still run endpoint checks, but they rely on manual CSS Sentry popup/report confirmation.
-
-## Cloudflare Workers deployment model
-
-This website keeps normal pages prerendered/static and uses the Cloudflare adapter only for on-demand routes. Dynamic endpoints handle session creation, selected controlled CSS generation, controlled resource hits, result reads, import probes, and reset behavior.
-
-The deployment workflow is stored under `../.github/workflows/website-cloudflare.yml`. It builds the workspace website package and deploys the Worker from the `website` directory when Cloudflare secrets and deployment settings are configured.
-
-Required GitHub secrets after enabling the workflow:
-
-```text
-CLOUDFLARE_ACCOUNT_ID
-CLOUDFLARE_API_TOKEN
-```
-
-Optional Worker secret for Turnstile validation:
-
-```text
-TURNSTILE_SECRET_KEY
-```
-
-The session endpoint imports Worker environment bindings from `cloudflare:workers`, matching the current Astro Cloudflare adapter runtime model. It must not read `Astro.locals.runtime`, because that API was removed in the Astro 6 / adapter v13 line.
-
-## Abuse-control boundary
-
-Application code validates known test cases and short-lived session identifiers. Public deployment still needs Cloudflare WAF/rate-limiting rules for `/api/session.json`, `/api/hit/*`, and `/api/result/*`.
-
-Turnstile belongs on session creation. Do not put an interactive challenge directly on CSS resource hit endpoints, because those requests are made as stylesheet-triggered resources rather than user-submitted forms. The remote-font representation uses a dedicated `.woff2` hit endpoint so the request path matches the resource type being tested. The complete website overhaul model is tracked in `../docs/website/TEST_LAB_OVERHAUL_PLAN.md`.

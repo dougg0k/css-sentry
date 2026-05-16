@@ -12,9 +12,6 @@ CSS Sentry is not a fork of [CSS Exfil Protection](https://github.com/mlgualtier
 > [!NOTE]
 > This project was built entirely with AI. Built within a day.
 
-> [!IMPORTANT]
-> Moving forward, the project will only do bugfixes (if needed) or handle recently discovered CVEs (if reported).
-
 ## What CSS Sentry Does
 
 CSS Sentry looks for risky CSS patterns where a stylesheet combines:
@@ -514,15 +511,6 @@ The detailed project documents under `docs/` are part of CSS Sentry's safety and
 The project keeps implementation status, future-watch items, avoided features, and limitations in `docs/STATUS.md`. CVE-derived coverage and adjacent/out-of-scope advisory triage live in `docs/CVE_SPEC.md`.
 
 Recent search-driven coverage includes mixed-case `data:text/css` stylesheet links and escaped CSS `@import` sanitizer-bypass classes. Adjacent JavaScript-only SVG/XSS and browser-engine memory-corruption CVEs are documented as limitations or non-goals rather than implemented as CSS Sentry features.
-
-## Documentation and publication assets
-
-Documentation and store-readiness assets live under `docs/` when they are part of project tracking rather than runtime extension code. Current badge/logo assets are:
-
-- `docs/chrome-extension-logo.png`
-- `docs/firefox-addon-logo.svg`
-
-These assets do not mean public store submission is required for source-package releases. Store screenshots, store copy, and actual Chrome Web Store / Firefox Add-ons submissions remain publication tasks, not runtime implementation requirements.
 
 ## Adjacent vulnerability scope
 

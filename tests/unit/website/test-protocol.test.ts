@@ -50,4 +50,9 @@ describe("website test protocol", () => {
 
     expect(visibleCssForTestCase("custom-property-sink", TEST_SESSION_ID, TEST_ORIGIN)).toContain(expected);
   });
+
+  it("keeps large stress cases out of the default selected run", () => {
+    expect(parseRequestedCaseList(null)).not.toContain("large-stylesheet");
+  });
+
 });

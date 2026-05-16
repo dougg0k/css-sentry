@@ -1,4 +1,5 @@
 import { RESCAN_ATTRIBUTE_FILTER, createDebouncedScanScheduler, shouldScheduleRescanForMutations, type ScanScheduler } from "./documentScanScheduler";
+import { createPerformanceBudgetSummary } from "./coverageSummary";
 import type { AnalysisSummary, ExtensionMode, SitePolicy } from "../../shared/types";
 
 type ContentNeutralizationResult = { summary: AnalysisSummary };
@@ -41,10 +42,24 @@ export function createDocumentScanController(options: DocumentScanControllerOpti
 
   function scanNow(): AnalysisSummary | null {
     if (disposed) return lastSummary;
-    const scannedSummary = options.scanDocument(options.document, options.policy);
+    const scannedSummary = scanDocumentSafely();
     lastSummary = options.applyContentNeutralization(options.document, scannedSummary, options.policy, options.mode).summary;
     void options.sendScanComplete(lastSummary);
     return lastSummary;
+  }
+
+  function scanDocumentSafely(): AnalysisSummary {
+    try {
+      return options.scanDocument(options.document, options.policy);
+    } catch {
+      const pageUrl = options.document.location.href;
+      return createPerformanceBudgetSummary(
+        pageUrl,
+        pageUrl,
+        pageUrl,
+        "Document scan stopped after a runtime error while analyzing stylesheet content.",
+      );
+    }
   }
 
   function onMutations(mutations: MutationRecord[]): void {

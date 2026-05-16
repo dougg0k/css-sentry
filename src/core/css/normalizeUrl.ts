@@ -1,5 +1,5 @@
 import type { CssUrlAnalysis } from "../../shared/types";
-import { cssUnescape, unquoteCssString } from "./text";
+import { cssUnescape, stripCssComments, unquoteCssString } from "./text";
 
 const URL_FUNCTION_RE = /url\(\s*((?:"(?:\\.|[^"])*")|(?:'(?:\\.|[^'])*')|(?:\\.|[^)])*)\s*\)/gim;
 const IMAGE_SET_FUNCTION_RE = /(?:-webkit-)?image-set\s*\(/gim;
@@ -7,14 +7,29 @@ const IMAGE_SET_STRING_RE = /((?:"(?:\\.|[^"])*")|(?:'(?:\\.|[^'])*'))\s*(?:\d+(
 const IMPORT_RE = /@import\s+(?:url\(\s*)?((?:"(?:\\.|[^"])*")|(?:'(?:\\.|[^'])*')|[^\s;)]+)(?:\s*\))?/gim;
 
 function isLikelyHighEntropy(value: string): boolean {
-  const compact = value.replace(/[^a-zA-Z0-9]/g, "");
+  const compact = alphanumericOnly(value);
   if (compact.length < 24) return false;
   const unique = new Set(compact).size;
   return unique >= 12 && /[a-z]/.test(compact) && /[A-Z0-9]/.test(compact);
 }
 
+
+function alphanumericOnly(value: string): string {
+  let output = "";
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? "";
+    const code = char.charCodeAt(0);
+    if ((code >= 48 && code <= 57) || (code >= 65 && code <= 90) || (code >= 97 && code <= 122)) output += char;
+  }
+  return output;
+}
+
+function stripIpv6Brackets(value: string): string {
+  return value.startsWith("[") && value.endsWith("]") ? value.slice(1, -1) : value;
+}
+
 function isLocalNetworkHost(hostname: string): boolean {
-  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const host = stripIpv6Brackets(hostname.toLowerCase());
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
   if (host === "::1" || host.startsWith("fe80:") || host.startsWith("fc") || host.startsWith("fd")) return true;
   const parts = host.split(".").map((part) => Number(part));
@@ -56,7 +71,7 @@ export function analyzeResourceUrl(rawInput: string, baseUrl: string, options: {
 
 export function extractUrls(value: string, baseUrl: string): CssUrlAnalysis[] {
   const urls: CssUrlAnalysis[] = [];
-  const searchable = cssUnescape(value.replace(/\/\*[\s\S]*?\*\//g, ""));
+  const searchable = cssUnescape(stripCssComments(value));
   const imageSetRanges = extractImageSetRanges(searchable);
   for (const match of searchable.matchAll(URL_FUNCTION_RE)) {
     const index = match.index ?? -1;
@@ -120,7 +135,7 @@ export function isLikelyImageSetUrlToken(raw: string): boolean {
 
 export function extractImportUrls(cssText: string, baseUrl: string): CssUrlAnalysis[] {
   const urls: CssUrlAnalysis[] = [];
-  const searchable = cssUnescape(cssText.replace(/\/\*[\s\S]*?\*\//g, ""));
+  const searchable = cssUnescape(stripCssComments(cssText));
   for (const match of searchable.matchAll(IMPORT_RE)) urls.push(analyzeResourceUrl(match[1] ?? "", baseUrl));
   return dedupeUrls(urls);
 }
