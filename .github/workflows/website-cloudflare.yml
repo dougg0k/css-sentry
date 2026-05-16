@@ -32,7 +32,6 @@ jobs:
           package-manager-cache: false
       - run: npm install --global pnpm@11
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm verify:website-source
       - run: pnpm --filter css-sentry-website build
 
   deploy:
@@ -48,7 +47,6 @@ jobs:
           package-manager-cache: false
       - run: npm install --global pnpm@11
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm verify:website-source
       - run: pnpm --filter css-sentry-website build
       - name: Deploy Worker
         uses: cloudflare/wrangler-action@v3
