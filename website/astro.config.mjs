@@ -1,9 +1,14 @@
 // @ts-check
-import cloudflare from '@astrojs/cloudflare';
-import { defineConfig } from 'astro/config';
+import cloudflare from "@astrojs/cloudflare";
+import { defineConfig } from "astro/config";
 
 export default defineConfig({
-  adapter: cloudflare({
-    imageService: 'compile',
-  }),
+	adapter: cloudflare({
+		imageService: "compile",
+	}),
+	session: {
+		driver: {
+			entrypoint: "unstorage/drivers/null",
+		},
+	},
 });
