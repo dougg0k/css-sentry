@@ -219,6 +219,8 @@ describe("project structure", () => {
     expect(controllerText).toContain("createPerformanceBudgetSummary");
     expect(schedulerText).toContain("RESCAN_TRIGGER_SELECTOR");
     expect(schedulerText).toContain("iframe[src]");
+    expect(schedulerText).toContain("RESCAN_CHARACTER_DATA_ANCESTOR_SELECTOR");
+    expect(controllerText).toContain("characterData: true");
     expect(schedulerText).toContain('"src"');
     expect(schedulerText).toContain('"data"');
   });
@@ -634,6 +636,23 @@ describe("project structure", () => {
     expect(setupSource).not.toContain('from "./browser-mock"');
     const mockSource = readProjectFile("tests/setup/browser-mock.ts");
     expect(mockSource).toContain("__resetBrowserMock(): void { resetBrowserMockState(); }");
+  });
+
+
+  it("keeps the website Turnstile client/server setup and dynamic CSS rescan path aligned", () => {
+    const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "website-cloudflare.yml"), "utf8");
+    const runner = readFileSync(join(process.cwd(), "website", "src", "pages", "tests", "index.astro"), "utf8");
+    const protocol = readFileSync(join(process.cwd(), "website", "src", "lib", "testProtocol.ts"), "utf8");
+    const turnstile = readFileSync(join(process.cwd(), "website", "src", "lib", "server", "turnstile.ts"), "utf8");
+
+    expect(protocol).toContain('TURNSTILE_TEST_LAB_ACTION = "test_lab_session"');
+    expect(runner).toContain("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+    expect(runner).toContain("turnstileToken");
+    expect(runner).toContain("style.textContent = css;\n            document.head.appendChild(style);");
+    expect(turnstile).toContain("siteverify-action-mismatch");
+    expect(turnstile).toContain("siteverify-hostname-mismatch");
+    expect(workflow).toContain("PUBLIC_TURNSTILE_SITE_KEY");
+    expect(workflow).toContain("TURNSTILE_SITE_KEY");
   });
 
 });

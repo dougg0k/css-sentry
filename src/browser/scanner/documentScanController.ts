@@ -85,6 +85,7 @@ export function createDocumentScanController(options: DocumentScanControllerOpti
       subtree: true,
       attributes: true,
       attributeFilter: [...RESCAN_ATTRIBUTE_FILTER],
+      characterData: true,
     });
   }
 

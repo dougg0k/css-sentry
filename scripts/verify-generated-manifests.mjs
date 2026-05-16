@@ -46,6 +46,15 @@ if (firefox.manifest_version !== 3 && firefoxPermissions.has("webRequestFilterRe
   throw new Error("Firefox MV2 manifest must not request the Firefox MV3-only webRequestFilterResponse permission.");
 }
 
+if (firefox.manifest_version !== 3) {
+  if (!firefoxPermissions.has("<all_urls>")) {
+    throw new Error("Firefox MV2 manifest must request <all_urls> through permissions, not host_permissions.");
+  }
+  if (Array.isArray(firefox.host_permissions) && firefox.host_permissions.length > 0) {
+    throw new Error("Firefox MV2 manifest must not emit host_permissions; host permissions belong in permissions for Manifest V2.");
+  }
+}
+
 for (const [label, manifest] of [["Chrome", chrome], ["Firefox", firefox]]) {
   if (permissions(manifest).has("activeTab")) throw new Error(`${label} manifest must not request activeTab.`);
   if (permissions(manifest).has("scripting")) throw new Error(`${label} manifest must not request scripting.`);

@@ -1,12 +1,34 @@
 import { describe, expect, it, vi } from "vitest";
 import { createDebouncedScanScheduler, shouldScheduleRescanForMutations } from "../../../src/browser/scanner/documentScanScheduler";
 
+function nodeListFixture(nodes: readonly Node[]): NodeList {
+  return nodes as unknown as NodeList;
+}
+
+function mutationRecordFixture(overrides: Partial<MutationRecord> & Pick<MutationRecord, "type" | "target">): MutationRecord {
+  const emptyNodes = nodeListFixture([]);
+  return {
+    addedNodes: emptyNodes,
+    attributeName: null,
+    attributeNamespace: null,
+    nextSibling: null,
+    oldValue: null,
+    previousSibling: null,
+    removedNodes: emptyNodes,
+    ...overrides,
+  };
+}
+
 function childListMutation(node: Node): MutationRecord {
-  return { type: "childList", addedNodes: [node] as unknown as NodeList, removedNodes: [] as unknown as NodeList } as MutationRecord;
+  return mutationRecordFixture({
+    type: "childList",
+    target: document,
+    addedNodes: nodeListFixture([node]),
+  });
 }
 
 function attributeMutation(target: Node): MutationRecord {
-  return { type: "attributes", target, addedNodes: [] as unknown as NodeList, removedNodes: [] as unknown as NodeList } as MutationRecord;
+  return mutationRecordFixture({ type: "attributes", target });
 }
 
 describe("document scan scheduler", () => {
@@ -59,6 +81,23 @@ describe("document scan scheduler", () => {
     const inert = document.createElement("span");
     expect(shouldScheduleRescanForMutations([childListMutation(inert)])).toBe(false);
     expect(shouldScheduleRescanForMutations([attributeMutation(inert)])).toBe(true);
+  });
+
+
+  it("detects stylesheet text mutations after a style element already exists", () => {
+    const style = document.createElement("style");
+    const text = document.createTextNode('#css-sentry-fixtures input[value*="CSS-SENTRY-SENTINEL"] ~ #css-sentry-visible-probe { background-image: url("/api/hit/known-detector-smoke.svg?session=00000000-0000-4000-8000-000000000000"); }');
+    style.append(text);
+
+    const addedStyleText = mutationRecordFixture({
+      type: "childList",
+      target: style,
+      addedNodes: nodeListFixture([text]),
+    });
+    const changedStyleText = mutationRecordFixture({ type: "characterData", target: text });
+
+    expect(shouldScheduleRescanForMutations([addedStyleText])).toBe(true);
+    expect(shouldScheduleRescanForMutations([changedStyleText])).toBe(true);
   });
 
   it("coalesces mutation storms into one scheduled scan decision", () => {

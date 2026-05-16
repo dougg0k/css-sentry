@@ -3,9 +3,10 @@ export const prerender = true;
 
 import "../../styles/global.css";
 import { MODE_DEFINITIONS, TEST_CASES, TEST_CASE_CATEGORIES } from "../../data/testCases";
-import { DEFAULT_MODE, DEFAULT_TEST_CASE_IDS, endpointUrl } from "../../lib/testProtocol";
+import { DEFAULT_MODE, DEFAULT_TEST_CASE_IDS, TURNSTILE_TEST_LAB_ACTION, endpointUrl } from "../../lib/testProtocol";
 
 const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
 ---
 
 <html lang="en">
@@ -15,6 +16,8 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
     <meta name="description" content="CSS Sentry Test Lab runner for controlled CSS data-probe behavior checks." />
     <meta name="css-sentry-test-lab" content="v1" />
     <title>Run checks · CSS Sentry Test Lab</title>
+    {turnstileSiteKey && <link rel="preconnect" href="https://challenges.cloudflare.com" />}
+    {turnstileSiteKey && <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" defer></script>}
     <script is:inline>
       (() => {
         const searchParams = new URLSearchParams(window.location.search);
@@ -51,6 +54,11 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
           <div class="runner-status-card">
             <span class="state-label">Active session</span>
             <strong id="session-state">not started</strong>
+          </div>
+          <div class="runner-status-card turnstile-status-card">
+            <span class="state-label">Turnstile verification</span>
+            <strong id="turnstile-state">{turnstileSiteKey ? "loading verification" : "not configured"}</strong>
+            {turnstileSiteKey && <div id="turnstile-widget" class="turnstile-widget" data-sitekey={turnstileSiteKey} data-action={TURNSTILE_TEST_LAB_ACTION}></div>}
           </div>
           <button id="start-selected" class="button" type="button">Start selected checks</button>
           <button id="run-all" class="button secondary" type="button">Run all checks</button>
@@ -209,7 +217,7 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
 
       <script>
         import { TEST_CASES } from "../../data/testCases";
-        import { endpointUrl, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, testLabDiagnosticOrigin, visibleCssForTestCase } from "../../lib/testProtocol";
+        import { TURNSTILE_TEST_LAB_ACTION, endpointUrl, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, testLabDiagnosticOrigin, visibleCssForTestCase } from "../../lib/testProtocol";
 
         const historyKey = "css-sentry-test-lab-history";
         const scanDiagnosticEventName = "css-sentry:test-lab-scan";
@@ -218,6 +226,15 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
         const reportDiagnosticAttribute = "data-css-sentry-test-lab-report";
         const diagnosticMessageSource = "css-sentry-test-lab";
         const currentUrl = new URL(window.location.href);
+        const turnstileWidgetElement = document.querySelector("#turnstile-widget");
+        const turnstileState = {
+          enabled: Boolean(turnstileWidgetElement?.getAttribute("data-sitekey")),
+          siteKey: turnstileWidgetElement?.getAttribute("data-sitekey") ?? "",
+          widgetId: null,
+          token: null,
+          rendered: false,
+          loadAttempts: 0,
+        };
         const requestedSessionId = currentUrl.searchParams.get("session");
         const activeSessionId = isValidTestSessionId(requestedSessionId) ? requestedSessionId : null;
         const selectedCaseIds = parseRequestedCaseList(currentUrl.searchParams.get("cases"));
@@ -258,6 +275,7 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
         });
 
         observeStoredDiagnostics();
+        initializeTurnstile();
 
         document.querySelectorAll("[data-manual-group] input").forEach((input) => {
           input.addEventListener("change", () => {
@@ -348,15 +366,89 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
           setText("#selected-count", String(selected.size));
         }
 
+        function initializeTurnstile() {
+          if (!turnstileState.enabled) {
+            setText("#turnstile-state", "not configured");
+            return;
+          }
+          renderTurnstileWhenReady();
+        }
+
+        function renderTurnstileWhenReady() {
+          if (!turnstileState.enabled || turnstileState.rendered) return;
+          const turnstileApi = window.turnstile;
+          if (turnstileApi?.render) {
+            renderTurnstileWidget(turnstileApi);
+            return;
+          }
+          turnstileState.loadAttempts += 1;
+          if (turnstileState.loadAttempts > 40) {
+            setText("#turnstile-state", "verification script unavailable");
+            return;
+          }
+          window.setTimeout(renderTurnstileWhenReady, 150);
+        }
+
+        function renderTurnstileWidget(turnstileApi) {
+          if (!turnstileWidgetElement || !turnstileState.siteKey || turnstileState.rendered) return;
+          turnstileState.widgetId = turnstileApi.render(turnstileWidgetElement, {
+            sitekey: turnstileState.siteKey,
+            action: TURNSTILE_TEST_LAB_ACTION,
+            theme: "auto",
+            callback: (token) => {
+              turnstileState.token = token;
+              setText("#turnstile-state", "verified for next run");
+            },
+            "expired-callback": () => {
+              turnstileState.token = null;
+              setText("#turnstile-state", "verification expired");
+            },
+            "error-callback": () => {
+              turnstileState.token = null;
+              setText("#turnstile-state", "verification failed");
+            },
+          });
+          turnstileState.rendered = true;
+          setText("#turnstile-state", "verification required");
+        }
+
+        function turnstileTokenForSession() {
+          if (!turnstileState.enabled) return null;
+          const liveToken = window.turnstile?.getResponse && turnstileState.widgetId !== null ? window.turnstile.getResponse(turnstileState.widgetId) : null;
+          return typeof liveToken === "string" && liveToken ? liveToken : turnstileState.token;
+        }
+
+        function resetTurnstile() {
+          if (!turnstileState.enabled || turnstileState.widgetId === null || !window.turnstile?.reset) return;
+          turnstileState.token = null;
+          window.turnstile.reset(turnstileState.widgetId);
+          setText("#turnstile-state", "verification required");
+        }
+
+        function sessionFailureLabel(body) {
+          const reason = body?.turnstile?.reason;
+          if (reason === "missing-token") return "Turnstile verification required";
+          if (typeof reason === "string" && reason.startsWith("siteverify-")) return "Turnstile verification failed";
+          return "session creation failed";
+        }
+
         async function startSelectedChecks() {
           const selectedCases = [...document.querySelectorAll("input[name='case']")].filter((input) => input.checked).map((input) => input.value);
           if (selectedCases.length === 0) return;
-          const response = await fetch("/api/session.json", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-          const body = await response.json().catch(() => null);
-          if (!response.ok || body?.ok !== true || !isValidTestSessionId(body.sessionId)) {
-            setText("#session-state", "session creation failed");
+          const turnstileToken = turnstileTokenForSession();
+          if (turnstileState.enabled && !turnstileToken) {
+            setText("#session-state", "complete Turnstile before starting checks");
+            setText("#turnstile-state", "verification required");
             return;
           }
+          const response = await fetch("/api/session.json", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(turnstileToken ? { turnstileToken } : {}) });
+          const body = await response.json().catch(() => null);
+          if (!response.ok || body?.ok !== true || !isValidTestSessionId(body.sessionId)) {
+            setText("#session-state", sessionFailureLabel(body));
+            resetTurnstile();
+            return;
+          }
+          resetTurnstile();
           beginSelectedRun(body.sessionId, selectedCases);
         }
 
@@ -423,7 +515,9 @@ const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
           if (!style) {
             style = document.createElement("style");
             style.id = styleId;
+            style.textContent = css;
             document.head.appendChild(style);
+            return;
           }
           style.textContent = css;
         }

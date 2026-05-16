@@ -72,6 +72,12 @@ Implemented declaration-indirection coverage includes custom property URL sinks,
 
 Implemented side-channel coverage includes remote font signals and font measurement/container indicators. These are risk indicators and must not be described as complete data extraction proofs.
 
+## Session and Rescan Controls
+
+Session creation can be gated by Cloudflare Turnstile when the public client site key and private Worker secret are both configured. The client site key is build-time public configuration. The Worker secret is runtime private configuration. A deployed Worker secret without a client site key makes session creation fail because the server will require a token that the page cannot produce.
+
+The guided runner must inject dynamic selected CSS in a way that remains visible to CSS Sentry's mutation-driven rescans. A new style element must be populated before insertion, and later style text changes must also be rescan triggers. Endpoint receipt with a zero-finding scan diagnostic is therefore treated as a regression unless the selected mode intentionally disables scanning.
+
 ## Diagnostic Requirements
 
 The extension must publish separate supported-origin Test Lab events:

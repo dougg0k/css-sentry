@@ -87,6 +87,16 @@ The website coverage data was expanded to include exact, prefix, suffix, substri
 
 This keeps the Test Lab's large-stylesheet coverage intact without making the first public Start selected checks action depend on the stress fixture.
 
+## 2.4 1.0.84 Turnstile Completion and Dynamic Style Rescan Correction
+
+`1.0.84` completes the missing client half of the optional Turnstile setup. The session endpoint already supported server-side Siteverify validation when `TURNSTILE_SECRET_KEY` was present, but the runner did not previously render a widget or submit a token. The `/tests/` runner now renders Cloudflare Turnstile through explicit rendering when `PUBLIC_TURNSTILE_SITE_KEY` is available at build time, stores the generated token, submits it as `turnstileToken` to `/api/session.json`, and resets the widget after success, expiry, validation failure, or token use.
+
+The public site key is a build-time Astro value. The GitHub Actions workflow passes it to both website build jobs from repository variables or secrets named `PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY`. The private secret remains a Cloudflare Worker runtime secret named `TURNSTILE_SECRET_KEY`; setting it only in GitHub Actions does not configure the deployed Worker runtime.
+
+The server validator now binds accepted tokens to the Test Lab action and the request hostname. This preserves the optional nature of Turnstile when the Worker secret is absent while preventing a token from another action or hostname from authorizing session creation when Turnstile is enabled.
+
+`1.0.84` also corrects the no-refresh dynamic CSS scan timing exposed by the deployed Test Lab result “Extension scanned but found no matching issue.” The runner had been appending an empty dynamic `<style>` element and then assigning `textContent`. The browser could apply the later CSS and reach the endpoint, while the content-script mutation observer could schedule a rescan for the empty style insertion and miss the later text-node change. The runner now sets dynamic CSS before appending a new style element, and the content scan controller observes style character-data changes so existing style text updates schedule rescans.
+
 ## 3. Deployment and Abuse-Control Model
 
 Cloudflare should be treated as a layered control surface. The website implementation can reduce low-effort abuse at the application layer, but infrastructure-level controls still belong at Cloudflare.
@@ -111,9 +121,10 @@ Implemented controls:
 3. hit state is short-lived and stored in per-case cookies rather than persistent server storage;
 4. endpoint responses use `Cache-Control: no-store`;
 5. the session endpoint can require Turnstile validation when `TURNSTILE_SECRET_KEY` is configured in the Worker environment;
-6. the Turnstile secret is never exposed to client-side code;
-7. malformed hit or result requests return bounded errors rather than allocating persistent state;
-8. reset clears all known hit cookies.
+6. the runner submits a Turnstile token generated with `PUBLIC_TURNSTILE_SITE_KEY` when the public site key is present at build time;
+7. the Turnstile secret is never exposed to client-side code;
+8. malformed hit or result requests return bounded errors rather than allocating persistent state;
+9. reset clears all known hit cookies.
 
 ### 3.3 Infrastructure controls still required
 
@@ -220,7 +231,7 @@ Cloudflare account configuration still required outside source:
 2. `CLOUDFLARE_ACCOUNT_ID` GitHub secret;
 3. `CLOUDFLARE_API_TOKEN` GitHub secret scoped to Workers deployment;
 4. optional `TURNSTILE_SECRET_KEY` Worker secret;
-5. optional Turnstile site key for the client once a visible widget is added;
+5. optional `PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SITE_KEY` repository variable or secret for the client widget build;
 6. WAF/rate limiting rules for API paths;
 7. log/analytics review according to the project's privacy posture.
 
@@ -285,16 +296,15 @@ Current validation status: source-level only in this artifact. The source verifi
 2. Run `website` build and preview validation.
 3. Add a client-visible Turnstile widget only if the Worker secret is configured and the test lab requires abuse gating before session creation.
 4. Validate the implemented mode expectation tables against real extension output in Passive, Balanced, Strict, Trusted, and Paused modes.
-5. Expand the current report-correlation copy with exact report examples or screenshots after deployed browser validation.
-6. Add optional cross-origin companion endpoint design.
-7. Add frame/iframe test pages.
-8. Add SVG/image-document test only if the extension has supported behavior for that path.
-9. Add endpoint tests for malformed case IDs, malformed session IDs, reset behavior, and result reads.
-10. Add Playwright website smoke tests.
-11. Add accessibility validation.
-12. Configure Cloudflare WAF/rate limiting rules externally before public launch.
+6. Expand the current report-correlation copy with exact report examples or screenshots after deployed browser validation.
+7. Add optional cross-origin companion endpoint design.
+8. Add frame/iframe test pages.
+9. Add SVG/image-document test only if the extension has supported behavior for that path.
+10. Add endpoint tests for malformed case IDs, malformed session IDs, reset behavior, and result reads.
+11. Add Playwright website smoke tests.
+12. Add accessibility validation.
 13. Preserve website deployment through the root pnpm workspace unless a later repository split is explicitly chosen.
-15. Review the final public copy for precision and non-overclaiming.
+14. Review the final public copy for precision and non-overclaiming.
 
 ## 13. 1.0.63 Run-Flow Correction
 

@@ -1,8 +1,19 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/16 17:42:32 -03
+Last Updated: 2026/05/16 18:21:57 -03
 
-**Status document version:** 1.0.83
+**Status document version:** 1.0.84
+
+## 1.0.84 Status Update
+
+`1.0.84` completes the Test Lab Turnstile client path and corrects the deployed runner's dynamic-style scan timing. The website now renders the Cloudflare Turnstile widget when a public site key is present at build time, sends the generated token to `/api/session.json`, resets the widget after token use or validation failure, and keeps the server-side Siteverify path bound to the Test Lab action and request hostname. The GitHub Actions website workflow now passes `PUBLIC_TURNSTILE_SITE_KEY` to both website build jobs from repository variables or secrets named `PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY`; the private `TURNSTILE_SECRET_KEY` remains a Cloudflare Worker runtime secret, not a client build value.
+
+The release-Test-Lab “Extension scanned but found no matching issue” result was traced to the no-refresh dynamic CSS path. The runner appended an empty `<style>` node before setting `textContent`; CSS applied in the browser and reached the endpoint, but the content-script rescan could observe the empty style insertion and then miss the later text-node update. The runner now fills the dynamic style before appending it, and the document scan controller observes character-data mutations so existing style text changes also schedule rescans. This keeps the no-refresh UX while preserving extension scan coverage for dynamically injected selected checks.
+
+Regression coverage was added for Turnstile validation, Turnstile build wiring, dynamic style-text rescan triggers, observer character-data coverage, and analyzer recognition of the generated known-detector Test Lab CSS.
+
+**Package audited:** `css_sentry_1.0.84`
+**Audit timestamp:** 2026/05/16 18:21:57 -03 (`America/Sao_Paulo`)
 
 ## 1.0.83 Status Update
 

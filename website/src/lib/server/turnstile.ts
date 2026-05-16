@@ -1,3 +1,4 @@
+import { TURNSTILE_TEST_LAB_ACTION } from "../testProtocol";
 import { requestClientAddress } from "./testSession";
 
 export interface TurnstileEnvironment {
@@ -7,11 +8,20 @@ export interface TurnstileEnvironment {
 export interface TurnstileValidationResult {
   readonly enabled: boolean;
   readonly accepted: boolean;
-  readonly reason: "disabled" | "missing-token" | "siteverify-accepted" | "siteverify-rejected" | "siteverify-error";
+  readonly reason:
+    | "disabled"
+    | "missing-token"
+    | "siteverify-accepted"
+    | "siteverify-rejected"
+    | "siteverify-error"
+    | "siteverify-action-mismatch"
+    | "siteverify-hostname-mismatch";
 }
 
 interface SiteverifyResponse {
   readonly success?: boolean;
+  readonly action?: string;
+  readonly hostname?: string;
   readonly [key: string]: unknown;
 }
 
@@ -38,11 +48,22 @@ export async function validateOptionalTurnstileToken(request: Request, env: Turn
       signal: controller.signal,
     });
     const result = (await response.json()) as SiteverifyResponse;
-    if (result.success === true) return { enabled: true, accepted: true, reason: "siteverify-accepted" };
-    return { enabled: true, accepted: false, reason: "siteverify-rejected" };
+    if (result.success !== true) return { enabled: true, accepted: false, reason: "siteverify-rejected" };
+    if (result.action !== TURNSTILE_TEST_LAB_ACTION) return { enabled: true, accepted: false, reason: "siteverify-action-mismatch" };
+    if (!turnstileHostnameMatchesRequest(request, result.hostname)) return { enabled: true, accepted: false, reason: "siteverify-hostname-mismatch" };
+    return { enabled: true, accepted: true, reason: "siteverify-accepted" };
   } catch {
     return { enabled: true, accepted: false, reason: "siteverify-error" };
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+function turnstileHostnameMatchesRequest(request: Request, hostname: string | undefined): boolean {
+  if (!hostname) return false;
+  try {
+    return hostname.toLowerCase() === new URL(request.url).hostname.toLowerCase();
+  } catch {
+    return false;
   }
 }

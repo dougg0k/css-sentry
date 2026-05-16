@@ -349,6 +349,8 @@ summary { cursor: pointer; font-weight: 800; color: var(--accent-strong); }
   background: rgba(0,0,0,0.18);
 }
 .runner-status-card strong { display: block; overflow-wrap: anywhere; }
+.turnstile-status-card { gap: 10px; display: grid; }
+.turnstile-widget { min-height: 65px; }
 .category-actions {
   display: flex;
   flex-wrap: wrap;

@@ -3,6 +3,7 @@ import { TEST_CASES, isKnownModeId, isKnownTestCaseId, testCaseById, type ModeId
 export const TEST_SESSION_ID_PATTERN = /^[a-f0-9-]{36}$/i;
 export const DEFAULT_TEST_CASE_IDS = TEST_CASES.filter((testCase) => testCase.defaultEnabled).map((testCase) => testCase.id) as readonly TestCaseId[];
 export const DEFAULT_MODE: ModeId = "not-sure";
+export const TURNSTILE_TEST_LAB_ACTION = "test_lab_session";
 const LOCAL_TEST_LAB_HOSTS = new Set(["localhost", "127.0.0.1", "::1", "[::1]"]);
 const CLOUDFLARE_WORKER_TEST_LAB_PREFIX = "css-sentry-test-lab.";
 const CLOUDFLARE_WORKER_TEST_LAB_SUFFIX = ".workers.dev";

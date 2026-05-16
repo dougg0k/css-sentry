@@ -34,7 +34,7 @@ describe("document scan controller", () => {
     expect(applyContentNeutralization).toHaveBeenCalledWith(document, scannedSummary, DEFAULT_SITE_POLICY, "balanced");
     expect(sendScanComplete).toHaveBeenCalledWith(finalSummary);
     expect(controller.getLastSummary()).toBe(finalSummary);
-    expect(observer.observe).toHaveBeenCalledWith(document.documentElement, expect.objectContaining({ childList: true, subtree: true, attributes: true }));
+    expect(observer.observe).toHaveBeenCalledWith(document.documentElement, expect.objectContaining({ childList: true, subtree: true, attributes: true, characterData: true }));
   });
 
   it("schedules rescans for mutation batches and cancels owned lifecycle on dispose", () => {

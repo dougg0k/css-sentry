@@ -53,6 +53,18 @@ The first event answers whether the content-script scanner saw findings. The sec
 
 The diagnostic bridge is restricted to supported Test Lab origins. Localhost remains supported for development, and the public Cloudflare Worker Test Lab is supported through the `css-sentry-test-lab.*.workers.dev` origin pattern. Unsupported public origins can still run endpoint checks, but they must rely on manual popup/report confirmation.
 
+## Turnstile Session Gate
+
+Turnstile is an optional session-creation gate, not a CSS-resource endpoint challenge. The runner renders the Cloudflare Turnstile widget only when the Astro build receives `PUBLIC_TURNSTILE_SITE_KEY`. When rendered, the token is sent as `turnstileToken` to `/api/session.json`; the server validates it with the Worker runtime secret `TURNSTILE_SECRET_KEY`.
+
+The server-side validation must remain bound to the Test Lab action and request hostname. The public site key may be supplied to the GitHub Actions website build as `PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY`. The private secret must be configured in the deployed Worker runtime and must not be exposed to client code.
+
+## Dynamic Stylesheet Rescan Boundary
+
+The runner's no-refresh Start selected checks flow must keep extension scanning and endpoint execution aligned. When selected CSS is injected dynamically, the CSS text must be assigned before a new style element is appended. The content-script scan controller must also observe style character-data changes so updates to an existing dynamic style element schedule a rescan.
+
+This prevents the browser from applying controlled CSS and reaching the endpoint while CSS Sentry only observes the empty style insertion and reports zero actionable findings.
+
 ## Coverage Completion Model
 
 Coverage is documented as completion status, not as a page named matrix. The runner and status documents must map test cases to behavior classes, expected reason terms, fixture references, implementation status, and limitations.

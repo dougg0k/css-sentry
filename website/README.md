@@ -40,3 +40,36 @@ After the reload, each guided check shows fake data, the CSS rule, the controlle
 Endpoint results are not a standalone safe/unsafe verdict. Passive, Trusted, and Paused modes can legitimately allow requests, and browser timing or other extensions can affect whether a resource reaches the endpoint before mitigation applies.
 
 Diagnostic events are restricted to supported Test Lab origins. Localhost is supported for development, and the public Cloudflare Worker Test Lab is supported when deployed under the `css-sentry-test-lab.*.workers.dev` origin pattern. Other public origins can still run endpoint checks, but they rely on manual CSS Sentry popup/report confirmation.
+
+## Cloudflare Workers deployment model
+
+This website keeps normal pages prerendered/static and uses the Cloudflare adapter only for on-demand routes. Dynamic endpoints handle session creation, selected controlled CSS generation, controlled resource hits, result reads, import probes, and reset behavior.
+
+The deployment workflow is stored under `../.github/workflows/website-cloudflare.yml`. It builds the workspace website package and deploys the Worker from the `website` directory when Cloudflare secrets and deployment settings are configured.
+
+Required GitHub secrets after enabling the workflow:
+
+```text
+CLOUDFLARE_ACCOUNT_ID
+CLOUDFLARE_API_TOKEN
+```
+
+Turnstile setup is split between the public site key used by the Astro-built client page and the private Worker secret used by the session endpoint. The build workflow passes the public key to Astro as `PUBLIC_TURNSTILE_SITE_KEY` from either a repository variable or secret named `PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY`. The private secret must be configured as a Cloudflare Worker secret named `TURNSTILE_SECRET_KEY`; putting only the private key in GitHub Actions does not make it available to the deployed Worker runtime.
+
+```text
+GitHub Actions build-time value:
+PUBLIC_TURNSTILE_SITE_KEY
+
+Cloudflare Worker runtime secret:
+TURNSTILE_SECRET_KEY
+```
+
+When the public site key is absent, the `/tests/` runner does not render Turnstile and the session endpoint remains usable only if the Worker secret is also absent. When the Worker secret is present, `/api/session.json` requires a client Turnstile token and validates it through Cloudflare Siteverify. The validation is bound to the Test Lab action and to the request hostname.
+
+The session endpoint imports Worker environment bindings from `cloudflare:workers`, matching the current Astro Cloudflare adapter runtime model. It must not read `Astro.locals.runtime`, because that API was removed in the Astro 6 / adapter v13 line.
+
+## Abuse-control boundary
+
+Application code validates known test cases and short-lived session identifiers. Public deployment still needs Cloudflare WAF/rate-limiting rules for `/api/session.json`, `/api/hit/*`, and `/api/result/*`.
+
+Turnstile belongs on session creation. Do not put an interactive challenge directly on CSS resource hit endpoints, because those requests are made as stylesheet-triggered resources rather than user-submitted forms. The runner uses explicit Turnstile rendering because session creation is an interactive page action, not a normal HTML form submit. The remote-font representation uses a dedicated `.woff2` hit endpoint so the request path matches the resource type being tested. The complete website overhaul model is tracked in `../docs/website/TEST_LAB_OVERHAUL_PLAN.md`.

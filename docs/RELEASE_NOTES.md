@@ -1,6 +1,13 @@
 # Release Notes
 
-Last Updated: 2026/05/16 17:42:32 -03
+Last Updated: 2026/05/16 18:21:57 -03
+
+## 1.0.84
+
+- Added the missing client-side Turnstile path for the Test Lab: the website renders the widget when `PUBLIC_TURNSTILE_SITE_KEY` is present, sends `turnstileToken` to `/api/session.json`, and resets the widget after token use or validation failure.
+- Bound server-side Turnstile validation to the Test Lab action and request hostname while keeping `TURNSTILE_SECRET_KEY` as a Cloudflare Worker runtime secret.
+- Updated the website GitHub Actions workflow so the Astro build receives the public Turnstile site key from `PUBLIC_TURNSTILE_SITE_KEY` or `TURNSTILE_SITE_KEY` repository variables/secrets.
+- Fixed the no-refresh dynamic stylesheet scan timing that let endpoint requests reach the Test Lab while CSS Sentry reported zero actionable findings. The runner now populates dynamic CSS before appending the style element, and the content scan controller observes style text mutations.
 
 ## 1.0.83
 
