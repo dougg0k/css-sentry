@@ -97,6 +97,14 @@ The server validator now binds accepted tokens to the Test Lab action and the re
 
 `1.0.84` also corrects the no-refresh dynamic CSS scan timing exposed by the deployed Test Lab result “Extension scanned but found no matching issue.” The runner had been appending an empty dynamic `<style>` element and then assigning `textContent`. The browser could apply the later CSS and reach the endpoint, while the content-script mutation observer could schedule a rescan for the empty style insertion and miss the later text-node change. The runner now sets dynamic CSS before appending a new style element, and the content scan controller observes style character-data changes so existing style text updates schedule rescans.
 
+## 2.5 1.0.86 Turnstile Session Gate and Diagnostic Correlation
+
+`1.0.86` changes Turnstile from a per-button retry path into a page-load and session-creation gate. The runner renders Turnstile once when the public site key is present, uses `appearance: "interaction-only"` so the widget is only shown when visitor interaction is required, and no longer resets the widget after every successful Start selected checks request.
+
+A successful server-side Siteverify result now sets a signed first-party verification cookie for the Test Lab origin. The cookie is HttpOnly, host-bound through the server-side signature, and valid for a bounded window. Subsequent `/api/session.json` requests can use that cookie instead of requiring another Turnstile token, so repeated Start selected checks interactions do not refresh the page or force another widget run. The signed cookie is intentionally not returned in JSON response bodies.
+
+The same update adds session correlation to scan and report diagnostics. The runner writes `data-css-sentry-test-lab-session` before injecting controlled CSS, and the content script includes the active session identifier in sanitized Test Lab diagnostics. The runner ignores diagnostics from older or sessionless scans once a run is active, preventing stale zero-finding diagnostics from being combined with current endpoint hits.
+
 ## 3. Deployment and Abuse-Control Model
 
 Cloudflare should be treated as a layered control surface. The website implementation can reduce low-effort abuse at the application layer, but infrastructure-level controls still belong at Cloudflare.
@@ -122,7 +130,8 @@ Implemented controls:
 4. endpoint responses use `Cache-Control: no-store`;
 5. the session endpoint can require Turnstile validation when `TURNSTILE_SECRET_KEY` is configured in the Worker environment;
 6. the runner submits a Turnstile token generated with `PUBLIC_TURNSTILE_SITE_KEY` when the public site key is present at build time;
-7. the Turnstile secret is never exposed to client-side code;
+7. a successful Turnstile validation sets a signed first-party HttpOnly verification cookie so repeated session starts do not require another widget run until the cookie expires;
+8. the Turnstile secret and signed verification cookie are never exposed to client-side code;
 8. malformed hit or result requests return bounded errors rather than allocating persistent state;
 9. reset clears all known hit cookies.
 
@@ -137,7 +146,7 @@ Cloudflare WAF/rate limiting remains required for public deployment because appl
 5. keep static page requests separate from API limits so normal documentation browsing is not affected by test endpoint limits;
 6. monitor 4xx and 429 response patterns after launch and adjust thresholds conservatively.
 
-Turnstile is useful for session creation, not for every CSS resource hit. Applying a challenge directly to image/CSS/font hit endpoints would break the test because CSS resource requests cannot complete an interactive challenge. The correct placement is before session creation or before enabling high-volume optional cases.
+Turnstile is useful for session creation, not for every CSS resource hit. It should run once at page load/session-gate time and then rely on the signed first-party verification cookie for repeated session starts within the bounded verification window. Applying a challenge directly to image/CSS/font hit endpoints would break the test because CSS resource requests cannot complete an interactive challenge. The correct placement is before session creation or before enabling high-volume optional cases.
 
 ## 4. Test Case Coverage Control
 
@@ -272,7 +281,7 @@ Required UX properties:
 9. no decorative effects that obscure interpretation;
 10. no user-entered secret fields.
 
-Current coverage: implemented foundation. The session start flow now creates a session, updates the URL state through browser history, injects selected controlled CSS dynamically, and polls endpoint results without refreshing the page. Direct session URLs still render the initial stylesheet path for deep links and reruns. Additional visual polish, deployed validation, and report-correlation content remain.
+Current coverage: implemented foundation. The session start flow now creates a session, updates the URL state through browser history, marks the active diagnostic session on the document, injects selected controlled CSS dynamically, and polls endpoint results without refreshing the page. Direct session URLs still render the initial stylesheet path for deep links and reruns. Additional visual polish, deployed validation, and report-correlation content remain.
 
 ## 11. Validation Requirements
 

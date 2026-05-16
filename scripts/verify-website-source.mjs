@@ -52,6 +52,7 @@ expect(!sessionEndpoint.includes("locals.runtime"), "session endpoint must not u
 expect(sessionEndpoint.includes('from "cloudflare:workers"'), "session endpoint must import Cloudflare env from cloudflare:workers");
 expect(turnstile.includes("TURNSTILE_SECRET_KEY"), "Turnstile server validation must read the Worker secret binding");
 expect(turnstile.includes("siteverify-action-mismatch") && turnstile.includes("siteverify-hostname-mismatch"), "Turnstile server validation must bind tokens to the Test Lab action and request hostname");
+expect(turnstile.includes("site-cookie-accepted") && turnstile.includes("verificationCookie"), "Turnstile validation must promote one successful challenge to a signed first-party verification cookie");
 expect(workflow.includes("PUBLIC_TURNSTILE_SITE_KEY"), "website deploy workflow must pass the public Turnstile site key to the Astro build");
 expect(existsSync(join(root, "website/src/pages/api/hit/[caseId].woff2.ts")), "remote font test must have a font hit endpoint");
 expect(existsSync(join(root, "website/src/pages/api/controlled-css/[sessionId].css.ts")), "static runner must use a dynamic controlled CSS endpoint");
@@ -85,9 +86,11 @@ expect(testsIndex.includes("scan-disabled"), "runner must distinguish CSS Sentry
 expect(testsIndex.includes("Manual mode override"), "manual mode selector must be fallback/override, not primary UX");
 expect(testsIndex.includes("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"), "runner must load Turnstile explicit rendering when a site key is configured");
 expect(testsIndex.includes("turnstileToken"), "runner must send Turnstile tokens to the session endpoint when Turnstile is configured");
+expect(testsIndex.includes('appearance: "interaction-only"') && testsIndex.includes("verified for this browser"), "runner must run Turnstile at page load and keep verification across Start button presses");
 expect(testsIndex.includes("TURNSTILE_TEST_LAB_ACTION"), "runner must use the same Turnstile action validated by the session endpoint");
 expect(testsIndex.includes("window.history.pushState") && !testsIndex.includes("window.location.assign(url)"), "start selected checks must not refresh the Test Lab page");
 expect(testsIndex.includes("dynamic-test-style") && testsIndex.includes("injectControlledStylesheet"), "runner must inject controlled CSS dynamically after session creation");
+expect(testsIndex.includes("data-css-sentry-test-lab-session") && diagnostics.includes("testSessionId"), "Test Lab diagnostics must be correlated to the active run session before changing result state");
 expect(testsIndex.includes("Detected extension mode"), "runner must display detected extension mode");
 expect(testsIndex.includes("data-endpoint-state"), "runner must show per-check endpoint state");
 expect(testsIndex.includes("data-manual-state"), "runner must show per-check manual report state");

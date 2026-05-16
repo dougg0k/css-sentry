@@ -23,6 +23,7 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
         const searchParams = new URLSearchParams(window.location.search);
         const sessionId = searchParams.get("session");
         if (!/^[a-f0-9-]{36}$/i.test(sessionId ?? "")) return;
+        document.documentElement.setAttribute("data-css-sentry-test-lab-session", sessionId);
         const cases = searchParams.get("cases") ?? "";
         const link = document.createElement("link");
         link.id = "initial-test-style";
@@ -58,7 +59,7 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
           <div class="runner-status-card turnstile-status-card">
             <span class="state-label">Turnstile verification</span>
             <strong id="turnstile-state">{turnstileSiteKey ? "loading verification" : "not configured"}</strong>
-            {turnstileSiteKey && <div id="turnstile-widget" class="turnstile-widget" data-sitekey={turnstileSiteKey} data-action={TURNSTILE_TEST_LAB_ACTION}></div>}
+            {turnstileSiteKey && <div id="turnstile-widget" class="turnstile-widget" data-sitekey={turnstileSiteKey} data-action={TURNSTILE_TEST_LAB_ACTION} aria-live="polite"></div>}
           </div>
           <button id="start-selected" class="button" type="button">Start selected checks</button>
           <button id="run-all" class="button secondary" type="button">Run all checks</button>
@@ -395,9 +396,10 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
             sitekey: turnstileState.siteKey,
             action: TURNSTILE_TEST_LAB_ACTION,
             theme: "auto",
+            appearance: "interaction-only",
             callback: (token) => {
               turnstileState.token = token;
-              setText("#turnstile-state", "verified for next run");
+              setText("#turnstile-state", "verified for session creation");
             },
             "expired-callback": () => {
               turnstileState.token = null;
@@ -409,7 +411,7 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
             },
           });
           turnstileState.rendered = true;
-          setText("#turnstile-state", "verification required");
+          setText("#turnstile-state", "verification running on page load");
         }
 
         function turnstileTokenForSession() {
@@ -418,11 +420,18 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
           return typeof liveToken === "string" && liveToken ? liveToken : turnstileState.token;
         }
 
-        function resetTurnstile() {
+        function resetTurnstileAfterFailure() {
           if (!turnstileState.enabled || turnstileState.widgetId === null || !window.turnstile?.reset) return;
           turnstileState.token = null;
           window.turnstile.reset(turnstileState.widgetId);
-          setText("#turnstile-state", "verification required");
+          setText("#turnstile-state", "verification running on page load");
+        }
+
+        function noteAcceptedTurnstileState(body) {
+          const reason = body?.turnstile?.reason;
+          if (reason === "siteverify-accepted" || reason === "site-cookie-accepted") {
+            setText("#turnstile-state", "verified for this browser");
+          }
         }
 
         function sessionFailureLabel(body) {
@@ -436,19 +445,14 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
           const selectedCases = [...document.querySelectorAll("input[name='case']")].filter((input) => input.checked).map((input) => input.value);
           if (selectedCases.length === 0) return;
           const turnstileToken = turnstileTokenForSession();
-          if (turnstileState.enabled && !turnstileToken) {
-            setText("#session-state", "complete Turnstile before starting checks");
-            setText("#turnstile-state", "verification required");
-            return;
-          }
           const response = await fetch("/api/session.json", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(turnstileToken ? { turnstileToken } : {}) });
           const body = await response.json().catch(() => null);
           if (!response.ok || body?.ok !== true || !isValidTestSessionId(body.sessionId)) {
             setText("#session-state", sessionFailureLabel(body));
-            resetTurnstile();
+            if (body?.turnstile?.reason !== "missing-token") resetTurnstileAfterFailure();
             return;
           }
-          resetTurnstile();
+          noteAcceptedTurnstileState(body);
           beginSelectedRun(body.sessionId, selectedCases);
         }
 
@@ -458,6 +462,7 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
           url.searchParams.set("cases", selectedCases.join(","));
           url.searchParams.set("mode", state.mode);
           window.history.pushState({}, "", url);
+          document.documentElement.setAttribute("data-css-sentry-test-lab-session", sessionId);
 
           activeRunToken += 1;
           runConfig.sessionId = sessionId;
@@ -607,21 +612,30 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY ?? "";
         function applyScanDiagnosticFromRaw(rawDetail) {
           const diagnosticKey = diagnosticDeduplicationKey(rawDetail);
           if (!diagnosticKey || diagnosticKey === state.lastScanDiagnosticRaw) return;
+          const detail = parseDiagnosticDetail(rawDetail);
+          if (!diagnosticMatchesActiveSession(detail)) return;
           state.lastScanDiagnosticRaw = diagnosticKey;
-          applyScanDiagnostic(parseDiagnosticDetail(rawDetail));
+          applyScanDiagnostic(detail);
         }
 
         function applyReportDiagnosticFromRaw(rawDetail) {
           const diagnosticKey = diagnosticDeduplicationKey(rawDetail);
           if (!diagnosticKey || diagnosticKey === state.lastReportDiagnosticRaw) return;
+          const detail = parseDiagnosticDetail(rawDetail);
+          if (!diagnosticMatchesActiveSession(detail)) return;
           state.lastReportDiagnosticRaw = diagnosticKey;
-          applyReportDiagnostic(parseDiagnosticDetail(rawDetail));
+          applyReportDiagnostic(detail);
         }
 
         function diagnosticDeduplicationKey(rawDetail) {
           if (typeof rawDetail === "string") return rawDetail;
           if (rawDetail && typeof rawDetail === "object") return JSON.stringify(rawDetail);
           return "";
+        }
+
+        function diagnosticMatchesActiveSession(detail) {
+          if (!detail || !runConfig.sessionId) return true;
+          return detail.testSessionId === runConfig.sessionId;
         }
 
         function applyScanDiagnostic(detail) {

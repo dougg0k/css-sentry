@@ -64,7 +64,7 @@ Cloudflare Worker runtime secret:
 TURNSTILE_SECRET_KEY
 ```
 
-When the public site key is absent, the `/tests/` runner does not render Turnstile and the session endpoint remains usable only if the Worker secret is also absent. When the Worker secret is present, `/api/session.json` requires a client Turnstile token and validates it through Cloudflare Siteverify. The validation is bound to the Test Lab action and to the request hostname.
+When the public site key is absent, the `/tests/` runner does not render Turnstile and the session endpoint remains usable only if the Worker secret is also absent. When the Worker secret is present, `/api/session.json` requires either a valid signed first-party Test Lab verification cookie or a client Turnstile token. A successful token validation sets the HttpOnly verification cookie, so repeated Start selected checks interactions on the same origin do not reset or re-run Turnstile until that cookie expires. The validation is bound to the Test Lab action and to the request hostname.
 
 The session endpoint imports Worker environment bindings from `cloudflare:workers`, matching the current Astro Cloudflare adapter runtime model. It must not read `Astro.locals.runtime`, because that API was removed in the Astro 6 / adapter v13 line.
 
@@ -72,4 +72,4 @@ The session endpoint imports Worker environment bindings from `cloudflare:worker
 
 Application code validates known test cases and short-lived session identifiers. Public deployment still needs Cloudflare WAF/rate-limiting rules for `/api/session.json`, `/api/hit/*`, and `/api/result/*`.
 
-Turnstile belongs on session creation. Do not put an interactive challenge directly on CSS resource hit endpoints, because those requests are made as stylesheet-triggered resources rather than user-submitted forms. The runner uses explicit Turnstile rendering because session creation is an interactive page action, not a normal HTML form submit. The remote-font representation uses a dedicated `.woff2` hit endpoint so the request path matches the resource type being tested. The complete website overhaul model is tracked in `../docs/website/TEST_LAB_OVERHAUL_PLAN.md`.
+Turnstile belongs on session creation. Do not put an interactive challenge directly on CSS resource hit endpoints, because those requests are made as stylesheet-triggered resources rather than user-submitted forms. The runner uses explicit Turnstile rendering at page load with interaction-only appearance so most users can start selected checks without a per-button widget reset, while suspicious sessions can still be challenged before creating Test Lab sessions. The remote-font representation uses a dedicated `.woff2` hit endpoint so the request path matches the resource type being tested. The complete website overhaul model is tracked in `../docs/website/TEST_LAB_OVERHAUL_PLAN.md`.

@@ -9,6 +9,8 @@ const REPORT_DIAGNOSTIC_EVENT_NAME = "css-sentry:test-lab-report";
 const SCAN_DIAGNOSTIC_ATTRIBUTE = "data-css-sentry-test-lab-scan";
 const REPORT_DIAGNOSTIC_ATTRIBUTE = "data-css-sentry-test-lab-report";
 const DIAGNOSTIC_MESSAGE_SOURCE = "css-sentry-test-lab";
+const TEST_SESSION_ATTRIBUTE = "data-css-sentry-test-lab-session";
+const TEST_SESSION_ID_PATTERN = /^[a-f0-9-]{36}$/i;
 
 export interface TestLabScanDiagnosticDetail {
   readonly version: 1;
@@ -21,6 +23,7 @@ export interface TestLabScanDiagnosticDetail {
   readonly actions: MitigationAction[];
   readonly partialStylesheets: number;
   readonly partialFrames: number;
+  readonly testSessionId: string | null;
   readonly scanSkipped?: boolean;
   readonly scanSkippedReason?: "mode.scan_disabled";
 }
@@ -34,6 +37,7 @@ export interface TestLabReportDiagnosticDetail {
   readonly actionableFindingCount: number;
   readonly reasons: ReasonCode[];
   readonly actions: MitigationAction[];
+  readonly testSessionId: string | null;
 }
 
 export function publishTestLabDiagnostic(documentRef: Document, summary: AnalysisSummary, mode: ExtensionMode): void {
@@ -50,6 +54,7 @@ export function publishTestLabScanDiagnostic(documentRef: Document, summary: Ana
     ...summaryDiagnostic(summary),
     partialStylesheets: summary.partialStylesheets,
     partialFrames: summary.partialFrames,
+    testSessionId: currentTestSessionId(documentRef),
   };
   return dispatchDiagnostic(documentRef, SCAN_DIAGNOSTIC_EVENT_NAME, SCAN_DIAGNOSTIC_ATTRIBUTE, detail);
 }
@@ -67,6 +72,7 @@ export function publishTestLabScanDisabledDiagnostic(documentRef: Document, mode
     actions: [],
     partialStylesheets: 0,
     partialFrames: 0,
+    testSessionId: currentTestSessionId(documentRef),
     scanSkipped: true,
     scanSkippedReason: "mode.scan_disabled",
   };
@@ -75,7 +81,7 @@ export function publishTestLabScanDisabledDiagnostic(documentRef: Document, mode
 
 export function publishTestLabReportDiagnostic(documentRef: Document, response: unknown): boolean {
   if (!isTestLabDiagnosticAllowed(documentRef)) return false;
-  const detail = normalizeReportResponse(response);
+  const detail = { ...normalizeReportResponse(response), testSessionId: currentTestSessionId(documentRef) };
   return dispatchDiagnostic(documentRef, REPORT_DIAGNOSTIC_EVENT_NAME, REPORT_DIAGNOSTIC_ATTRIBUTE, detail);
 }
 
@@ -114,7 +120,7 @@ function summaryDiagnostic(summary: AnalysisSummary): Pick<TestLabScanDiagnostic
   };
 }
 
-function normalizeReportResponse(response: unknown): TestLabReportDiagnosticDetail {
+function normalizeReportResponse(response: unknown): Omit<TestLabReportDiagnosticDetail, "testSessionId"> {
   if (isScanCompleteResponse(response)) {
     return {
       version: 1,
@@ -177,4 +183,27 @@ function postDiagnosticMessage(documentRef: Document, eventName: string, seriali
   } catch {
     // The diagnostic attribute and DOM event already expose the sanitized local signal.
   }
+}
+
+
+function currentTestSessionId(documentRef: Document): string | null {
+  const explicitSessionId = documentRef.documentElement?.getAttribute(TEST_SESSION_ATTRIBUTE);
+  if (explicitSessionId && TEST_SESSION_ID_PATTERN.test(explicitSessionId)) return explicitSessionId;
+  const linkSessionId = sessionIdFromInitialStylesheet(documentRef);
+  if (linkSessionId) return linkSessionId;
+  return sessionIdFromDynamicStylesheet(documentRef);
+}
+
+function sessionIdFromInitialStylesheet(documentRef: Document): string | null {
+  const link = documentRef.querySelector<HTMLLinkElement>("#initial-test-style[href]");
+  const href = link?.href ?? link?.getAttribute("href") ?? "";
+  const match = href.match(/\/api\/controlled-css\/([a-f0-9-]{36})\.css/i);
+  return match?.[1] ?? null;
+}
+
+function sessionIdFromDynamicStylesheet(documentRef: Document): string | null {
+  const style = documentRef.querySelector<HTMLStyleElement>("#dynamic-test-style");
+  const text = style?.textContent ?? "";
+  const match = text.match(/[?&]session=([a-f0-9-]{36})/i) ?? text.match(/\/api\/controlled-css\/([a-f0-9-]{36})\.css/i);
+  return match?.[1] ?? null;
 }

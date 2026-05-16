@@ -56,6 +56,8 @@ describe("test lab diagnostics", () => {
     const listener = vi.fn();
     document.documentElement.addEventListener("css-sentry:test-lab-scan", listener);
 
+    document.documentElement.setAttribute("data-css-sentry-test-lab-session", "00000000-0000-4000-8000-000000000000");
+
     publishTestLabScanDiagnostic(document, summary(), "balanced");
 
     expect(listener).toHaveBeenCalledTimes(1);
@@ -65,6 +67,7 @@ describe("test lab diagnostics", () => {
     expect(detail.connected).toBe(true);
     expect(detail.mode).toBe("balanced");
     expect(detail.actionableFindingCount).toBe(1);
+    expect(detail.testSessionId).toBe("00000000-0000-4000-8000-000000000000");
     expect(detail.reasons).toContain("selector.attribute.substring_match");
     expect(rawDetail).not.toContain("input[value");
     expect(rawDetail).not.toContain("api/hit");
@@ -75,6 +78,7 @@ describe("test lab diagnostics", () => {
 
   it("also publishes the sanitized scan diagnostic through the page message channel", () => {
     document.head.innerHTML = '<meta name="css-sentry-test-lab" content="v1">';
+    document.documentElement.removeAttribute("data-css-sentry-test-lab-session");
     const postMessage = vi.spyOn(window, "postMessage").mockImplementation(() => undefined);
 
     publishTestLabScanDiagnostic(document, summary(), "balanced");

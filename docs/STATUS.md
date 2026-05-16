@@ -1,8 +1,16 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/16 18:21:57 -03
+Last Updated: 2026/05/16 19:04:00 -03
 
-**Status document version:** 1.0.84
+**Status document version:** 1.0.86
+
+## 1.0.86 Status Update
+
+`1.0.86` corrects the Turnstile and diagnostic semantics exposed by the deployed Test Lab. Turnstile is no longer treated as a per-button verification that resets after every session creation. The client renders Turnstile at page load with interaction-only appearance, sends a token when one is available, and the server promotes a successful Siteverify result into a signed first-party verification cookie. That cookie is scoped to the Test Lab origin, is HttpOnly, and lets later `/api/session.json` requests on the same browser session proceed without another widget reset until the cookie expires.
+
+The session endpoint now strips the signed verification cookie from JSON responses and sends it only through `Set-Cookie`. This keeps the cookie as a browser/server verification state rather than a client-managed token.
+
+The Test Lab diagnostic bridge now includes a session identifier derived from the active Test Lab run. The runner writes the active session to the document before injecting controlled CSS and ignores scan/report diagnostics that do not match the active session. This prevents a pre-run zero-finding scan from being paired with a later endpoint hit and shown as “Extension scanned but found no matching issue.”
 
 ## 1.0.84 Status Update
 

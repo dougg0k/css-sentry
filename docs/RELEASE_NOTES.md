@@ -1,6 +1,12 @@
 # Release Notes
 
-Last Updated: 2026/05/16 18:21:57 -03
+Last Updated: 2026/05/16 19:04:00 -03
+
+## 1.0.86
+
+- Changed Turnstile from a per-Start-button reset flow into a page-load/session-creation gate. A successful Turnstile challenge now sets a signed, first-party, HttpOnly verification cookie for the Test Lab origin, so subsequent Start selected checks requests on the same browser session do not re-run Turnstile until the verification cookie expires.
+- Kept Turnstile validation server-side and host/action-bound while removing the signed verification cookie from JSON responses; only the `Set-Cookie` header carries the browser verification state.
+- Added active-session correlation to Test Lab scan/report diagnostics. The runner now marks the active session on the document and ignores stale diagnostic signals from pre-run scans, preventing a previous zero-finding scan from being combined with a later endpoint hit.
 
 ## 1.0.84
 
