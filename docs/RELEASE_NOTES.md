@@ -1,6 +1,12 @@
 # Release Notes
 
-Last Updated: 2026/05/15 23:51:18 -03
+Last Updated: 2026/05/16 14:56:26 -03
+
+## 1.0.80
+
+- Fixed the remaining local Test Lab no-signal failure by adding a same-origin page-message diagnostic channel and a runner-side mutation observer for sanitized diagnostic attributes. The runner no longer depends on one DOM event/listener timing path.
+- Corrected Firefox MV2 generated host coverage so `<all_urls>` is emitted through Manifest V2 `permissions`, while Manifest V3 targets continue using `host_permissions`.
+- Preserved the static-page/dynamic-endpoint website deployment shape and the local-only diagnostic boundary.
 
 ## 1.0.77
 

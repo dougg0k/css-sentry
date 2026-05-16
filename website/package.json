@@ -1,7 +1,7 @@
 {
 	"name": "css-sentry-website",
 	"type": "module",
-	"version": "0.1.6",
+	"version": "0.1.7",
 	"engines": {
 		"node": ">=22.12.0"
 	},

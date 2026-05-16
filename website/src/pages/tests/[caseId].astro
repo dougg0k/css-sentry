@@ -1,12 +1,35 @@
 ---
-import { parseRequestedCaseId } from "../../lib/testProtocol";
+export const prerender = true;
 
-const caseId = parseRequestedCaseId(Astro.params.caseId);
-const target = new URL("/tests/", Astro.url);
-if (caseId) target.searchParams.set("cases", caseId);
-const session = Astro.url.searchParams.get("session");
-const mode = Astro.url.searchParams.get("mode");
-if (session) target.searchParams.set("session", session);
-if (mode) target.searchParams.set("mode", mode);
-return Astro.redirect(target.pathname + target.search);
+import { TEST_CASES } from "../../data/testCases";
+
+export function getStaticPaths() {
+  return TEST_CASES.map((testCase) => ({ params: { caseId: testCase.id }, props: { caseId: testCase.id } }));
+}
+
+const { caseId } = Astro.props;
 ---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>Redirecting · CSS Sentry Test Lab</title>
+    <meta name="css-sentry-test-case-id" content={caseId} />
+    <script is:inline>
+      const caseId = document.querySelector('meta[name="css-sentry-test-case-id"]')?.getAttribute("content") ?? "";
+      const target = new URL("/tests/", window.location.origin);
+      if (caseId) target.searchParams.set("cases", caseId);
+      const source = new URL(window.location.href);
+      const session = source.searchParams.get("session");
+      const mode = source.searchParams.get("mode");
+      if (session) target.searchParams.set("session", session);
+      if (mode) target.searchParams.set("mode", mode);
+      window.location.replace(target.href);
+    </script>
+  </head>
+  <body>
+    <p>Redirecting to the guided test runner.</p>
+    <p><a href={`/tests/?cases=${caseId}`}>Open this check in the guided runner</a></p>
+  </body>
+</html>

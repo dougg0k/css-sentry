@@ -1,27 +1,11 @@
 ---
+export const prerender = true;
+
 import "../../styles/global.css";
-import { MODE_DEFINITIONS, TEST_CASES, TEST_CASE_CATEGORIES, type ModeId, type TestCaseId } from "../../data/testCases";
-import { buildControlledTestCss, endpointUrl, isLocalTestLabOrigin, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, visibleCssForTestCase } from "../../lib/testProtocol";
+import { MODE_DEFINITIONS, TEST_CASES, TEST_CASE_CATEGORIES } from "../../data/testCases";
+import { DEFAULT_MODE, DEFAULT_TEST_CASE_IDS, endpointUrl } from "../../lib/testProtocol";
 
-const requestedSessionId = Astro.url.searchParams.get("session");
-const activeSessionId = isValidTestSessionId(requestedSessionId) ? requestedSessionId : null;
-const selectedMode = parseRequestedMode(Astro.url.searchParams.get("mode"));
-const selectedCaseIds = parseRequestedCaseList(Astro.url.searchParams.get("cases"));
-const selectedCaseSet = new Set<TestCaseId>(selectedCaseIds);
-const selectedCases = TEST_CASES.filter((testCase) => selectedCaseSet.has(testCase.id as TestCaseId));
-const diagnosticOrigin = isLocalTestLabOrigin(Astro.url.hostname) ? "local" : "public";
-const activeCss = activeSessionId ? buildControlledTestCss(activeSessionId, selectedCaseIds, Astro.url.origin) : "";
-const runConfig = {
-  sessionId: activeSessionId,
-  cases: selectedCaseIds,
-  mode: selectedMode,
-  resultPath: activeSessionId ? `/api/result/${activeSessionId}.json?cases=${encodeURIComponent(serializeCaseList(selectedCaseIds))}` : null,
-  diagnosticOrigin,
-};
-
-function isModeSelected(mode: ModeId): boolean {
-  return selectedMode === mode;
-}
+const defaultCaseSet = new Set<string>(DEFAULT_TEST_CASE_IDS);
 ---
 
 <html lang="en">
@@ -31,7 +15,19 @@ function isModeSelected(mode: ModeId): boolean {
     <meta name="description" content="CSS Sentry Test Lab runner for controlled CSS data-probe behavior checks." />
     <meta name="css-sentry-test-lab" content="v1" />
     <title>Run checks · CSS Sentry Test Lab</title>
-    {activeCss && <style id="initial-test-style" set:html={activeCss}></style>}
+    <script is:inline>
+      (() => {
+        const searchParams = new URLSearchParams(window.location.search);
+        const sessionId = searchParams.get("session");
+        if (!/^[a-f0-9-]{36}$/i.test(sessionId ?? "")) return;
+        const cases = searchParams.get("cases") ?? "";
+        const link = document.createElement("link");
+        link.id = "initial-test-style";
+        link.rel = "stylesheet";
+        link.href = `/api/controlled-css/${encodeURIComponent(sessionId)}.css${cases ? `?cases=${encodeURIComponent(cases)}` : ""}`;
+        document.head.appendChild(link);
+      })();
+    </script>
   </head>
   <body>
     <main class="site-shell test-runner-page">
@@ -45,16 +41,16 @@ function isModeSelected(mode: ModeId): boolean {
         <div class="hero-content">
           <p class="eyebrow">CSS Sentry Test Lab</p>
           <h1>Run controlled checks in one place.</h1>
-          <p class="lede">Select one check, one category, or all available checks. The page renders fake data and controlled CSS in the initial document so CSS Sentry can scan the same page that the browser evaluates.</p>
+          <p class="lede">Select one check, one category, or all available checks. The page adds the selected controlled stylesheet before the browser finishes parsing the page so CSS Sentry can scan normal page content while only the test endpoints remain dynamic.</p>
         </div>
         <div class="hero-actions compact-actions">
           <div class="runner-status-card">
             <span class="state-label">Detected extension mode</span>
-            <strong id="detected-mode">{diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "manual confirmation required on public deployment"}</strong>
+            <strong id="detected-mode">waiting for CSS Sentry signal</strong>
           </div>
           <div class="runner-status-card">
             <span class="state-label">Active session</span>
-            <strong id="session-state">{activeSessionId ?? "not started"}</strong>
+            <strong id="session-state">not started</strong>
           </div>
           <button id="start-selected" class="button" type="button">Start selected checks</button>
           <button id="run-all" class="button secondary" type="button">Run all checks</button>
@@ -73,24 +69,24 @@ function isModeSelected(mode: ModeId): boolean {
         <div class="diagnostic-grid result-grid">
           <div>
             <span class="state-label">Extension scan signal</span>
-            <strong id="scan-signal-state">{diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "diagnostic signal unavailable on public deployment"}</strong>
+            <strong id="scan-signal-state">waiting for CSS Sentry signal</strong>
           </div>
           <div>
             <span class="state-label">Report save signal</span>
-            <strong id="report-signal-state">{diagnosticOrigin === "local" ? "waiting for report acknowledgement" : "manual report confirmation required"}</strong>
+            <strong id="report-signal-state">waiting for report acknowledgement</strong>
           </div>
           <div>
             <span class="state-label">Selected checks</span>
-            <strong id="selected-count">{selectedCases.length}</strong>
+            <strong id="selected-count">{DEFAULT_TEST_CASE_IDS.length}</strong>
           </div>
           <div>
             <span class="state-label">Endpoint hits</span>
-            <strong id="endpoint-hit-count">{activeSessionId ? "pending" : "not started"}</strong>
+            <strong id="endpoint-hit-count">not started</strong>
           </div>
         </div>
         <div id="global-interpretation" class="interpretation-card review">
           <strong>Interpretation pending</strong>
-          <p>{activeSessionId ? "Wait for endpoint polling and CSS Sentry signals, then confirm the popup or report output per check." : "Start selected checks to render controlled CSS in the initial document."}</p>
+          <p>Start selected checks to add a controlled stylesheet to this static page and poll the dynamic endpoint results.</p>
         </div>
       </section>
 
@@ -107,8 +103,8 @@ function isModeSelected(mode: ModeId): boolean {
         </div>
         <div class="runner-check-list">
           {TEST_CASES.map((testCase) => (
-            <label class={`runner-check ${selectedCaseSet.has(testCase.id as TestCaseId) ? "selected" : ""}`}>
-              <input type="checkbox" name="case" value={testCase.id} checked={selectedCaseSet.has(testCase.id as TestCaseId)} data-category={testCase.category} />
+            <label class={`runner-check ${defaultCaseSet.has(testCase.id) ? "selected" : ""}`} data-case-label={testCase.id}>
+              <input type="checkbox" name="case" value={testCase.id} checked={defaultCaseSet.has(testCase.id)} data-category={testCase.category} />
               <span>
                 <strong>{testCase.title}</strong>
                 <small>{testCase.category} · {testCase.status} · {testCase.riskClass}</small>
@@ -122,7 +118,7 @@ function isModeSelected(mode: ModeId): boolean {
           <div class="mode-options compact-mode-options">
             {MODE_DEFINITIONS.map((mode) => (
               <label class="mode-option">
-                <input type="radio" name="mode" value={mode.id} checked={isModeSelected(mode.id)} />
+                <input type="radio" name="mode" value={mode.id} checked={mode.id === DEFAULT_MODE} />
                 <span>{mode.shortLabel}</span>
               </label>
             ))}
@@ -158,124 +154,146 @@ function isModeSelected(mode: ModeId): boolean {
           <p>Expand a row to inspect scenario, fake data, CSS, expected reason terms, fixture references, limitations, and report confirmation.</p>
         </div>
         <div class="test-result-list">
-          {selectedCases.map((testCase) => {
-            const endpoint = activeSessionId ? endpointUrl(Astro.url.origin, testCase.id as TestCaseId, activeSessionId) : endpointUrl(Astro.url.origin, testCase.id as TestCaseId, "SESSION_ID");
-            const displayedCss = activeSessionId ? visibleCssForTestCase(testCase.id as TestCaseId, activeSessionId, Astro.url.origin) : testCase.userVisibleCss;
-            return (
-              <article class="test-result-card" data-case-id={testCase.id}>
-                <header class="test-result-header">
-                  <div>
-                    <p class="eyebrow">{testCase.category}</p>
-                    <h3>{testCase.title}</h3>
-                    <p>{testCase.question}</p>
-                  </div>
-                  <div class="result-pills" aria-label={`${testCase.title} result states`}>
-                    <span>Endpoint: <strong data-endpoint-state={testCase.id}>{activeSessionId ? "pending" : "not started"}</strong></span>
-                    <span>Manual: <strong data-manual-state={testCase.id}>not checked</strong></span>
-                  </div>
-                </header>
-                <details>
-                  <summary>Scenario, CSS, and report expectations</summary>
-                  <div class="test-detail-grid">
-                    <section>
-                      <h4>Scenario</h4>
-                      <p>{testCase.riskScenario}</p>
-                      <p><strong>Endpoint meaning:</strong> {testCase.endpointRequestMeaning}</p>
-                      <code class="endpoint-code">{endpoint}</code>
-                    </section>
-                    <section>
-                      <h4>Expected report terms</h4>
-                      <p>{testCase.expectedReportText}</p>
-                      <ul class="term-list">{testCase.expectedCssSentryFindings.map((term) => <li><code>{term}</code></li>)}</ul>
-                    </section>
-                    <section>
-                      <h4>Fixture and source references</h4>
-                      <ul class="check-list">{testCase.fixtureReferences.map((fixture) => <li>{fixture}</li>)}</ul>
-                    </section>
-                    <section>
-                      <h4>Manual CSS Sentry result</h4>
-                      <fieldset class="extension-check" data-manual-group={testCase.id}>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="not-checked" checked /> Not checked yet</label>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="reported" /> Reported this check</label>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="blocked" /> Reported and blocked</label>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="sanitized" /> Reported and sanitized</label>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="no-finding" /> No finding shown</label>
-                        <label><input type="radio" name={`extension-result-${testCase.id}`} value="unsure" /> I am not sure</label>
-                      </fieldset>
-                    </section>
-                  </div>
-                  <h4>CSS rendered for this check</h4>
-                  <pre class="code-block"><code>{displayedCss}</code></pre>
-                  <h4>Limitations</h4>
-                  <ul class="check-list">{testCase.limitations.map((limitation) => <li>{limitation}</li>)}</ul>
-                </details>
-              </article>
-            );
-          })}
+          {TEST_CASES.map((testCase) => (
+            <article class="test-result-card" data-case-id={testCase.id} hidden={!defaultCaseSet.has(testCase.id)}>
+              <header class="test-result-header">
+                <div>
+                  <p class="eyebrow">{testCase.category}</p>
+                  <h3>{testCase.title}</h3>
+                  <p>{testCase.question}</p>
+                </div>
+                <div class="result-pills" aria-label={`${testCase.title} result states`}>
+                  <span>Endpoint: <strong data-endpoint-state={testCase.id}>not started</strong></span>
+                  <span>Manual: <strong data-manual-state={testCase.id}>not checked</strong></span>
+                </div>
+              </header>
+              <details>
+                <summary>Scenario, CSS, and report expectations</summary>
+                <div class="test-detail-grid">
+                  <section>
+                    <h4>Scenario</h4>
+                    <p>{testCase.riskScenario}</p>
+                    <p><strong>Endpoint meaning:</strong> {testCase.endpointRequestMeaning}</p>
+                    <code class="endpoint-code" data-endpoint-code={testCase.id}>{endpointUrl("http://localhost", testCase.id, "SESSION_ID")}</code>
+                  </section>
+                  <section>
+                    <h4>Expected report terms</h4>
+                    <p>{testCase.expectedReportText}</p>
+                    <ul class="term-list">{testCase.expectedCssSentryFindings.map((term) => <li><code>{term}</code></li>)}</ul>
+                  </section>
+                  <section>
+                    <h4>Fixture and source references</h4>
+                    <ul class="check-list">{testCase.fixtureReferences.map((fixture) => <li>{fixture}</li>)}</ul>
+                  </section>
+                  <section>
+                    <h4>Manual CSS Sentry result</h4>
+                    <fieldset class="extension-check" data-manual-group={testCase.id}>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="not-checked" checked /> Not checked yet</label>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="reported" /> Reported this check</label>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="blocked" /> Reported and blocked</label>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="sanitized" /> Reported and sanitized</label>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="no-finding" /> No finding shown</label>
+                      <label><input type="radio" name={`extension-result-${testCase.id}`} value="unsure" /> I am not sure</label>
+                    </fieldset>
+                  </section>
+                </div>
+                <h4>CSS rendered for this check</h4>
+                <pre class="code-block"><code data-css-code={testCase.id}>{testCase.userVisibleCss}</code></pre>
+                <h4>Limitations</h4>
+                <ul class="check-list">{testCase.limitations.map((limitation) => <li>{limitation}</li>)}</ul>
+              </details>
+            </article>
+          ))}
         </div>
       </section>
 
-      <script id="test-run-config" type="application/json" set:html={JSON.stringify(runConfig)}></script>
-      <script is:inline>
-        const runConfig = JSON.parse(document.querySelector("#test-run-config")?.textContent ?? "{}");
+      <script>
+        import { TEST_CASES } from "../../data/testCases";
+        import { endpointUrl, isLocalTestLabOrigin, isValidTestSessionId, parseRequestedCaseList, parseRequestedMode, serializeCaseList, visibleCssForTestCase } from "../../lib/testProtocol";
+
         const historyKey = "css-sentry-test-lab-history";
+        const scanDiagnosticEventName = "css-sentry:test-lab-scan";
+        const reportDiagnosticEventName = "css-sentry:test-lab-report";
+        const scanDiagnosticAttribute = "data-css-sentry-test-lab-scan";
+        const reportDiagnosticAttribute = "data-css-sentry-test-lab-report";
+        const diagnosticMessageSource = "css-sentry-test-lab";
+        const currentUrl = new URL(window.location.href);
+        const requestedSessionId = currentUrl.searchParams.get("session");
+        const activeSessionId = isValidTestSessionId(requestedSessionId) ? requestedSessionId : null;
+        const selectedCaseIds = parseRequestedCaseList(currentUrl.searchParams.get("cases"));
+        const selectedCaseSet = new Set(selectedCaseIds);
+        const diagnosticOrigin = isLocalTestLabOrigin(currentUrl.hostname) ? "local" : "public";
+        const runConfig = {
+          sessionId: activeSessionId,
+          cases: selectedCaseIds,
+          mode: parseRequestedMode(currentUrl.searchParams.get("mode")),
+          resultPath: activeSessionId ? `/api/result/${activeSessionId}.json?cases=${encodeURIComponent(serializeCaseList(selectedCaseIds))}` : null,
+          diagnosticOrigin,
+        };
         const state = {
-          mode: runConfig.mode ?? "not-sure",
+          mode: runConfig.mode,
           scan: "waiting",
           report: "waiting",
-          endpointByCase: Object.fromEntries((runConfig.cases ?? []).map((caseId) => [caseId, runConfig.sessionId ? "pending" : "not-run"])),
-          manualByCase: Object.fromEntries((runConfig.cases ?? []).map((caseId) => [caseId, "not-checked"])),
+          endpointByCase: Object.fromEntries(runConfig.cases.map((caseId) => [caseId, runConfig.sessionId ? "pending" : "not-run"])),
+          manualByCase: Object.fromEntries(runConfig.cases.map((caseId) => [caseId, "not-checked"])),
+          lastScanDiagnosticRaw: "",
+          lastReportDiagnosticRaw: "",
         };
 
-        document.documentElement.addEventListener("css-sentry:test-lab-scan", (event) => {
-          const detail = parseDiagnosticDetail(event.detail);
-          if (!detail || detail.connected !== true) return;
-          state.mode = typeof detail.mode === "string" ? detail.mode : state.mode;
-          state.scan = detail.actionableFindingCount > 0 ? "findings" : "connected-no-findings";
-          setText("#detected-mode", state.mode);
-          setText("#scan-signal-state", detail.actionableFindingCount > 0 ? `connected, ${detail.actionableFindingCount} actionable finding(s)` : "connected, no actionable findings");
-          updateGlobalInterpretation();
-          storeHistory("scan-signal", { mode: state.mode, state: detail.state, reasons: detail.reasons, actions: detail.actions, findingCount: detail.findingCount, actionableFindingCount: detail.actionableFindingCount });
+        document.documentElement.addEventListener(scanDiagnosticEventName, (event) => {
+          applyScanDiagnosticFromRaw(event.detail);
         });
 
-        document.documentElement.addEventListener("css-sentry:test-lab-report", (event) => {
-          const detail = parseDiagnosticDetail(event.detail);
-          if (!detail || detail.connected !== true) return;
-          state.report = detail.reportSaved === true ? "saved" : "not-saved";
-          setText("#report-signal-state", detail.reportSaved === true ? `saved, ${detail.actionableFindingCount ?? 0} actionable finding(s)` : "report save failed or unavailable");
-          updateGlobalInterpretation();
-          storeHistory("report-signal", { reportSaved: detail.reportSaved, reasons: detail.reasons, actions: detail.actions, findingCount: detail.findingCount, actionableFindingCount: detail.actionableFindingCount });
+        document.documentElement.addEventListener(reportDiagnosticEventName, (event) => {
+          applyReportDiagnosticFromRaw(event.detail);
         });
 
-        document.querySelectorAll('input[name="mode"]').forEach((input) => {
+        window.addEventListener("message", (event) => {
+          if (event.source !== window || event.origin !== window.location.origin) return;
+          const message = event.data;
+          if (!message || message.source !== diagnosticMessageSource || typeof message.detail !== "string") return;
+          if (message.eventName === scanDiagnosticEventName) applyScanDiagnosticFromRaw(message.detail);
+          if (message.eventName === reportDiagnosticEventName) applyReportDiagnosticFromRaw(message.detail);
+        });
+
+        observeStoredDiagnostics();
+
+        document.querySelectorAll("[data-manual-group] input").forEach((input) => {
           input.addEventListener("change", () => {
+            const group = input.closest("[data-manual-group]");
+            const caseId = group?.getAttribute("data-manual-group");
+            if (!caseId) return;
+            state.manualByCase[caseId] = input.value;
+            const target = document.querySelector(`[data-manual-state="${cssEscape(caseId)}"]`);
+            if (target) target.textContent = manualLabel(input.value);
+            updateGlobalInterpretation();
+            storeHistory("manual-confirmation", { caseId, value: input.value });
+          });
+        });
+
+        document.querySelectorAll("input[name='mode']").forEach((input) => {
+          input.addEventListener("change", () => {
+            if (!input.checked) return;
             state.mode = input.value;
+            setText("#detected-mode", `manual override: ${state.mode}`);
             updateGlobalInterpretation();
           });
         });
 
-        document.querySelectorAll("[data-manual-group]").forEach((group) => {
-          const caseId = group.getAttribute("data-manual-group");
-          group.querySelectorAll('input[type="radio"]').forEach((input) => {
-            input.addEventListener("change", () => {
-              state.manualByCase[caseId] = input.value;
-              const target = document.querySelector(`[data-manual-state="${cssEscape(caseId)}"]`);
-              if (target) target.textContent = manualLabel(input.value);
-              updateGlobalInterpretation();
-              storeHistory("manual-result", { caseId, manual: input.value });
-            });
-          });
+        document.querySelectorAll("input[name='case']").forEach((input) => {
+          input.addEventListener("change", syncSelectedFromInputs);
         });
 
         document.querySelectorAll(".category-button").forEach((button) => {
           button.addEventListener("click", () => {
             const category = button.getAttribute("data-category");
-            document.querySelectorAll('input[name="case"]').forEach((input) => { input.checked = input.getAttribute("data-category") === category; });
+            document.querySelectorAll("input[name='case']").forEach((input) => { input.checked = input.getAttribute("data-category") === category; });
+            syncSelectedFromInputs();
           });
         });
 
         document.querySelector("#run-all")?.addEventListener("click", () => {
-          document.querySelectorAll('input[name="case"]').forEach((input) => { input.checked = true; });
+          document.querySelectorAll("input[name='case']").forEach((input) => { input.checked = true; });
           startSelectedChecks();
         });
 
@@ -284,6 +302,8 @@ function isModeSelected(mode: ModeId): boolean {
           await fetch("/api/reset.json", { method: "POST" }).catch(() => null);
           window.location.assign("/tests/");
         });
+
+        initializeStaticRunner();
 
         if (runConfig.sessionId) {
           pollResults();
@@ -302,8 +322,48 @@ function isModeSelected(mode: ModeId): boolean {
           }, 4500);
         }
 
+        function initializeStaticRunner() {
+          setText("#session-state", runConfig.sessionId ?? "not started");
+          setText("#detected-mode", runConfig.diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "manual confirmation required on public deployment");
+          setText("#scan-signal-state", runConfig.diagnosticOrigin === "local" ? "waiting for CSS Sentry signal" : "diagnostic signal unavailable on public deployment");
+          setText("#report-signal-state", runConfig.diagnosticOrigin === "local" ? "waiting for report acknowledgement" : "manual report confirmation required");
+          applySelectedCases(selectedCaseSet);
+          const modeInput = document.querySelector(`input[name='mode'][value='${cssEscape(runConfig.mode)}']`);
+          if (modeInput) modeInput.checked = true;
+          applyStoredDiagnostics();
+          updateEndpointCount();
+          updateGlobalInterpretation();
+        }
+
+        function syncSelectedFromInputs() {
+          const selected = new Set([...document.querySelectorAll("input[name='case']")].filter((input) => input.checked).map((input) => input.value));
+          applySelectedCases(selected);
+        }
+
+        function applySelectedCases(selected) {
+          for (const input of document.querySelectorAll("input[name='case']")) {
+            const selectedCase = selected.has(input.value);
+            input.checked = selectedCase;
+            input.closest("[data-case-label]")?.classList.toggle("selected", selectedCase);
+          }
+          for (const card of document.querySelectorAll("[data-case-id]")) {
+            const caseId = card.getAttribute("data-case-id");
+            card.hidden = !caseId || !selected.has(caseId);
+          }
+          for (const testCase of TEST_CASES) {
+            const endpoint = endpointUrl(window.location.origin, testCase.id, runConfig.sessionId ?? "SESSION_ID");
+            const endpointTarget = document.querySelector(`[data-endpoint-code='${cssEscape(testCase.id)}']`);
+            if (endpointTarget) endpointTarget.textContent = endpoint;
+            const cssTarget = document.querySelector(`[data-css-code='${cssEscape(testCase.id)}']`);
+            if (cssTarget) cssTarget.textContent = runConfig.sessionId ? visibleCssForTestCase(testCase.id, runConfig.sessionId, window.location.origin) : testCase.userVisibleCss;
+            const endpointState = document.querySelector(`[data-endpoint-state='${cssEscape(testCase.id)}']`);
+            if (endpointState) endpointState.textContent = selected.has(testCase.id) ? (state.endpointByCase[testCase.id] === "not-run" ? "not started" : state.endpointByCase[testCase.id] ?? "not started") : "not selected";
+          }
+          setText("#selected-count", String(selected.size));
+        }
+
         async function startSelectedChecks() {
-          const selectedCases = [...document.querySelectorAll('input[name="case"]')].filter((input) => input.checked).map((input) => input.value);
+          const selectedCases = [...document.querySelectorAll("input[name='case']")].filter((input) => input.checked).map((input) => input.value);
           if (selectedCases.length === 0) return;
           const response = await fetch("/api/session.json", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
           const body = await response.json().catch(() => null);
@@ -348,7 +408,7 @@ function isModeSelected(mode: ModeId): boolean {
         function updateEndpointCount() {
           const received = Object.values(state.endpointByCase).filter((value) => value === "received").length;
           const total = Object.keys(state.endpointByCase).length;
-          setText("#endpoint-hit-count", `${received} of ${total}`);
+          setText("#endpoint-hit-count", total > 0 ? `${received} of ${total}` : "not started");
         }
 
         function updateGlobalInterpretation() {
@@ -360,13 +420,14 @@ function isModeSelected(mode: ModeId): boolean {
           const target = document.querySelector("#global-interpretation");
           if (!target) return;
           target.className = `interpretation-card ${message.kind}`;
-          target.innerHTML = `<strong>${message.title}</strong><p>${message.detail}</p>`;
+          target.innerHTML = `<strong>${escapeHtml(message.title)}</strong><p>${escapeHtml(message.detail)}</p>`;
         }
 
         function deriveInterpretation(input) {
-          if (!input.hasSession) return { kind: "review", title: "Start selected checks", detail: "The controlled CSS is rendered only after a test session reloads the page with selected cases." };
+          if (!input.hasSession) return { kind: "review", title: "Start selected checks", detail: "The static page adds controlled CSS only after a test session is created and the URL carries the selected cases." };
           if (input.scan === "not-connected" && input.diagnosticOrigin !== "local") return { kind: "review", title: "Manual report confirmation required", detail: "The extension diagnostic bridge is intentionally local-origin scoped. On public deployments, use the CSS Sentry popup or report page to confirm findings." };
-          if (input.scan === "not-connected") return { kind: "unexpected", title: "CSS Sentry did not signal on this page", detail: "Check extension site access for this origin, policy state, and whether the installed build includes Test Lab diagnostics." };
+          if (input.scan === "not-connected") return { kind: "unexpected", title: "CSS Sentry did not signal on this page", detail: "Check extension site access for this origin and whether the installed build includes Test Lab diagnostics." };
+          if (input.scan === "scan-disabled") return { kind: "inconclusive", title: "CSS Sentry is present, but scanning is disabled for this origin", detail: "The extension reported its mode without scanning. Re-run in Passive, Balanced, or Strict mode before judging detector behavior." };
           if (input.scan === "connected-no-findings" && input.endpoint === "received") return { kind: "unexpected", title: "Extension scanned but found no matching issue", detail: "The endpoint was reached while CSS Sentry reported zero actionable findings. Treat this as a test-definition or detector-coverage issue." };
           if (input.scan === "findings" && input.report === "not-saved") return { kind: "unexpected", title: "Scanner found issues but the report was not saved", detail: "This separates scanner coverage from the report pipeline." };
           if (input.mode === "not-sure") return { kind: "review", title: "Mode still needs confirmation", detail: "Use the detected CSS Sentry mode when available, or open the manual override only when the diagnostic signal is unavailable." };
@@ -376,6 +437,68 @@ function isModeSelected(mode: ModeId): boolean {
           if (input.manual === "reported" && input.mode === "passive" && input.endpoint === "received") return { kind: "expected", title: "Expected Passive-mode report-only result", detail: "CSS Sentry reported the case while allowing the controlled endpoint request to complete." };
           if (input.manual === "reported") return { kind: "expected", title: "CSS Sentry reported the selected checks", detail: "Compare the action shown by CSS Sentry with endpoint state to distinguish report-only behavior from mitigation." };
           return { kind: "review", title: "Review endpoint, scan, report, and mode together", detail: "Use the troubleshooting guide and expected finding terms for the selected checks." };
+        }
+
+        function observeStoredDiagnostics() {
+          const observer = new MutationObserver((records) => {
+            for (const record of records) {
+              if (record.attributeName === scanDiagnosticAttribute) {
+                applyScanDiagnosticFromRaw(document.documentElement.getAttribute(scanDiagnosticAttribute));
+              }
+              if (record.attributeName === reportDiagnosticAttribute) {
+                applyReportDiagnosticFromRaw(document.documentElement.getAttribute(reportDiagnosticAttribute));
+              }
+            }
+          });
+          observer.observe(document.documentElement, { attributes: true, attributeFilter: [scanDiagnosticAttribute, reportDiagnosticAttribute] });
+        }
+
+        function applyStoredDiagnostics() {
+          applyScanDiagnosticFromRaw(document.documentElement.getAttribute(scanDiagnosticAttribute));
+          applyReportDiagnosticFromRaw(document.documentElement.getAttribute(reportDiagnosticAttribute));
+        }
+
+        function applyScanDiagnosticFromRaw(rawDetail) {
+          const diagnosticKey = diagnosticDeduplicationKey(rawDetail);
+          if (!diagnosticKey || diagnosticKey === state.lastScanDiagnosticRaw) return;
+          state.lastScanDiagnosticRaw = diagnosticKey;
+          applyScanDiagnostic(parseDiagnosticDetail(rawDetail));
+        }
+
+        function applyReportDiagnosticFromRaw(rawDetail) {
+          const diagnosticKey = diagnosticDeduplicationKey(rawDetail);
+          if (!diagnosticKey || diagnosticKey === state.lastReportDiagnosticRaw) return;
+          state.lastReportDiagnosticRaw = diagnosticKey;
+          applyReportDiagnostic(parseDiagnosticDetail(rawDetail));
+        }
+
+        function diagnosticDeduplicationKey(rawDetail) {
+          if (typeof rawDetail === "string") return rawDetail;
+          if (rawDetail && typeof rawDetail === "object") return JSON.stringify(rawDetail);
+          return "";
+        }
+
+        function applyScanDiagnostic(detail) {
+          if (!detail || detail.connected !== true) return;
+          state.mode = typeof detail.mode === "string" ? detail.mode : state.mode;
+          if (detail.scanSkipped === true) {
+            state.scan = "scan-disabled";
+            setText("#scan-signal-state", `connected, scanning disabled by ${state.mode} mode`);
+          } else {
+            state.scan = detail.actionableFindingCount > 0 ? "findings" : "connected-no-findings";
+            setText("#scan-signal-state", detail.actionableFindingCount > 0 ? `connected, ${detail.actionableFindingCount} actionable finding(s)` : "connected, no actionable findings");
+          }
+          setText("#detected-mode", state.mode);
+          updateGlobalInterpretation();
+          storeHistory("scan-signal", { mode: state.mode, state: detail.state, reasons: detail.reasons, actions: detail.actions, findingCount: detail.findingCount, actionableFindingCount: detail.actionableFindingCount, scanSkipped: detail.scanSkipped === true });
+        }
+
+        function applyReportDiagnostic(detail) {
+          if (!detail || detail.connected !== true) return;
+          state.report = detail.reportSaved === true ? "saved" : "not-saved";
+          setText("#report-signal-state", detail.reportSaved === true ? `saved, ${detail.actionableFindingCount ?? 0} actionable finding(s)` : "report save failed or unavailable");
+          updateGlobalInterpretation();
+          storeHistory("report-signal", { reportSaved: detail.reportSaved, actionableFindingCount: detail.actionableFindingCount });
         }
 
         function parseDiagnosticDetail(rawDetail) {
@@ -396,6 +519,10 @@ function isModeSelected(mode: ModeId): boolean {
 
         function cssEscape(value) {
           return window.CSS?.escape ? window.CSS.escape(value) : String(value).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+        }
+
+        function escapeHtml(value) {
+          return String(value).replace(/[&<>"]/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[char]);
         }
 
         function storeHistory(event, detail) {

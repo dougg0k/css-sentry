@@ -1,6 +1,7 @@
 import { defineConfig } from "wxt";
 
 const BASE_PERMISSIONS = ["storage", "declarativeNetRequest", "webNavigation"] as const;
+const ALL_URLS_HOST_PERMISSIONS = ["<all_urls>"] as const;
 const FIREFOX_ENHANCED_PERMISSIONS_MV2 = ["webRequest", "webRequestBlocking"] as const;
 const FIREFOX_ENHANCED_PERMISSIONS_MV3 = ["webRequest", "webRequestBlocking", "webRequestFilterResponse"] as const;
 
@@ -19,9 +20,9 @@ export default defineConfig({
       name: "CSS Sentry",
       description: "Browser extension for detecting and reducing CSS-based data exfiltration risk.",
       permissions: browser === "firefox"
-        ? [...BASE_PERMISSIONS, ...firefoxPermissions]
+        ? manifestVersion === 3 ? [...BASE_PERMISSIONS, ...firefoxPermissions] : [...BASE_PERMISSIONS, ...firefoxPermissions, ...ALL_URLS_HOST_PERMISSIONS]
         : [...BASE_PERMISSIONS],
-      host_permissions: ["<all_urls>"],
+      host_permissions: manifestVersion === 3 ? [...ALL_URLS_HOST_PERMISSIONS] : undefined,
       action: { default_title: "CSS Sentry" },
       options_ui: { page: "options.html", open_in_tab: true },
       browser_specific_settings: browser === "firefox" ? {

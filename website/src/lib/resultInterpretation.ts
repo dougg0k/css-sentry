@@ -1,5 +1,5 @@
 export type EndpointState = "not-run" | "pending" | "received" | "not-received";
-export type ScanState = "waiting" | "not-connected" | "connected-no-findings" | "findings";
+export type ScanState = "waiting" | "not-connected" | "scan-disabled" | "connected-no-findings" | "findings";
 export type ReportState = "waiting" | "not-saved" | "saved";
 export type ManualState = "not-checked" | "reported" | "blocked" | "sanitized" | "no-finding" | "unsure";
 export type ModeState = "not-sure" | "default" | "passive" | "balanced" | "strict" | "trusted" | "paused" | "always_scan_never_sanitize" | "never_scan_never_sanitize";
@@ -42,7 +42,15 @@ export function interpretTestResult(input: InterpretationInput): InterpretationM
     return {
       kind: "unexpected",
       title: "CSS Sentry did not signal on this page",
-      detail: "The content script did not publish the Test Lab scan signal. Check extension site access for this origin, Paused or Trusted policy, and whether the installed build includes Test Lab diagnostics.",
+      detail: "The content script did not publish the Test Lab scan signal. Check extension site access for this origin and whether the installed build includes Test Lab diagnostics.",
+    };
+  }
+
+  if (input.scan === "scan-disabled") {
+    return {
+      kind: "inconclusive",
+      title: "CSS Sentry is present, but scanning is disabled for this origin",
+      detail: "The extension reported its mode without scanning. Re-run in Passive, Balanced, or Strict mode before judging detector behavior.",
     };
   }
 

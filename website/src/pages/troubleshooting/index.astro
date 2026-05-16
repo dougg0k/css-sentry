@@ -1,4 +1,5 @@
 ---
+export const prerender = true;
 import "../../styles/global.css";
 ---
 
@@ -50,7 +51,8 @@ import "../../styles/global.css";
           </div>
         </div>
         <div class="card-list">
-          <article><strong>Endpoint received + no CSS Sentry scan signal</strong><p>The browser made the test request, but the extension did not publish the local Test Lab diagnostic signal. Check extension site access, localhost origin, policy mode, and installed build.</p></article>
+          <article><strong>Endpoint received + no CSS Sentry scan signal</strong><p>The browser made the test request, but the extension did not publish the local Test Lab diagnostic signal. Check extension site access, localhost origin, and installed build.</p></article>
+          <article><strong>Endpoint received + CSS Sentry present but scanning disabled</strong><p>The extension diagnostic bridge is working, but the current mode or per-origin policy prevents scanning. Re-run in Passive, Balanced, or Strict mode before judging detector behavior.</p></article>
           <article><strong>Endpoint received + scan signal connected with zero findings</strong><p>The extension scanned the page but did not find this case. Treat this as a test-definition or detector-coverage issue.</p></article>
           <article><strong>Scan signal has findings + report save failed</strong><p>The analyzer found issues, but the background did not acknowledge report storage. Treat this as report pipeline behavior, not scanner coverage.</p></article>
           <article><strong>Endpoint received + report shown in Passive mode</strong><p>Expected for report-oriented behavior.</p></article>

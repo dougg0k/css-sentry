@@ -8,13 +8,13 @@ on:
       - "website/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "_.github/workflows/website-cloudflare.yml"
+      - ".github/workflows/website-cloudflare.yml"
   pull_request:
     paths:
       - "website/**"
       - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
-      - "_.github/workflows/website-cloudflare.yml"
+      - ".github/workflows/website-cloudflare.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,9 +28,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.15.0
+          node-version: 24
           package-manager-cache: false
-      - run: npm install --global pnpm@11.1.1
+      - run: npm install --global pnpm@11
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm verify:website-source
       - run: pnpm --filter css-sentry-website build
@@ -44,9 +44,9 @@ jobs:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
-          node-version: 24.15.0
+          node-version: 24
           package-manager-cache: false
-      - run: npm install --global pnpm@11.1.1
+      - run: npm install --global pnpm@11
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm verify:website-source
       - run: pnpm --filter css-sentry-website build

@@ -1,10 +1,9 @@
 # CSS Sentry Website Coverage Status
 
-Last Updated: 2026/05/14 18:19:34 -03
-
-**Status document version:** 1.0.67
-**Website package audited:** `website/` from `css_sentry_1.0.67`
-**Target deployment model:** Astro 6 server output on Cloudflare Workers through the Astro Cloudflare adapter
+**Status document version:** 1.0.80
+**Website package audited:** `website/` from `css_sentry_1.0.80`
+**Target deployment model:** Astro static/prerendered pages with dynamic Cloudflare Worker endpoints through the Astro Cloudflare adapter
+**Deployment shape:** static pages plus dynamic endpoints
 **Audience:** maintainers, release reviewers, security reviewers, and future website implementers
 
 ## 1. Purpose
@@ -23,19 +22,18 @@ Controlled endpoint reached = not automatically proof of extension failure unles
 
 The first website implementation is present under `website/` and replaces the default Astro starter page with a CSS Sentry Test Lab. The implementation includes:
 
-1. an Astro server-output configuration using the Cloudflare adapter;
+1. statically prerendered Astro pages using the Cloudflare adapter only for on-demand routes;
 2. controlled live test-case definitions;
 3. a guided `/tests/` runner for selected behavior checks;
-4. short-lived server-generated session identifiers;
+4. short-lived endpoint-generated session identifiers;
 5. controlled hit endpoints that set short-lived cookies when a CSS-triggered request reaches the server;
 6. result endpoints that compare the current session identifier with the hit cookies;
 7. reset endpoint support;
-8. optional Turnstile validation for session creation when a server secret is configured;
+8. optional Turnstile validation for session creation when a Worker secret is configured;
 9. a Cloudflare Workers `wrangler.jsonc` baseline;
 10. a disabled GitHub Actions workflow under `_.github/workflows/` rather than `.github/workflows/`.
 
 The current website is an implementation foundation with corrected local runtime, readability, guided-runner, and diagnostic separation work, not the final complete public website. It is sufficient to begin local and deployed behavior validation, but the status below tracks the additional content, security, and verification work that remains before treating the website as a polished public diagnostic surface.
-
 
 ### 2.1 Workspace installation status
 
@@ -51,7 +49,6 @@ pnpm website:build
 
 The root lockfile must be regenerated locally or in CI after dependency resolution is available, because the prior lockfile did not contain a `website` importer.
 
-
 ## 2.2 1.0.62 Website Runtime and Readability Correction
 
 `1.0.62` corrects the first local website validation issues found from the Test Lab page. The session endpoint no longer reads the removed `Astro.locals.runtime` API and now uses the Cloudflare Workers module import path for environment bindings. This keeps the optional Turnstile secret lookup aligned with the current Astro Cloudflare adapter runtime model and prevents the session creation API from producing the Astro runtime error page.
@@ -61,7 +58,6 @@ The Test Lab page layout was also changed from dense per-card mode tables to rea
 The CSS injection path now places `@import` rules before normal style rules so the imported-probe test remains valid when multiple checks are selected. The remote-font representation now uses a dedicated `.woff2` hit endpoint instead of sending a font request to the SVG image endpoint. The live result polling now marks selected cases as `not received` after the polling window rather than leaving them indefinitely as pending.
 
 A source-level website verifier was added as `pnpm verify:website-source`. It guards the runtime API migration, readable layout replacement, import-order invariant, remote-font endpoint, and obsolete mode-table removal. The disabled workflow runs this verifier before the website build. Because this source package may not contain a regenerated `website` importer in `pnpm-lock.yaml`, the disabled workflow currently uses `pnpm install --no-frozen-lockfile`; after committing a regenerated lockfile, that install step should be changed back to a frozen lockfile gate.
-
 
 ## 2.3 1.0.67 Guided Runner and Diagnostic Completion
 
@@ -74,7 +70,7 @@ css-sentry:test-lab-scan
 css-sentry:test-lab-report
 ```
 
-The scan event reports sanitized mode, analysis state, finding counts, reason codes, actions, and partial-analysis counts. The report event reports whether the background path acknowledged report storage after `saveFrameReport`. Neither event includes selectors, raw destination URLs, fake values, or full finding objects.
+The scan event reports sanitized mode, analysis state, finding counts, reason codes, actions, and partial-analysis counts. `1.0.79` also lets the content script publish a sanitized scan-disabled diagnostic when the extension is present on a local Test Lab page but the effective mode for the origin is Trusted, Paused, or Never scan / never sanitize. `1.0.80` corrects the remaining diagnostic-transport gap: diagnostic details are stored on safe `data-css-sentry-test-lab-*` attributes, observed through attribute mutation, and also posted through a same-origin `window.postMessage` bridge so the static runner can recover signals emitted before or after its page listeners attach. The report event reports whether the background path acknowledged report storage after `saveFrameReport`. Neither event includes selectors, raw destination URLs, fake values, or full finding objects.
 
 Public Cloudflare deployments can still run endpoint checks and manual report confirmation, but they must treat missing automatic diagnostic events as expected unless a later release defines an official Test Lab origin allowlist.
 
@@ -86,13 +82,13 @@ Cloudflare should be treated as a layered control surface. The website implement
 
 ### 3.1 Selected deployment model
 
-Selected model: Astro server output deployed to Cloudflare Workers.
+Selected model: Astro prerendered pages plus dynamic Cloudflare Worker endpoints.
 
 Reason:
 
-1. the site needs live endpoints for test sessions, hit recording, reset, and optional Turnstile validation;
-2. Astro 6 with the current Cloudflare adapter supports on-demand rendered routes and server features on Cloudflare Workers;
-3. current Astro Cloudflare adapter documentation states that Cloudflare Pages support was removed for Astro 6-era adapter usage, so Workers is the correct Cloudflare deployment target for SSR/serverless behavior;
+1. the site needs live endpoints for test sessions, selected controlled CSS, hit recording, reset, and optional Turnstile validation;
+2. normal pages do not need request-time rendering and should be prerendered for lower Worker invocation pressure;
+3. Astro 6 with the current Cloudflare adapter supports on-demand routes on Cloudflare Workers, so Workers remain the correct Cloudflare target for the dynamic endpoint layer;
 4. Workers deployment matches the need for backend-only Turnstile validation and controlled endpoint behavior.
 
 ### 3.2 Application-layer controls implemented
@@ -203,7 +199,7 @@ Current coverage: partial to implemented. The code implements allowlisted cases,
 
 Source-controlled baseline:
 
-1. `website/astro.config.mjs` configures Astro server output and Cloudflare adapter;
+1. `website/astro.config.mjs` keeps the Cloudflare adapter but does not enable server output for every page;
 2. `website/wrangler.jsonc` sets the Worker name and compatibility date;
 3. `_.github/workflows/website-cloudflare.yml` provides a disabled deployment workflow that can be enabled by renaming `_.github` to `.github`.
 
@@ -290,7 +286,6 @@ Current validation status: source-level only in this artifact. The source verifi
 14. Enable the workflow by renaming `_.github` to `.github` only after secrets and deployment target are configured.
 15. Review the final public copy for precision and non-overclaiming.
 
-
 ## 13. 1.0.63 Run-Flow Correction
 
 The live session start behavior was corrected after local manual testing showed that a session could be created while the extension did not detect the controlled cases. The root cause was that the page updated the text of an existing empty style element after the first scan. CSS Sentry's mutation rescan path observes added style elements and relevant attribute changes, but it does not rely on character-data updates inside an already-present style element.
@@ -333,7 +328,6 @@ Remaining coverage after this change:
 6. accessibility validation;
 7. production Cloudflare WAF/rate-limit configuration.
 
-
 ## 1.0.65 Test Lab redesign and diagnostic status
 
 Status: implemented as a source-level redesign; deployed browser validation with the extension installed remains required.
@@ -356,9 +350,12 @@ Current implemented diagnostic support:
 2. localhost-scoped report-save acknowledgement after the background report path responds;
 3. minimal diagnostic payload with finding counts, actions, reason codes, mode, analysis state, and report-save state;
 4. no selector text, URLs, or page data exposed in the diagnostic payload;
-5. website-side timeout state for no local diagnostic signal;
-6. website-side distinction between local diagnostic failure and expected public-deployment manual confirmation;
-7. website-side classification for endpoint received plus zero extension findings.
+5. website-side recovery of sanitized diagnostic attributes emitted before the runner listener attaches;
+6. website-side mutation observation for sanitized diagnostic attributes written after the runner listener attaches;
+7. same-origin `window.postMessage` diagnostic transport for content-script to page-script isolation cases;
+8. website-side timeout state for no local diagnostic signal;
+9. website-side distinction between local diagnostic failure, scan-disabled local mode, and expected public-deployment manual confirmation;
+10. website-side classification for endpoint received plus zero extension findings.
 
 Remaining validation:
 

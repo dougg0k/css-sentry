@@ -1,8 +1,46 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/15 23:51:18 -03
+Last Updated: 2026/05/16 15:05:43 -03
 
-**Status document version:** 1.0.77
+**Status document version:** 1.0.81
+
+## 1.0.81 Status Update
+
+`1.0.81` corrects the source-level manifest permission guard alignment introduced during the `1.0.80` Firefox MV2 host-permission correction. The manifest behavior is unchanged: Firefox MV2 keeps `<all_urls>` in `permissions`, Manifest V3 targets keep `<all_urls>` in `host_permissions`, Chrome remains free of Firefox-only response-filter permissions, and the extension still does not request `activeTab`, `scripting`, or optional host permissions. The change keeps the permission expression text aligned with the existing project-structure regression guard so the manifest-permission source test validates the intended browser/version split instead of failing on formatter-expanded nested ternary text.
+
+This package does not add a release-notes entry because it is a source/test-alignment maintenance correction for the `1.0.80` permission-placement update rather than a user-visible runtime change.
+
+**Package audited:** `css_sentry_1.0.81`
+**Audit timestamp:** 2026/05/16 15:05:43 -03 (`America/Sao_Paulo`)
+
+## 1.0.80 Status Update
+
+`1.0.80` corrects the Test Lab diagnostic transport after `1.0.79` still allowed the runner to time out with “CSS Sentry did not signal on this page.” The root cause was that the website could still depend on a single DOM event/listener timing path: the extension stored sanitized diagnostics on `data-css-sentry-test-lab-*` attributes, but the runner only read those attributes during initialization and did not observe later attribute writes. The diagnostic bridge now also posts a same-origin page message, and the runner accepts both the message channel and attribute mutations. This preserves the local-only diagnostic boundary while making the signal survive the normal content-script/page-script isolation and listener-order cases used by Firefox and Chromium extension runtimes.
+
+`1.0.80` also corrects generated Firefox MV2 host coverage. MDN documents host permissions in the `permissions` manifest key for Manifest V2 and in `host_permissions` for Manifest V3 or higher; the WXT config now emits `<all_urls>` through `permissions` for Firefox MV2 while keeping `host_permissions` for MV3 targets. The intent is unchanged: CSS Sentry uses static content-script host coverage for page scanning and still does not request `activeTab`, `scripting`, or optional host permissions.
+
+The website deployment shape from `1.0.78` remains unchanged: normal pages are static/prerendered, and only the live verification endpoints remain dynamic.
+
+**Package audited:** `css_sentry_1.0.80`
+**Audit timestamp:** 2026/05/16 14:56:26 -03 (`America/Sao_Paulo`)
+
+## 1.0.79 Status Update
+
+`1.0.79` corrects the local Test Lab diagnostic boundary after localhost endpoint checks could receive controlled requests while the runner still showed no CSS Sentry signal. The diagnostic bridge now stores sanitized local scan/report details on `data-css-sentry-test-lab-*` attributes so the static runner can recover diagnostics emitted before its page listener attaches. The content script also publishes a sanitized scan-disabled diagnostic when the extension is present but the effective mode for the origin disables scanning, allowing the website to distinguish missing site access or an incompatible build from Trusted, Paused, or Never scan / never sanitize policy state.
+
+The change preserves the 1.0.78 website deployment shape: normal pages remain prerendered/static and only live verification endpoints remain dynamic. It does not add a release-notes entry.
+
+**Package audited:** `css_sentry_1.0.79`
+**Audit timestamp:** 2026/05/16 14:35:57 -03 (`America/Sao_Paulo`)
+
+
+## 1.0.78 Status Update
+
+`1.0.78` changes the website deployment shape from server-rendering every normal page to statically prerendered pages with dynamic endpoint routes. The Test Lab still keeps live endpoint verification: `/api/session.json` creates sessions, `/api/controlled-css/[sessionId].css` generates selected controlled CSS from the shared protocol, hit endpoints record CSS-triggered requests, and result/reset endpoints remain dynamic. The extension runtime and detector behavior from `1.0.77` are intentionally unchanged.
+
+**Package audited:** `css_sentry_1.0.78`
+**Audit timestamp:** 2026/05/16 13:50:42 -03 (`America/Sao_Paulo`)
+
 
 ## 1.0.77 Status Update
 
@@ -125,7 +163,7 @@ The website content also now includes per-case report expectations and a Passive
 
 `1.0.60` adds a separate Astro website foundation under `website/` for a CSS Sentry Test Lab. The website uses fake sentinel values and controlled same-origin endpoints to let users compare live endpoint results with CSS Sentry popup and report behavior in the selected protection mode. The website is explicitly not a complete security guarantee and is documented as a behavior verification surface rather than a vulnerable/not-vulnerable badge.
 
-The implementation includes an Astro server-output configuration for Cloudflare Workers, a Worker-oriented `wrangler.jsonc`, optional server-side Turnstile validation for test-session creation, controlled hit/result/reset endpoints, and a disabled Cloudflare Workers deployment workflow under `_.github/workflows/` so it cannot run until intentionally renamed to `.github`. Website coverage and remaining requirements are tracked in `docs/STATUS_WEBSITE.md`.
+At introduction time, the implementation used Astro server output for Cloudflare Workers, a Worker-oriented `wrangler.jsonc`, optional server-side Turnstile validation for test-session creation, controlled hit/result/reset endpoints, and a disabled Cloudflare Workers deployment workflow under `_.github/workflows/` so it could not run until intentionally renamed to `.github`. The active deployment shape was later changed in `1.0.78` to prerender normal pages and keep only the live verification endpoints dynamic. Website coverage and remaining requirements are tracked in `docs/STATUS_WEBSITE.md`.
 
 ## 1.0.59 Analyzer Budget Structure Guard Correction
 

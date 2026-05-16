@@ -1,6 +1,6 @@
 # CSS Sentry Test Lab
 
-This Astro site is a controlled behavior verification lab for CSS Sentry. It uses fake sentinel values, guided test walkthroughs, known test cases, and same-origin server endpoints to help users compare browser-side CSS behavior with CSS Sentry's popup and report output.
+This Astro site is a controlled behavior verification lab for CSS Sentry. It uses fake sentinel values, guided test walkthroughs, known test cases, statically prerendered pages, and same-origin dynamic endpoints to help users compare browser-side CSS behavior with CSS Sentry's popup and report output.
 
 The site is not a general security certification. A successful result only applies to the explicit test case, browser, extension version, protection mode, and deployment configuration being used.
 
@@ -28,7 +28,7 @@ The website depends on workspace inclusion. If `pnpm install` reports everything
 
 ## Live session behavior
 
-Starting selected checks creates a short-lived session and reloads the page with the selected allowlisted cases encoded in the URL. The active page renders the controlled CSS in the initial document through `initial-test-style`, then polls the result endpoint. This is intentional: CSS Sentry should scan the active page as normal page content rather than relying on a late text update inside an existing empty style element.
+Starting selected checks creates a short-lived session and reloads the static `/tests/` page with the selected allowlisted cases encoded in the URL. During page parsing, the static runner adds an `initial-test-style` stylesheet link to `/api/controlled-css/[sessionId].css`, then polls the result endpoint. This preserves live endpoint verification while avoiding server-rendering the normal website pages. CSS Sentry still scans normal page content rather than relying on a late text update inside an existing empty style element.
 
 After the reload, each guided check shows fake data, the CSS rule, the controlled request path, endpoint state, manual CSS Sentry confirmation controls, and mode-aware interpretation. Users should compare both signals:
 
@@ -43,7 +43,7 @@ Diagnostic events are intentionally local-origin scoped by default. Public Cloud
 
 ## Cloudflare Workers deployment model
 
-This website is configured for Astro server output with the Cloudflare adapter. It uses dynamic endpoints for session creation, controlled resource hits, result reads, and reset behavior.
+This website keeps normal pages prerendered/static and uses the Cloudflare adapter only for on-demand routes. Dynamic endpoints handle session creation, selected controlled CSS generation, controlled resource hits, result reads, import probes, and reset behavior.
 
 The disabled deployment workflow is stored under `../_.github/workflows/website-cloudflare.yml`. Rename `_.github` to `.github` only after Cloudflare secrets and deployment settings are configured. The workflow currently uses `pnpm install --no-frozen-lockfile` because this source package may not include a regenerated website importer in `pnpm-lock.yaml`; switch it back to a frozen lockfile after committing the regenerated lockfile.
 

@@ -1,7 +1,5 @@
 # Test Lab Coverage Control
 
-Last Updated: 2026/05/14 18:19:34 -03
-
 ## Purpose
 
 The CSS Sentry website coverage model is a coverage completion model for controlled behavior coverage, not as a page named matrix and not a single vulnerable/safe verdict. The website must show which controlled CSS behaviors are represented, which CSS Sentry reason-code families they correspond to, which fixture or spec material supports them, and which results are expected under the current extension mode.
@@ -83,7 +81,7 @@ css-sentry:test-lab-scan
 css-sentry:test-lab-report
 ```
 
-The scan event means the content-script scanner completed and can report mode, state, finding counts, reason codes, and actions. The report event means the background path acknowledged report persistence after `saveFrameReport`. The payload must not include selectors, full URLs, fake field values, or raw finding details.
+The scan event means the content-script scanner completed and can report mode, state, finding counts, reason codes, and actions. The report event means the background path acknowledged report persistence after `saveFrameReport`. The payload must not include selectors, full URLs, fake field values, or raw finding details. The page must process the same sanitized payload whether it arrives through the DOM event, the stored diagnostic attribute, a later attribute mutation, or the same-origin `window.postMessage` bridge.
 
 Public deployments can run endpoint checks, but automatic extension diagnostic events remain intentionally local-origin scoped unless a later release explicitly allowlists an official Test Lab origin. This prevents arbitrary websites from exposing extension mode or finding-summary state merely by copying the Test Lab meta marker. Public deployment interpretation therefore requires manual CSS Sentry popup/report confirmation until an official diagnostic origin is defined.
 
@@ -111,3 +109,9 @@ Trusted, Paused, or Never scan intentionally reduced protection
 ## Remaining Coverage Boundaries
 
 The website foundation still requires real browser validation with the extension installed, deployed Cloudflare Workers validation, Cloudflare WAF/rate-limit configuration, cross-origin companion endpoint work, iframe coverage pages, accessibility validation, and final public copy/privacy review before the public website should be treated as release-complete.
+
+## Static Runner Coverage Boundary
+
+Coverage completion is independent from server-rendering the page shell. The guided runner may be prerendered as long as selected controlled CSS is still generated from the shared test-case protocol and delivered through a dynamic endpoint before CSS Sentry's normal scan path needs to evaluate the active session.
+
+The dynamic endpoint layer remains part of coverage because endpoint hit recording is one of the evidence sources. The page shell does not need request-time rendering to provide that evidence.
