@@ -10,7 +10,7 @@ CSS Sentry is a clean implementation. It is not a fork of [CSS Exfil Protection]
 [![Chrome Extension](docs/chrome-extension-logo.png)](https://chromewebstore.google.com/detail/css-sentry/hkpecdfaeplhonkjjofllbihpjmhngnk)
 
 > [!NOTE]
-> This project was initially built with AI assistance. Security claims are limited to documented and tested behavior in this repository.
+> This project was built by AI, within a day.
 
 ## What CSS Sentry Does
 
