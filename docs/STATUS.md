@@ -1,6 +1,6 @@
 # CSS Sentry — Implementation Status
 
-Last Updated: 2026/05/16 19:04:00 -03
+Last Updated: 2026/06/19 14:14:45 -03
 
 **Status document version:** 1.0.86
 
@@ -361,7 +361,7 @@ The popup/options tooltip implementation remains viewport-clamped, but hover beh
 
 Findings can now carry an additional mitigation action when a page-changing primary action also receives an installed DNR rule. Popup, report, and false-positive sweep logic inspect the full mitigation action set instead of looking only at the primary action. `Mitigated` remains a unique-finding count and does not double-count a finding that was both neutralized and backed by a DNR rule.
 
-The e2e regression expectations were also corrected to account for the neutralization style element injected by CSS Sentry. Tests now count the original page style separately from `#css-sentry-neutralization-rules` and preserve the report assertion that a same-origin POC finding records installed-rule mitigation even when content neutralization is enabled.
+The e2e regression expectations were also corrected to account for the neutralization style element injected by CSS Sentry. Tests now count the original page style separately from the extension-injected neutralization style without depending on a fixed page-visible marker, and preserve the report assertion that a same-origin POC finding records installed-rule mitigation even when content neutralization is enabled.
 
 ## 1.0.31 Audit Note — Content Neutralization and Tooltip Containment
 

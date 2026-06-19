@@ -1,6 +1,6 @@
 # Release Checklist
 
-Last Updated: 2026/05/15 23:51:18 -03
+Last Updated: 2026/06/19 14:14:45 -03
 
 Use this checklist before publishing a release candidate or stable release.
 
@@ -19,7 +19,7 @@ Use this checklist before publishing a release candidate or stable release.
 - [ ] Confirm manifest permissions match `docs/PERMISSIONS.md`.
 - [ ] Confirm DNR status appears in Options after a DNR operation.
 - [ ] Confirm popup/report action labels distinguish already-blocked requests from finding-derived installed DNR rules.
-- [ ] Confirm content-level neutralization remains optional, bounded to high-confidence findings, and does not apply to redacted selectors or low-confidence UI CSS.
+- [ ] Confirm content-level neutralization remains optional, bounded to high-confidence findings, does not apply to redacted selectors or low-confidence UI CSS, and does not use a fixed page-visible ID, class, data attribute, or global marker.
 - [ ] Confirm popup and Options help tooltips are viewport-clamped and readable inside the extension popup/window.
 - [ ] Confirm Balanced mode installs installed DNR rules for high-confidence same-origin CSS exfil findings and does not label them as already prevented.
 - [ ] Confirm destination-policy/blocklist tests still prove first-load prevention where policy rules exist before page analysis.

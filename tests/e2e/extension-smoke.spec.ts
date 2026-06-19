@@ -315,8 +315,9 @@ test("content script stores attack findings and report page renders them", async
   try {
     const attackPage = await context.newPage();
     await attackPage.goto(`${server.origin}/fixtures/attacks/rendered-email-style-exfil.html`);
-    await expect(attackPage.locator("style:not(#css-sentry-neutralization-rules)")).toHaveCount(1);
-    await expect(attackPage.locator("style#css-sentry-neutralization-rules")).toHaveCount(1);
+    await expect(attackPage.locator("style")).toHaveCount(2);
+    await expect(attackPage.locator("style#css-sentry-neutralization-rules")).toHaveCount(0);
+    await expect(attackPage.locator('style[data-css-sentry="content-neutralization"]')).toHaveCount(0);
 
     const report = await context.newPage();
     await report.goto(`chrome-extension://${extensionId}/report.html`);

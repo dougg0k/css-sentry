@@ -64,8 +64,8 @@ export function isContentScriptSender(sender: SenderLike): boolean {
 
 export function isExtensionPageSender(sender: SenderLike): boolean {
   if (sender.tab) return false;
-  if (typeof sender.url === "string") return sender.url.startsWith("chrome-extension://") || sender.url.startsWith("moz-extension://");
-  return true;
+  if (typeof sender.url !== "string") return false;
+  return sender.url.startsWith("chrome-extension://") || sender.url.startsWith("moz-extension://");
 }
 
 function isAnalysisSummary(value: unknown): value is AnalysisSummary {

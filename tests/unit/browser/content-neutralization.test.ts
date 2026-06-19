@@ -5,7 +5,7 @@ import { applyContentNeutralization, neutralizationRuleForFinding } from "../../
 import type { Finding } from "../../../src/shared/types";
 
 describe("content-level neutralization", () => {
-  it("injects precise override rules and marks high-confidence CSS exfil findings as neutralized", () => {
+  it("injects precise override rules without a fixed page-visible marker and marks high-confidence CSS exfil findings as neutralized", () => {
     document.documentElement.innerHTML = "<head></head><body><input id='token' name='csrf_token' value='secret'><div id='sink'></div></body>";
     const summary = analyzeStylesheet({
       cssText: 'input[name="csrf_token"][value*="secret"]~#sink{background-image:url(https://app.example/src/pwned.png)}',
@@ -16,29 +16,42 @@ describe("content-level neutralization", () => {
     expect(summary.findings[0]?.action).toBe("logged");
 
     const result = applyContentNeutralization(document, summary, DEFAULT_SITE_POLICY, "balanced");
-    const style = document.querySelector<HTMLStyleElement>("style#css-sentry-neutralization-rules");
+    const styles = [...document.querySelectorAll<HTMLStyleElement>("style")];
+    const neutralizationStyle = styles.find((style) => style.textContent?.includes("background-image:none !important"));
 
     expect(result.ruleCount).toBe(1);
     expect(result.summary.findings[0]?.action).toBe("neutralized");
-    expect(style?.textContent).toContain('input[name="csrf_token"][value*="secret"]~#sink{background-image:none !important;}');
+    expect(neutralizationStyle?.textContent).toContain('input[name="csrf_token"][value*="secret"]~#sink{background-image:none !important;}');
+    expect(neutralizationStyle?.id).toBe("");
+    expect(neutralizationStyle?.getAttribute("data-css-sentry")).toBeNull();
   });
 
   it("does not neutralize benign or low-confidence non-exfil findings", () => {
     document.documentElement.innerHTML = "<head></head><body></body>";
     const result = applyContentNeutralization(document, EMPTY_ANALYSIS_SUMMARY, DEFAULT_SITE_POLICY, "balanced");
     expect(result.ruleCount).toBe(0);
-    expect(document.querySelector("#css-sentry-neutralization-rules")).toBeNull();
+    expect([...document.querySelectorAll("style")]).toHaveLength(0);
   });
 
-  it("removes existing neutralization rules when the compatibility option is disabled", () => {
-    document.documentElement.innerHTML = "<head><style id='css-sentry-neutralization-rules'>a{background:none!important}</style></head><body></body>";
+  it("removes internally tracked neutralization rules when the compatibility option is disabled", () => {
+    document.documentElement.innerHTML = "<head></head><body><input id='token' name='csrf_token' value='secret'><div id='sink'></div></body>";
+    const summary = analyzeStylesheet({
+      cssText: 'input[name="csrf_token"][value*="secret"]~#sink{background:url(https://app.example/src/pwned.png)}',
+      pageUrl: "https://app.example/",
+      sourceKind: "style_element",
+      sourceUrl: "https://app.example/style.css",
+    });
+    const enabledResult = applyContentNeutralization(document, summary, DEFAULT_SITE_POLICY, "balanced");
+    expect(enabledResult.ruleCount).toBe(1);
+    expect([...document.querySelectorAll("style")].some((style) => style.textContent?.includes("background:none !important"))).toBe(true);
+
     const policy = {
       ...DEFAULT_SITE_POLICY,
       compatibility: { ...DEFAULT_SITE_POLICY.compatibility, enableContentNeutralization: false },
     };
-    const result = applyContentNeutralization(document, EMPTY_ANALYSIS_SUMMARY, policy, "balanced");
-    expect(result.ruleCount).toBe(0);
-    expect(document.querySelector("#css-sentry-neutralization-rules")).toBeNull();
+    const disabledResult = applyContentNeutralization(document, EMPTY_ANALYSIS_SUMMARY, policy, "balanced");
+    expect(disabledResult.ruleCount).toBe(0);
+    expect([...document.querySelectorAll("style")].some((style) => style.textContent?.includes("background:none !important"))).toBe(false);
   });
 
   it("does not generate neutralization CSS from redacted selectors", () => {

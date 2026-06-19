@@ -2,7 +2,7 @@ import type { AnalysisSummary, ExtensionMode, Finding, SitePolicy } from "../../
 import { shouldSanitize } from "../../core/policy/mode";
 import { hasDeclarationDataProbeReason, hasFontSideChannelReason, hasSensitiveSelectorReason, hasSinkReason } from "../../shared/reasonGroups";
 
-const STYLE_ELEMENT_ID = "css-sentry-neutralization-rules";
+const neutralizationStylesByDocument = new WeakMap<Document, HTMLStyleElement>();
 const CONTENT_NEUTRALIZATION_PROPERTIES = new Set([
   "background",
   "background-image",
@@ -112,9 +112,9 @@ function neutralValueForProperty(property: string): string | null {
 }
 
 function installNeutralizationStyle(documentRef: Document, rules: string[]): void {
-  const existing = documentRef.getElementById(STYLE_ELEMENT_ID) as HTMLStyleElement | null;
+  const existing = connectedNeutralizationStyle(documentRef);
   if (rules.length === 0) {
-    existing?.remove();
+    removeNeutralizationStyle(documentRef, existing);
     return;
   }
 
@@ -125,12 +125,24 @@ function installNeutralizationStyle(documentRef: Document, rules: string[]): voi
   }
 
   const style = documentRef.createElement("style");
-  style.id = STYLE_ELEMENT_ID;
-  style.setAttribute("data-css-sentry", "content-neutralization");
   style.textContent = cssText;
+  neutralizationStylesByDocument.set(documentRef, style);
   (documentRef.head ?? documentRef.documentElement).appendChild(style);
 }
 
 function clearNeutralizationStyle(documentRef: Document): void {
-  documentRef.getElementById(STYLE_ELEMENT_ID)?.remove();
+  removeNeutralizationStyle(documentRef, connectedNeutralizationStyle(documentRef));
+}
+
+function connectedNeutralizationStyle(documentRef: Document): HTMLStyleElement | null {
+  const existing = neutralizationStylesByDocument.get(documentRef) ?? null;
+  if (!existing) return null;
+  if (existing.isConnected) return existing;
+  neutralizationStylesByDocument.delete(documentRef);
+  return null;
+}
+
+function removeNeutralizationStyle(documentRef: Document, style: HTMLStyleElement | null): void {
+  if (style) style.remove();
+  neutralizationStylesByDocument.delete(documentRef);
 }

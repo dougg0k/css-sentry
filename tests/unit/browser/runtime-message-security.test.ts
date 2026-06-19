@@ -11,10 +11,13 @@ describe("runtime message security", () => {
     expect(validateRuntimeMessage(message, { url: "chrome-extension://id/popup.html" }).ok).toBe(false);
   });
 
-  it("rejects privileged policy messages from tab-bound content script senders", () => {
+  it("accepts privileged policy messages only from identified extension pages", () => {
     const message = { type: "css-sentry:set-origin-mode", origin: "https://app.example", mode: "strict" };
     expect(validateRuntimeMessage(message, { tab: { id: 1, url: "https://app.example/" }, frameId: 0 }).ok).toBe(false);
+    expect(validateRuntimeMessage(message, {}).ok).toBe(false);
+    expect(validateRuntimeMessage(message, { url: "https://app.example/options.html" }).ok).toBe(false);
     expect(validateRuntimeMessage(message, { url: "chrome-extension://id/options.html" }).ok).toBe(true);
+    expect(validateRuntimeMessage(message, { url: "moz-extension://id/options.html" }).ok).toBe(true);
   });
 
   it("rejects unknown css-sentry message types and oversized summaries", () => {

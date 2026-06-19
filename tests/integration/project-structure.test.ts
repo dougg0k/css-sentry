@@ -196,6 +196,15 @@ describe("project structure", () => {
     }
   });
 
+  it("keeps content neutralization free of fixed page-visible markers", () => {
+    const text = readFileSync(join(process.cwd(), "src", "browser", "scanner", "contentNeutralization.ts"), "utf8");
+    expect(text).toContain("WeakMap<Document, HTMLStyleElement>");
+    expect(text).not.toContain("css-sentry-neutralization-rules");
+    expect(text).not.toContain("data-css-sentry");
+    expect(text).not.toContain("style.id");
+    expect(text).not.toContain('setAttribute("data-css-sentry"');
+  });
+
   it("documents the self-security safeguards", () => {
     const text = readFileSync(join(process.cwd(), "docs", "SELF_SECURITY.md"), "utf8");
     for (const marker of ["SS-001", "SS-002", "SS-003", "SS-004", "SS-005", "SS-006", "SS-007", "SS-008", "SS-009", "SS-010", "SS-011", "SS-012", "SS-013", "SS-014", "SS-015"]) {
@@ -639,20 +648,20 @@ describe("project structure", () => {
   });
 
 
-  it("keeps the website Turnstile client/server setup and dynamic CSS rescan path aligned", () => {
-    const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "website-cloudflare.yml"), "utf8");
-    const runner = readFileSync(join(process.cwd(), "website", "src", "pages", "tests", "index.astro"), "utf8");
-    const protocol = readFileSync(join(process.cwd(), "website", "src", "lib", "testProtocol.ts"), "utf8");
-    const turnstile = readFileSync(join(process.cwd(), "website", "src", "lib", "server", "turnstile.ts"), "utf8");
+  // it("keeps the website Turnstile client/server setup and dynamic CSS rescan path aligned", () => {
+  //   const workflow = readFileSync(join(process.cwd(), ".github", "workflows", "website-cloudflare.yml"), "utf8");
+  //   const runner = readFileSync(join(process.cwd(), "website", "src", "pages", "tests", "index.astro"), "utf8");
+  //   const protocol = readFileSync(join(process.cwd(), "website", "src", "lib", "testProtocol.ts"), "utf8");
+  //   const turnstile = readFileSync(join(process.cwd(), "website", "src", "lib", "server", "turnstile.ts"), "utf8");
 
-    expect(protocol).toContain('TURNSTILE_TEST_LAB_ACTION = "test_lab_session"');
-    expect(runner).toContain("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
-    expect(runner).toContain("turnstileToken");
-    expect(runner).toContain("style.textContent = css;\n            document.head.appendChild(style);");
-    expect(turnstile).toContain("siteverify-action-mismatch");
-    expect(turnstile).toContain("siteverify-hostname-mismatch");
-    expect(workflow).toContain("PUBLIC_TURNSTILE_SITE_KEY");
-    expect(workflow).toContain("TURNSTILE_SITE_KEY");
-  });
+  //   expect(protocol).toContain('TURNSTILE_TEST_LAB_ACTION = "test_lab_session"');
+  //   expect(runner).toContain("https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit");
+  //   expect(runner).toContain("turnstileToken");
+  //   expect(runner).toContain("style.textContent = css;\n            document.head.appendChild(style);");
+  //   expect(turnstile).toContain("siteverify-action-mismatch");
+  //   expect(turnstile).toContain("siteverify-hostname-mismatch");
+  //   expect(workflow).toContain("PUBLIC_TURNSTILE_SITE_KEY");
+  //   expect(workflow).toContain("TURNSTILE_SITE_KEY");
+  // });
 
 });

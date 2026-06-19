@@ -1,6 +1,6 @@
 # Self-Security Hardening Traceability
 
-Last Updated: 2026/05/13 14:58:56 -03
+Last Updated: 2026/06/19 14:14:45 -03
 
 ## Purpose
 
@@ -12,7 +12,7 @@ This document is intentionally separate from `docs/CVE_SPEC.md`. `docs/CVE_SPEC.
 
 ## Current Status
 
-All seven pre-v1 self-security suggestions are implemented or explicitly represented in code, tests, and documentation as of `0.0.35`, carried into `1.0.0-rc.2`, included in stable `1.0.0`, and preserved through the current `1.0.31` content-neutralization and tooltip-containment correction. `SS-008` tracks documentation regression prevention after the documentation-reduction issue corrected in `1.0.3` and `1.0.4`.
+All seven pre-v1 self-security suggestions are implemented or explicitly represented in code, tests, and documentation as of `0.0.35`, carried into `1.0.0-rc.2`, included in stable `1.0.0`, and preserved through the current `1.0.86` package. `SS-008` tracks documentation regression prevention after the documentation-reduction issue corrected in `1.0.3` and `1.0.4`.
 
 The stable package still uses the normal local verification gate before publishing or distributing release artifacts.
 
@@ -174,13 +174,13 @@ Evidence: `tests/fixtures/attacks/font-face-unicode-range-sensitive.css`, `tests
 
 Status: Covered by implementation and unit tests.
 
-Content-level neutralization is a page-changing mitigation, so it must remain bounded. It may only inject override CSS for confirmed high-confidence CSS exfil findings with a concrete selector, network-capable CSS property, request-producing sink, and data-probe evidence. It must not rewrite arbitrary stylesheet content, must not apply to redacted selectors, and must remain controlled by a compatibility setting.
+Content-level neutralization is a page-changing mitigation, so it must remain bounded. It may only inject override CSS for confirmed high-confidence CSS exfil findings with a concrete selector, network-capable CSS property, request-producing sink, and data-probe evidence. It must not rewrite arbitrary stylesheet content, must not apply to redacted selectors, must remain controlled by a compatibility setting, and must not use a fixed page-visible element ID, class, data attribute, or global marker for the injected neutralization style.
 
 Evidence:
 
 - `src/browser/scanner/contentNeutralization.ts` implements the bounded neutralization rules.
 - `src/entrypoints/content.ts` applies the neutralization result before sending the scan report.
-- `tests/unit/browser/content-neutralization.test.ts` covers neutralization, disabled-setting cleanup, and redacted-selector refusal.
+- `tests/unit/browser/content-neutralization.test.ts` covers neutralization, disabled-setting cleanup, fixed-marker avoidance, and redacted-selector refusal.
 
 ## SS-016 — Viewport-contained popup help
 
